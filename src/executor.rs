@@ -180,7 +180,8 @@ fn invoke_dynamic(
                     .to_bytes(&mut invoke_data, |_| unreachable!())?;
             }
             CoreTypeConcrete::BuiltinCosts(_) => {
-                builtin_costs.to_bytes(&mut invoke_data, |_| unreachable!())?;
+                let ptr = BUILTIN_COSTS.with(|x| x.as_ptr());
+                (ptr as *const ()).to_bytes(&mut invoke_data, |_| unreachable!())?;
             }
             type_info if type_info.is_builtin() => {
                 0u64.to_bytes(&mut invoke_data, |_| unreachable!())?

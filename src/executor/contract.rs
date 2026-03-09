@@ -472,7 +472,8 @@ impl AotContractExecutor {
                     gas.to_bytes(&mut invoke_data, |_| unreachable!())?;
                 }
                 BuiltinType::BuiltinCosts => {
-                    builtin_costs.to_bytes(&mut invoke_data, |_| unreachable!())?;
+                    let ptr = crate::runtime::BUILTIN_COSTS.with(|x| x.as_ptr());
+                    (ptr as *const ()).to_bytes(&mut invoke_data, |_| unreachable!())?;
                 }
                 BuiltinType::System => {
                     (&mut syscall_handler as *mut StarknetSyscallHandlerCallbacks<_>)
