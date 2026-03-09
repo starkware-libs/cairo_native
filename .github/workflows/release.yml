@@ -17,7 +17,6 @@ jobs:
         uses: actions/checkout@v4
       - uses: taiki-e/create-gh-release-action@v1
         with:
-          # (Required) GitHub token for creating GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
 
   upload-assets:
@@ -40,27 +39,53 @@ jobs:
           echo "LLVM_SYS_191_PREFIX=${{ matrix.dep_base_dir }}" >> $GITHUB_ENV
           echo "TABLEGEN_190_PREFIX=${{ matrix.dep_base_dir }}" >> $GITHUB_ENV
       - name: Install deps
-        # deps-ci-linux does nothing on macos so it works
         run: make deps && make deps-ci-linux
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
-          bin: cairo-native-compile,cairo-native-dump,cairo-native-run,cairo-native-stress,cairo-native-test,starknet-native-compile
-          # (optional) Target triple, default is host triple.
-          # This is optional but it is recommended that this always be set to
-          # clarify which target you are building for if macOS is included in
-          # the matrix because GitHub Actions changed the default architecture
-          # of macos-latest since macos-14.
+          bin: cairo-native-compile
           target: ${{ matrix.target }}
-          # (optional) On which platform to distribute the `.tar.gz` file.
-          # [default value: unix]
-          # [possible values: all, unix, windows, none]
           tar: unix
-          # (optional) On which platform to distribute the `.zip` file.
-          # [default value: windows]
-          # [possible values: all, unix, windows, none]
           zip: windows
-          archive: cairo-native-$target
-          # (required) GitHub token for uploading assets to GitHub Releases.
+          archive: cairo-native-compile-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: cairo-native-dump
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: cairo-native-dump-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: cairo-native-run
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: cairo-native-run-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: cairo-native-stress
+          manifest_path: debug_utils/cairo-native-stress/Cargo.toml
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: cairo-native-stress-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: cairo-native-test
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: cairo-native-test-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: starknet-native-compile
+          target: ${{ matrix.target }}
+          tar: unix
+          zip: windows
+          archive: starknet-native-compile-$target
           token: ${{ secrets.GITHUB_TOKEN }}
