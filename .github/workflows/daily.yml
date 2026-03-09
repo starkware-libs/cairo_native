@@ -98,7 +98,7 @@ jobs:
         with:
           repository: lambdaclass/sequencer
           path: sequencer
-          ref: main-v0.14.1
+          ref: main-v0.14.2
 
       - name: Restore RPC Calls
         id: restore-rpc-calls
