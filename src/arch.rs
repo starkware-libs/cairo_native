@@ -230,11 +230,25 @@ impl AbiArgument for ValueWithInfoWrapper<'_> {
                 value.to_bytes(buffer, find_dict_drop_override)?
             }
             (Value::Struct { fields, .. }, CoreTypeConcrete::Struct(info)) => {
-                fields
-                    .iter()
-                    .zip(&info.members)
-                    .map(|(value, type_id)| self.map(value, type_id))
-                    .try_for_each(|wrapper| wrapper?.to_bytes(buffer, find_dict_drop_override))?;
+                if self.info.is_memory_allocated(self.registry)? {
+                    let abi_ptr = self.value.to_ptr(
+                        self.arena,
+                        self.registry,
+                        self.type_id,
+                        find_dict_drop_override,
+                    )?;
+
+                    let abi_ptr = unsafe { *abi_ptr.cast::<NonNull<()>>().as_ref() };
+                    abi_ptr.as_ptr().to_bytes(buffer, find_dict_drop_override)?;
+                } else {
+                    fields
+                        .iter()
+                        .zip(&info.members)
+                        .map(|(value, type_id)| self.map(value, type_id))
+                        .try_for_each(|wrapper| {
+                            wrapper?.to_bytes(buffer, find_dict_drop_override)
+                        })?;
+                }
             }
             (Value::Uint128(value), CoreTypeConcrete::Uint128(_)) => {
                 value.to_bytes(buffer, find_dict_drop_override)?
