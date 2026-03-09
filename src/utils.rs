@@ -111,28 +111,6 @@ impl Default for BuiltinCosts {
     }
 }
 
-impl crate::arch::AbiArgument for BuiltinCosts {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        find_dict_drop_override: impl Copy
-            + Fn(
-                &cairo_lang_sierra::ids::ConcreteTypeId,
-            ) -> Option<extern "C" fn(*mut std::ffi::c_void)>,
-    ) -> crate::error::Result<()> {
-        self.r#const.to_bytes(buffer, find_dict_drop_override)?;
-        self.pedersen.to_bytes(buffer, find_dict_drop_override)?;
-        self.bitwise.to_bytes(buffer, find_dict_drop_override)?;
-        self.ecop.to_bytes(buffer, find_dict_drop_override)?;
-        self.poseidon.to_bytes(buffer, find_dict_drop_override)?;
-        self.add_mod.to_bytes(buffer, find_dict_drop_override)?;
-        self.mul_mod.to_bytes(buffer, find_dict_drop_override)?;
-        self.blake.to_bytes(buffer, find_dict_drop_override)?;
-
-        Ok(())
-    }
-}
-
 #[cfg(feature = "with-mem-tracing")]
 #[allow(unused_imports)]
 pub(crate) use self::mem_tracing::{
