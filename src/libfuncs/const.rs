@@ -4,7 +4,7 @@ use super::LibfuncHelper;
 use crate::{
     error::{Error, Result},
     libfuncs::{r#enum::build_enum_value, r#struct::build_struct_value},
-    metadata::{realloc_bindings::ReallocBindingsMeta, MetadataStorage},
+    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     native_panic,
     types::TypeBuilder,
     utils::{ProgramRegistryExt, RangeExt, PRIME},
@@ -23,8 +23,7 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::llvm::{self, r#type::pointer},
-    helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
+    helpers::{ArithBlockExt, LlvmBlockExt},
     ir::{Block, Location, Value},
     Context,
 };
@@ -60,10 +59,6 @@ pub fn build_const_as_box<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &ConstAsBoxConcreteLibfunc,
 ) -> Result<()> {
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, helper));
-    }
-
     let const_type_outer = registry.get_type(&info.const_type)?;
 
     // Create constant
@@ -79,13 +74,11 @@ pub fn build_const_as_box<'ctx, 'this>(
     let const_ty = registry.get_type(&const_type.inner_ty)?;
     let inner_layout = const_ty.layout(registry)?;
 
-    // Create box
-    let value_len = entry.const_int(context, location, inner_layout.pad_to_align().size(), 64)?;
-
-    let ptr = entry.append_op_result(llvm::zero(pointer(context, 0), location))?;
-    let ptr = entry.append_op_result(ReallocBindingsMeta::realloc(
-        context, ptr, value_len, location,
-    )?)?;
+    // Allocate from the arena and store the constant value.
+    let size = entry.const_int(context, location, inner_layout.pad_to_align().size(), 64)?;
+    let align = entry.const_int(context, location, inner_layout.align(), 64)?;
+    let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let ptr = rtb.box_alloc(context, helper.module, entry, location, size, align)?;
 
     // Store constant in box
     entry.store(context, location, ptr, value)?;

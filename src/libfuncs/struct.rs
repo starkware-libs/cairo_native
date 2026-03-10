@@ -4,7 +4,7 @@ use super::LibfuncHelper;
 use crate::{
     error::Result,
     libfuncs::r#box::{into_box, unbox},
-    metadata::{realloc_bindings::ReallocBindingsMeta, MetadataStorage},
+    metadata::MetadataStorage,
     native_panic,
     types::TypeBuilder,
     utils::ProgramRegistryExt,
@@ -180,7 +180,6 @@ pub fn build_boxed_deconstruct<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &ConcreteStructBoxedDeconstructLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
 
     // Unbox the container
     let CoreTypeConcrete::Box(box_info) = registry.get_type(&info.param_signatures()[0].ty)? else {
@@ -205,7 +204,7 @@ pub fn build_boxed_deconstruct<'ctx, 'this>(
         let (_, member_layout) =
             registry.build_type_with_layout(context, helper, metadata, member_type_id)?;
         // Box the member
-        let member = into_box(context, entry, location, member, member_layout)?;
+        let member = into_box(context, helper.module, entry, location, member, member_layout, metadata)?;
 
         fields.push(member);
     }

@@ -21,9 +21,10 @@ use starknet_types_core::{
     hash::StarkHash,
     qm31::QM31,
 };
+use bumpalo::Bump;
 use std::{
     alloc::{dealloc, realloc, Layout},
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::{hash_map::Entry, HashMap},
     ffi::{c_int, c_void},
     fs::File,
@@ -35,6 +36,34 @@ use std::{
     rc::Rc,
 };
 use std::{ops::Mul, vec::IntoIter};
+
+// Thread-local arena used for all box allocations during a single program invocation.
+// Freed all at once after each invocation via `cairo_native__reset_box_arena`.
+thread_local! {
+    static BOX_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+}
+
+/// Allocate `size` bytes with `align` alignment from the per-invocation box arena.
+///
+/// # Safety
+///
+/// This function is called from MLIR-compiled code and deals with raw pointers.
+pub unsafe extern "C" fn cairo_native__box_alloc(size: u64, align: u64) -> *mut u8 {
+    BOX_ARENA.with(|arena| {
+        let layout = Layout::from_size_align(size as usize, align as usize)
+            .expect("cairo_native__box_alloc: invalid layout");
+        let ptr = arena.borrow_mut().alloc_layout(layout).as_ptr();
+        ptr
+    })
+}
+
+/// Reset (free all allocations from) the per-invocation box arena.
+///
+/// Called by `invoke_dynamic` after the trampoline returns so that all box memory
+/// allocated during the invocation is freed at once.
+pub fn cairo_native__reset_box_arena() {
+    BOX_ARENA.with(|arena| arena.borrow_mut().reset());
+}
 
 lazy_static! {
     pub static ref HALF_PRIME: Felt = Felt::from_dec_str(

@@ -1,13 +1,17 @@
 //! # Box libfuncs
 //!
 //! A heap allocated value, which is internally a pointer that can't be null.
+//!
+//! Allocations are made from the per-invocation arena (`cairo_native__box_alloc` runtime
+//! function) and are freed all at once when the program invocation completes.  Individual
+//! boxes are therefore never freed on unbox.
 
 use std::alloc::Layout;
 
 use super::LibfuncHelper;
 use crate::{
     error::Result,
-    metadata::{realloc_bindings::ReallocBindingsMeta, MetadataStorage},
+    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     types::TypeBuilder,
     utils::ProgramRegistryExt,
 };
@@ -21,12 +25,9 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::{
-        llvm::{self, r#type::pointer, LoadStoreOptions},
-        ods,
-    },
+    dialect::llvm::{self, LoadStoreOptions},
     helpers::{ArithBlockExt, BuiltinBlockExt},
-    ir::{attribute::IntegerAttribute, r#type::IntegerType, Block, BlockLike, Location, Value},
+    ir::{attribute::IntegerAttribute, r#type::IntegerType, Block, BlockLike, Location, Module, Value},
     Context,
 };
 
@@ -69,37 +70,41 @@ pub fn build_into_box<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, helper));
-    }
-
     let inner_type = registry.get_type(&info.ty)?;
     let inner_layout = inner_type.layout(registry)?;
 
-    let ptr = into_box(context, entry, location, entry.arg(0)?, inner_layout)?;
+    let ptr = into_box(
+        context,
+        helper.module,
+        entry,
+        location,
+        entry.arg(0)?,
+        inner_layout,
+        metadata,
+    )?;
 
     helper.br(entry, 0, &[ptr], location)
 }
 
-/// Receives a value and inserts it into a box
+/// Allocate an arena slot and store `inner_val` into it, returning a pointer.
+///
+/// Uses `RuntimeBindingsMeta::box_alloc` which calls the Rust-side
+/// `cairo_native__box_alloc` through the global function-pointer mechanism —
+/// no direct symbol-table lookup required.
 pub fn into_box<'ctx, 'this>(
     context: &'ctx Context,
+    module: &Module<'ctx>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     inner_val: Value<'ctx, 'this>,
     inner_layout: Layout,
+    metadata: &mut MetadataStorage,
 ) -> Result<Value<'ctx, 'this>> {
-    let value_len = entry.const_int(context, location, inner_layout.pad_to_align().size(), 64)?;
-    let ptr = entry
-        .append_operation(ods::llvm::mlir_zero(context, pointer(context, 0), location).into())
-        .result(0)?
-        .into();
-    let ptr = entry
-        .append_operation(ReallocBindingsMeta::realloc(
-            context, ptr, value_len, location,
-        )?)
-        .result(0)?
-        .into();
+    let size = entry.const_int(context, location, inner_layout.pad_to_align().size(), 64)?;
+    let align = entry.const_int(context, location, inner_layout.align(), 64)?;
+
+    let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let ptr = rtb.box_alloc(context, module, entry, location, size, align)?;
 
     entry.append_operation(llvm::store(
         context,
@@ -125,8 +130,6 @@ pub fn build_unbox<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let value = unbox(
         context, registry, entry, location, helper, metadata, &info.ty,
     )?;
@@ -134,7 +137,8 @@ pub fn build_unbox<'ctx, 'this>(
     helper.br(entry, 0, &[value], location)
 }
 
-// Gets the value that is inside a `Box`
+/// Load and return the value stored inside a `Box` pointer.
+
 pub fn unbox<'ctx, 'this>(
     context: &'ctx Context,
     registry: &ProgramRegistry<CoreType, CoreLibfunc>,
@@ -162,7 +166,6 @@ pub fn unbox<'ctx, 'this>(
         .result(0)?
         .into();
 
-    entry.append_operation(ReallocBindingsMeta::free(context, entry.arg(0)?, location)?);
 
     Ok(value)
 }

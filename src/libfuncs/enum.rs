@@ -7,7 +7,7 @@ use crate::{
     error::{panic::ToNativeAssertError, Error, Result},
     libfuncs::r#box::into_box,
     metadata::{
-        enum_snapshot_variants::EnumSnapshotVariantsMeta, realloc_bindings::ReallocBindingsMeta,
+        enum_snapshot_variants::EnumSnapshotVariantsMeta,
         MetadataStorage,
     },
     native_assert, native_panic,
@@ -587,7 +587,6 @@ pub fn build_boxed_match<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &EnumBoxedMatchConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
 
     // Get the Box type info to extract the inner enum type
     let CoreTypeConcrete::Box(box_info) = registry.get_type(&info.param_signatures()[0].ty)? else {
@@ -623,9 +622,6 @@ pub fn build_boxed_match<'ctx, 'this>(
 
             let inner_val = entry.load(context, location, entry.arg(0)?, inner_type)?;
 
-            // Free the input box
-            entry.append_operation(ReallocBindingsMeta::free(context, entry.arg(0)?, location)?);
-
             // Get the output variant type layout for boxing
             let output_variant_type_id = &info.branch_signatures()[0].vars[0].ty;
             let CoreTypeConcrete::Box(output_box_info) =
@@ -637,7 +633,7 @@ pub fn build_boxed_match<'ctx, 'this>(
                 registry.build_type_with_layout(context, helper, metadata, &output_box_info.ty)?;
 
             // Box the payload
-            let boxed_payload = into_box(context, entry, location, inner_val, output_layout)?;
+            let boxed_payload = into_box(context, helper.module, entry, location, inner_val, output_layout, metadata)?;
 
             helper.br(entry, 0, &[boxed_payload], location)?;
         }
@@ -662,9 +658,6 @@ pub fn build_boxed_match<'ctx, 'this>(
 
             let enum_val = entry.load(context, location, entry.arg(0)?, inner_type)?;
             entry.store(context, location, stack_ptr, enum_val)?;
-
-            // Free the input box
-            entry.append_operation(ReallocBindingsMeta::free(context, entry.arg(0)?, location)?);
 
             // Extract the tag
             let tag_val = entry.load(context, location, stack_ptr, tag_ty)?;
@@ -733,7 +726,7 @@ pub fn build_boxed_match<'ctx, 'this>(
                 )?;
 
                 // Box the payload
-                let boxed_payload = into_box(context, block, location, payload_val, output_layout)?;
+                let boxed_payload = into_box(context, helper.module, block, location, payload_val, output_layout, metadata)?;
 
                 helper.br(block, i, &[boxed_payload], location)?;
             }

@@ -10,7 +10,7 @@ use crate::{
     error::Result,
     metadata::{
         drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        realloc_bindings::ReallocBindingsMeta, MetadataStorage,
+        runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
     },
     utils::ProgramRegistryExt,
 };
@@ -49,10 +49,12 @@ pub fn build<'ctx>(
         metadata,
         info.self_ty(),
         |metadata| {
-            // There's no need to build the type here because it'll always be built within
-            // `build_dup`.
-
-            Ok(Some(build_dup(context, module, registry, metadata, &info)?))
+            registry.build_type(context, module, metadata, &info.ty)?;
+            if DupOverridesMeta::is_overriden(metadata, &info.ty) {
+                Ok(Some(build_dup(context, module, registry, metadata, &info)?))
+            } else {
+                Ok(None)
+            }
         },
     )?;
     DropOverridesMeta::register_with(
@@ -62,12 +64,12 @@ pub fn build<'ctx>(
         metadata,
         info.self_ty(),
         |metadata| {
-            // There's no need to build the type here because it'll always be built within
-            // `build_drop`.
-
-            Ok(Some(build_drop(
-                context, module, registry, metadata, &info,
-            )?))
+            registry.build_type(context, module, metadata, &info.ty)?;
+            if DropOverridesMeta::is_overriden(metadata, &info.ty) {
+                Ok(Some(build_drop(context, module, registry, metadata, &info)?))
+            } else {
+                Ok(None)
+            }
         },
     )?;
 
@@ -83,12 +85,11 @@ fn build_dup<'ctx>(
     info: &WithSelf<InfoAndTypeConcreteType>,
 ) -> Result<Region<'ctx>> {
     let location = Location::unknown(context);
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, module));
-    }
 
     let inner_ty = registry.get_type(&info.ty)?;
-    let inner_len = inner_ty.layout(registry)?.pad_to_align().size();
+    let inner_layout = inner_ty.layout(registry)?;
+    let inner_len = inner_layout.pad_to_align().size();
+    let inner_align = inner_layout.align();
     let inner_ty = inner_ty.build(context, module, registry, metadata, &info.ty)?;
 
     let region = Region::new();
@@ -96,7 +97,6 @@ fn build_dup<'ctx>(
 
     let null_ptr =
         entry.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
-    let inner_len_val = entry.const_int(context, location, inner_len, 64)?;
 
     let src_value = entry.arg(0)?;
     let src_is_null = entry.append_op_result(
@@ -125,41 +125,27 @@ fn build_dup<'ctx>(
     ));
 
     {
-        let dst_value = block_realloc.append_op_result(ReallocBindingsMeta::realloc(
-            context,
-            null_ptr,
-            inner_len_val,
-            location,
-        )?)?;
+        // build_dup is only registered when the inner type has a dup override.
+        // Allocate the duplicate from the per-invocation arena (not malloc).
+        let size_val = block_realloc.const_int(context, location, inner_len, 64)?;
+        let align_val = block_realloc.const_int(context, location, inner_align, 64)?;
+        let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+        let dst_value = rtb.box_alloc(context, module, &block_realloc, location, size_val, align_val)?;
 
-        if DupOverridesMeta::is_overriden(metadata, &info.ty) {
-            let value = block_realloc.load(context, location, src_value, inner_ty)?;
-            let values = DupOverridesMeta::invoke_override(
-                context,
-                registry,
-                module,
-                &block_realloc,
-                &block_realloc,
-                location,
-                metadata,
-                &info.ty,
-                value,
-            )?;
-            block_realloc.store(context, location, src_value, values.0)?;
-            block_realloc.store(context, location, dst_value, values.1)?;
-        } else {
-            block_realloc.append_operation(
-                ods::llvm::intr_memcpy_inline(
-                    context,
-                    dst_value,
-                    src_value,
-                    IntegerAttribute::new(IntegerType::new(context, 64).into(), inner_len as i64),
-                    IntegerAttribute::new(IntegerType::new(context, 1).into(), 0),
-                    location,
-                )
-                .into(),
-            );
-        }
+        let value = block_realloc.load(context, location, src_value, inner_ty)?;
+        let values = DupOverridesMeta::invoke_override(
+            context,
+            registry,
+            module,
+            &block_realloc,
+            &block_realloc,
+            location,
+            metadata,
+            &info.ty,
+            value,
+        )?;
+        block_realloc.store(context, location, src_value, values.0)?;
+        block_realloc.store(context, location, dst_value, values.1)?;
 
         block_realloc.append_operation(cf::br(&block_finish, &[dst_value], location));
     }
@@ -176,10 +162,8 @@ fn build_drop<'ctx>(
     info: &WithSelf<InfoAndTypeConcreteType>,
 ) -> Result<Region<'ctx>> {
     let location = Location::unknown(context);
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, module));
-    }
 
+    // build_drop is only registered when the inner type has a drop override.
     let inner_ty = registry.build_type(context, module, metadata, &info.ty)?;
 
     let region = Region::new();
@@ -201,37 +185,34 @@ fn build_drop<'ctx>(
         .into(),
     )?;
 
-    let block_free = region.append_block(Block::new(&[]));
-    let block_finish =
-        region.append_block(Block::new(&[(llvm::r#type::pointer(context, 0), location)]));
+    let block_drop = region.append_block(Block::new(&[]));
+    let block_finish = region.append_block(Block::new(&[]));
     entry.append_operation(cf::cond_br(
         context,
         is_null,
         &block_finish,
-        &block_free,
-        &[null_ptr],
+        &block_drop,
+        &[],
         &[],
         location,
     ));
 
     {
-        if DropOverridesMeta::is_overriden(metadata, &info.ty) {
-            let value = block_free.load(context, location, value, inner_ty)?;
-            DropOverridesMeta::invoke_override(
-                context,
-                registry,
-                module,
-                &block_free,
-                &block_free,
-                location,
-                metadata,
-                &info.ty,
-                value,
-            )?;
-        }
-
-        block_free.append_operation(ReallocBindingsMeta::free(context, value, location)?);
-        block_free.append_operation(func::r#return(&[], location));
+        // Non-null: load the inner value and invoke its drop override.
+        // No free: the pointer lives in the arena and is reclaimed at invocation end.
+        let inner_value = block_drop.load(context, location, value, inner_ty)?;
+        DropOverridesMeta::invoke_override(
+            context,
+            registry,
+            module,
+            &block_drop,
+            &block_drop,
+            location,
+            metadata,
+            &info.ty,
+            inner_value,
+        )?;
+        block_drop.append_operation(cf::br(&block_finish, &[], location));
     }
 
     block_finish.append_operation(func::r#return(&[], location));
