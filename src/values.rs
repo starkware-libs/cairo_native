@@ -9,7 +9,7 @@ use crate::{
     starknet::{Secp256k1Point, Secp256r1Point},
     types::{array::ArrayMetadata, TypeBuilder},
     utils::{
-        felt252_bigint, get_integer_layout, layout_repeat, libc_free, libc_malloc, RangeExt, PRIME,
+        felt252_bigint, get_integer_layout, layout_repeat, libc_malloc, RangeExt, PRIME,
     },
 };
 use bumpalo::Bump;
@@ -247,14 +247,13 @@ impl Value {
                             );
                         }
 
-                        // Allocate metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut () }
+                        // Allocate metadata struct: { max_len: u32, data_ptr: *mut () }
                         let metadata_ptr: *mut () = if data_ptr.is_null() {
                             null_mut()
                         } else {
                             let metadata: *mut ArrayMetadata =
                                 libc_malloc(size_of::<ArrayMetadata>()).cast();
                             metadata.write(ArrayMetadata {
-                                refcount: 1,
                                 max_len: len,
                                 data_ptr,
                             });
@@ -630,12 +629,8 @@ impl Value {
                     } else {
                         let metadata = metadata_ptr
                             .cast::<ArrayMetadata>()
-                            .as_mut()
+                            .as_ref()
                             .to_native_assert_error("metadata pointer should not be null")?;
-
-                        if should_drop {
-                            metadata.refcount -= 1;
-                        }
 
                         native_assert!(
                             end_offset_value >= start_offset_value,
@@ -645,25 +640,7 @@ impl Value {
 
                         let data_ptr = metadata.data_ptr;
 
-                        if metadata.refcount == 0 {
-                            // Drop prefix elements.
-                            for i in 0..start_offset_value {
-                                let cur_elem_ptr =
-                                    NonNull::new(data_ptr.byte_add(elem_stride * i as usize))
-                                        .to_native_assert_error(
-                                            "tried to make a non-null ptr out of a null one",
-                                        )?;
-                                drop(Self::from_ptr(
-                                    cur_elem_ptr.cast(),
-                                    &info.ty,
-                                    registry,
-                                    should_drop,
-                                )?);
-                            }
-                        }
-
                         let mut array_value = Vec::with_capacity(num_elems);
-                        let ref_count_is_zero = metadata.refcount == 0;
                         for i in start_offset_value..end_offset_value {
                             let cur_elem_ptr =
                                 NonNull::new(data_ptr.byte_add(elem_stride * i as usize))
@@ -674,31 +651,11 @@ impl Value {
                                 cur_elem_ptr.cast(),
                                 &info.ty,
                                 registry,
-                                ref_count_is_zero,
+                                false,
                             )?);
                         }
 
-                        if ref_count_is_zero {
-                            // Drop suffix elements.
-                            let array_max_len = metadata.max_len;
-                            for i in end_offset_value..array_max_len {
-                                let cur_elem_ptr =
-                                    NonNull::new(data_ptr.byte_add(elem_stride * i as usize))
-                                        .to_native_assert_error(
-                                            "tried to make a non-null ptr out of a null one",
-                                        )?;
-                                drop(Self::from_ptr(
-                                    cur_elem_ptr.cast(),
-                                    &info.ty,
-                                    registry,
-                                    should_drop,
-                                )?);
-                            }
-
-                            // Free data allocation and metadata.
-                            libc_free(data_ptr.cast());
-                            libc_free(metadata_ptr.cast());
-                        }
+                        // No free: arena owns metadata and data buffers.
 
                         array_value
                     };

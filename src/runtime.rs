@@ -3,7 +3,7 @@
 use crate::{
     starknet::{ArrayAbi, Felt252Abi},
     types::array::ArrayMetadata,
-    utils::{blake_utils, libc_malloc, BuiltinCosts},
+    utils::{blake_utils, BuiltinCosts},
 };
 use cairo_lang_sierra_gas::core_libfunc_cost::{
     DICT_SQUASH_REPEATED_ACCESS_COST, DICT_SQUASH_UNIQUE_KEY_COST,
@@ -54,6 +54,34 @@ pub unsafe extern "C" fn cairo_native__box_alloc(size: u64, align: u64) -> *mut 
             .expect("cairo_native__box_alloc: invalid layout");
         let ptr = arena.borrow_mut().alloc_layout(layout).as_ptr();
         ptr
+    })
+}
+
+/// Arena-based realloc for array data buffers.
+///
+/// Allocates `new_size` bytes (with `align` alignment) from the per-invocation arena.
+/// If `old_ptr` is non-null, copies `old_size` bytes from it into the new allocation.
+/// The old allocation is **not** freed — it is abandoned in the arena until reset.
+///
+/// When `old_ptr` is null this behaves identically to [`cairo_native__box_alloc`].
+///
+/// # Safety
+///
+/// This function is called from MLIR-compiled code and deals with raw pointers.
+pub unsafe extern "C" fn cairo_native__array_alloc(
+    old_ptr: *mut u8,
+    old_size: u64,
+    new_size: u64,
+    align: u64,
+) -> *mut u8 {
+    BOX_ARENA.with(|arena| {
+        let layout = Layout::from_size_align(new_size as usize, align as usize)
+            .expect("cairo_native__array_alloc: invalid layout");
+        let new_ptr = arena.borrow_mut().alloc_layout(layout).as_ptr();
+        if !old_ptr.is_null() && old_size > 0 {
+            std::ptr::copy_nonoverlapping(old_ptr, new_ptr, old_size as usize);
+        }
+        new_ptr
     })
 }
 
@@ -371,8 +399,15 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
         .0;
     let tuple_stride = tuple_layout.pad_to_align().size();
 
-    // Allocate data separately (no inline prefix)
-    let data_ptr = libc_malloc(tuple_stride * dict.mappings.len());
+    // Allocate data from the arena (no inline prefix)
+    let data_ptr = BOX_ARENA.with(|arena| {
+        let layout = Layout::from_size_align(
+            tuple_stride * dict.mappings.len(),
+            tuple_layout.align(),
+        )
+        .expect("create_dict_entries_array: invalid data layout");
+        arena.borrow_mut().alloc_layout(layout).as_ptr()
+    });
 
     // Get the stride for the inner types of the tuple
     let key_size = Layout::new::<Felt252Abi>().pad_to_align().size();
@@ -393,10 +428,12 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
         std::ptr::copy_nonoverlapping(element, last_val_ptr, generic_ty_size);
     }
 
-    // Allocate and initialize ArrayMetadata struct
-    let metadata_ptr = libc_malloc(size_of::<ArrayMetadata>()) as *mut ArrayMetadata;
+    // Allocate and initialize ArrayMetadata struct from the arena
+    let metadata_ptr = BOX_ARENA.with(|arena| {
+        let layout = Layout::new::<ArrayMetadata>();
+        arena.borrow_mut().alloc_layout(layout).as_ptr() as *mut ArrayMetadata
+    });
     metadata_ptr.write(ArrayMetadata {
-        refcount: 1,
         max_len: len as u32,
         data_ptr: data_ptr.cast::<u8>(),
     });

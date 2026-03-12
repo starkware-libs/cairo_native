@@ -60,6 +60,7 @@ enum RuntimeBinding {
     QM31Mul,
     QM31Div,
     BoxAlloc,
+    ArrayAlloc,
     #[cfg(feature = "with-cheatcode")]
     VtableCheatcode,
 }
@@ -102,6 +103,7 @@ impl RuntimeBinding {
             RuntimeBinding::QM31Mul => "cairo_native__libfunc__qm31__qm31_mul",
             RuntimeBinding::QM31Div => "cairo_native__libfunc__qm31__qm31_div",
             RuntimeBinding::BoxAlloc => "cairo_native__box_alloc",
+            RuntimeBinding::ArrayAlloc => "cairo_native__array_alloc",
             #[cfg(feature = "with-cheatcode")]
             RuntimeBinding::VtableCheatcode => "cairo_native__vtable_cheatcode",
         }
@@ -177,6 +179,9 @@ impl RuntimeBinding {
             }
             RuntimeBinding::BoxAlloc => {
                 crate::runtime::cairo_native__box_alloc as *const ()
+            }
+            RuntimeBinding::ArrayAlloc => {
+                crate::runtime::cairo_native__array_alloc as *const ()
             }
             #[cfg(feature = "with-cheatcode")]
             RuntimeBinding::VtableCheatcode => {
@@ -799,6 +804,39 @@ impl RuntimeBindingsMeta {
         )?)
     }
 
+    /// Arena-based realloc for array data buffers.
+    ///
+    /// Allocates `new_size` bytes (with `align` alignment) from the per-invocation
+    /// arena. If `old_ptr` is non-null, copies `old_size` bytes from the old
+    /// allocation into the new one. The old allocation is abandoned in the arena.
+    ///
+    /// Signature: `(ptr, i64, i64, i64) -> ptr`
+    pub fn array_alloc<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        location: Location<'c>,
+        old_ptr: Value<'c, 'a>,
+        old_size: Value<'c, 'a>,
+        new_size: Value<'c, 'a>,
+        align: Value<'c, 'a>,
+    ) -> Result<Value<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let function =
+            self.build_function(context, module, block, location, RuntimeBinding::ArrayAlloc)?;
+
+        Ok(block.append_op_result(
+            OperationBuilder::new("llvm.call", location)
+                .add_operands(&[function])
+                .add_operands(&[old_ptr, old_size, new_size, align])
+                .add_results(&[llvm::r#type::pointer(context, 0)])
+                .build()?,
+        )?)
+    }
+
     pub fn dict_new<'c, 'a>(
         &mut self,
         context: &'c Context,
@@ -1118,6 +1156,7 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::QM31Mul,
         RuntimeBinding::QM31Div,
         RuntimeBinding::BoxAlloc,
+        RuntimeBinding::ArrayAlloc,
         #[cfg(feature = "with-cheatcode")]
         RuntimeBinding::VtableCheatcode,
     ] {

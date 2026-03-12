@@ -111,6 +111,11 @@ pub fn build_circuit_accumulator<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    // Ensure realloc/free symbols are declared (used by dup/drop overrides).
+    if metadata.get::<ReallocBindingsMeta>().is_none() {
+        metadata.insert(ReallocBindingsMeta::new(context, module));
+    }
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };
@@ -211,6 +216,11 @@ pub fn build_circuit_data<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    // Ensure realloc/free symbols are declared (used by dup/drop overrides).
+    if metadata.get::<ReallocBindingsMeta>().is_none() {
+        metadata.insert(ReallocBindingsMeta::new(context, module));
+    }
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };
@@ -302,6 +312,11 @@ pub fn build_circuit_outputs<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    // Ensure realloc/free symbols are declared (used by dup/drop overrides).
+    if metadata.get::<ReallocBindingsMeta>().is_none() {
+        metadata.insert(ReallocBindingsMeta::new(context, module));
+    }
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };

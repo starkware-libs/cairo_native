@@ -644,7 +644,7 @@ pub(crate) mod handler {
     use super::*;
     use crate::{
         types::array::ArrayMetadata,
-        utils::{libc_free, libc_malloc},
+        utils::libc_malloc,
     };
     use std::{
         alloc::Layout,
@@ -1063,18 +1063,19 @@ pub(crate) mod handler {
                 _ => {
                     let len: u32 = data.len().try_into().unwrap();
 
-                    // Allocate data (no prefix)
+                    // Allocate data from the arena (no prefix).
+                    let data_layout = Layout::array::<E>(data.len()).unwrap();
                     let data_ptr =
-                        libc_malloc(Layout::array::<E>(data.len()).unwrap().size()) as *mut E;
+                        crate::runtime::cairo_native__box_alloc(data_layout.size() as u64, data_layout.align() as u64) as *mut E;
 
                     for (i, val) in data.iter().enumerate() {
                         data_ptr.add(i).write(val.clone());
                     }
 
+                    let metadata_layout = Layout::new::<ArrayMetadata>();
                     let metadata_ptr =
-                        libc_malloc(size_of::<ArrayMetadata>()) as *mut ArrayMetadata;
+                        crate::runtime::cairo_native__box_alloc(metadata_layout.size() as u64, metadata_layout.align() as u64) as *mut ArrayMetadata;
                     metadata_ptr.write(ArrayMetadata {
-                        refcount: 1,
                         max_len: len,
                         data_ptr: data_ptr.cast::<u8>(),
                     });
@@ -1089,25 +1090,9 @@ pub(crate) mod handler {
             }
         }
 
+        /// Noop drop — arena owns all array memory.
         unsafe fn drop_mlir_array<E>(data: &ArrayAbi<E>) {
-            if data.ptr.is_null() {
-                return;
-            }
-
-            let metadata_ptr = data.ptr.cast::<ArrayMetadata>();
-            let metadata = &mut *metadata_ptr;
-
-            match metadata.refcount {
-                1 => {
-                    // Last reference - free data and metadata
-                    libc_free(metadata.data_ptr.cast());
-                    libc_free(metadata_ptr.cast());
-                }
-                n => {
-                    // Decrement refcount
-                    metadata.refcount = n - 1;
-                }
-            }
+            let _ = data;
         }
 
         fn wrap_error<E>(e: &[Felt]) -> SyscallResultAbi<E> {
