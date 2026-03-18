@@ -459,8 +459,8 @@ pub fn build_binary_op<'ctx, 'this>(
 mod test {
     use ark_ff::Zero;
     use cairo_lang_sierra::extensions::utils::Range;
-    use cairo_vm::Felt252;
     use num_bigint::BigInt;
+    use starknet_types_core::felt::Felt as Felt252;
 
     use crate::{
         jit_enum, jit_struct,

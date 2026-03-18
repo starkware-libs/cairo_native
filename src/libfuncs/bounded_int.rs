@@ -827,7 +827,7 @@ fn build_wrap_non_zero<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
-    use cairo_vm::Felt252;
+    use starknet_types_core::felt::Felt as Felt252;
     use test_case::test_case;
 
     use crate::{

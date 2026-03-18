@@ -1,6 +1,12 @@
 use bincode::{de::read::Reader, error::DecodeError};
-use cairo_vm::vm::trace::trace_entry::RelocatedTraceEntry;
 use std::ops::Deref;
+
+#[derive(Clone, Copy, Debug)]
+pub struct RelocatedTraceEntry {
+    pub pc: usize,
+    pub ap: usize,
+    pub fp: usize,
+}
 
 #[derive(Debug)]
 pub struct Trace(Vec<RelocatedTraceEntry>);

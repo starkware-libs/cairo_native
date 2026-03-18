@@ -4,7 +4,7 @@ use cairo_lang_casm::{
     instructions::InstructionBody,
     operand::{CellRef, DerefOrImmediate, Register, ResOperand},
 };
-use cairo_vm::vm::trace::trace_entry::RelocatedTraceEntry;
+use crate::trace::RelocatedTraceEntry;
 use std::{
     collections::{HashMap, HashSet},
     ops::Index,
