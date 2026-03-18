@@ -30,8 +30,7 @@ use cairo_lang_starknet::{
     starknet_plugin_suite,
 };
 use cairo_lang_starknet_classes::{
-    casm_contract_class::{CasmContractClass, ENTRY_POINT_COST},
-    contract_class::ContractClass,
+    casm_contract_class::ENTRY_POINT_COST, contract_class::ContractClass,
 };
 use cairo_native::{
     context::NativeContext,
@@ -41,12 +40,6 @@ use cairo_native::{
     utils::{find_entry_point_by_idx, testing::load_program_and_runner, HALF_PRIME, PRIME},
     OptLevel, Value,
 };
-use cairo_vm::{
-    hint_processor::cairo_1_hint_processor::hint_processor::Cairo1HintProcessor,
-    types::{builtin_name::BuiltinName, layout_name::LayoutName, relocatable::MaybeRelocatable},
-    vm::runners::cairo_runner::{CairoArg, CairoRunner, RunResources},
-};
-use itertools::Itertools;
 use lambdaworks_math::{
     field::{
         element::FieldElement, fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField,
@@ -281,137 +274,98 @@ pub fn run_vm_program(
     )
 }
 
-/// Runs the contract on the cairo-vm
+/// Runs a contract on the cairo-vm via SierraCasmRunner (from cairo-lang-runner).
+///
+/// This is used for cross-validation: comparing the VM output against the native output
+/// to ensure correctness.
 pub fn run_vm_contract(
     cairo_contract: &ContractClass,
     selector: &BigUint,
     args: &[Felt],
 ) -> Vec<Felt> {
-    let args = args
-        .iter()
-        .map(|arg| MaybeRelocatable::Int(*arg))
-        .collect_vec();
+    let extracted = cairo_contract
+        .extract_sierra_program(true)
+        .expect("failed to extract sierra program from contract");
+    let mut program = extracted.program;
 
-    let contract = CasmContractClass::from_contract_class(
-        cairo_contract.clone(),
-        cairo_contract.extract_sierra_program(false).unwrap(),
-        false,
-        usize::MAX,
-    )
-    .expect("failed to compile sierra contract to casm");
+    // Workaround: populate UserType debug names in generic_args.
+    // The library's `DebugInfo::populate` skips `GenericArg::UserType`, but
+    // `SierraCasmRunner::inner_type_from_panic_wrapper` assumes they are set.
+    // In Sierra, `Enum<ut@TypeName, ...>` / `Struct<ut@TypeName, ...>` means
+    // the UserType name matches the parent type declaration's debug name.
+    {
+        use cairo_lang_sierra::program::GenericArg;
+        for decl in &mut program.type_declarations {
+            if let Some(debug_name) = decl.id.debug_name.clone() {
+                for arg in &mut decl.long_id.generic_args {
+                    if let GenericArg::UserType(ut) = arg {
+                        if ut.debug_name.is_none() {
+                            ut.debug_name = Some(debug_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    let program = contract
-        .clone()
-        .try_into()
-        .expect("failed to extract program from casm contract");
-
-    // Initialize runner and builtins
-    let mut runner = CairoRunner::new(&program, LayoutName::all_cairo, None, false, false, false)
-        .expect("failed to build runner");
-
-    let entrypoint = contract
+    // Find the entry point by selector
+    let entrypoint = cairo_contract
         .entry_points_by_type
         .external
         .iter()
         .find(|e| e.selector == *selector)
-        .expect("given entrypoint index should exist");
-    let program_builtins = entrypoint
-        .builtins
-        .iter()
-        .map(|s| BuiltinName::from_str(s).expect("invalid builtin name"))
-        .collect_vec();
-    runner
-        .initialize_function_runner_cairo_1(&program_builtins)
-        .expect("failed to initialize runner");
+        .expect("entry point with given selector not found");
 
-    // Initialize implicit Args
-    let builtins = runner.get_program_builtins();
-    let mut implicit_args: Vec<MaybeRelocatable> = runner
-        .vm
-        .get_builtin_runners()
-        .iter()
-        .filter(|b| builtins.contains(&b.name()))
-        .flat_map(|b| b.initial_stack())
-        .collect();
-    let initial_gas = MaybeRelocatable::from(usize::MAX);
-    implicit_args.extend([initial_gas]);
-    let syscall_segment = MaybeRelocatable::from(runner.vm.add_memory_segment());
-    implicit_args.extend([syscall_segment]);
+    // Find the function's debug name using the function index
+    let func = find_entry_point_by_idx(&program, entrypoint.function_idx)
+        .expect("entry point function not found in sierra program");
 
-    // Load builtin costs
-    let builtin_costs: Vec<MaybeRelocatable> = vec![0.into(); 7];
-    let builtin_costs_ptr = runner.vm.add_memory_segment();
+    let func_name = func
+        .id
+        .debug_name
+        .as_ref()
+        .expect("function should have a debug name")
+        .to_string();
 
-    runner
-        .vm
-        .load_data(builtin_costs_ptr, &builtin_costs)
-        .expect("failed to load builtin costs data to vm");
+    let runner = SierraCasmRunner::new(program, Some(Default::default()), Default::default(), None)
+        .expect("failed to create SierraCasmRunner");
 
-    // Load extra data
-    let core_program_end_ptr = (runner.program_base.expect("program base is missing")
-        + runner.get_program().data_len())
-    .expect("memory pointer overflowed");
-
-    let program_extra_data: Vec<MaybeRelocatable> =
-        vec![0x208B7FFF7FFF7FFE.into(), builtin_costs_ptr.into()];
-    runner
-        .vm
-        .load_data(core_program_end_ptr, &program_extra_data)
-        .expect("failed to load extra data to vm");
-
-    // Load calldata
-    let calldata_start = runner.vm.add_memory_segment();
-    let calldata_end = runner
-        .vm
-        .load_data(calldata_start, &args.to_vec())
-        .expect("failed to load calldata to vm");
-
-    // Create entrypoint_args
-    let mut entrypoint_args: Vec<CairoArg> = implicit_args
-        .iter()
-        .map(|m| CairoArg::from(m.clone()))
-        .collect();
-    entrypoint_args.extend([
-        MaybeRelocatable::from(calldata_start).into(),
-        MaybeRelocatable::from(calldata_end).into(),
-    ]);
-    let entrypoint_args: Vec<&CairoArg> = entrypoint_args.iter().collect();
-
-    // Run contract entrypoint
-    let mut hint_processor =
-        Cairo1HintProcessor::new(&contract.hints, RunResources::default(), false);
-    runner
-        .run_from_entrypoint(
-            entrypoint.offset,
-            &entrypoint_args,
-            true,
-            Some(runner.get_program().data_len() + program_extra_data.len()),
-            &mut hint_processor,
+    let result = runner
+        .run_function_with_starknet_context(
+            runner.find_function(&func_name).unwrap(),
+            vec![Arg::Array(args.iter().cloned().map(Arg::Value).collect())],
+            Some(usize::MAX),
+            StarknetState::default(),
         )
-        .expect("failed to execute contract");
+        .expect("failed to run contract on VM");
 
-    // Extract return values
-    let return_values = runner
-        .vm
-        .get_return_values(5)
-        .expect("failed to extract return values");
-    let retdata_start = return_values[3]
-        .get_relocatable()
-        .expect("failed to get return data start");
-    let retdata_end = return_values[4]
-        .get_relocatable()
-        .expect("failed to get return data end");
+    match result.value {
+        RunResultValue::Success(values) => {
+            // The VM returns raw values for the inner type of PanicResult.
+            // For contracts, the inner type is (Span<felt252>,) which is represented
+            // as two felt252 values: (start_ptr, end_ptr) into VM memory.
+            // We need to dereference these pointers to get the actual array elements.
+            assert!(
+                values.len() == 2,
+                "expected Span<felt252> (2 values: start, end), got {} values",
+                values.len()
+            );
+            let start = values[0]
+                .to_usize()
+                .expect("span start pointer should fit in usize");
+            let end = values[1]
+                .to_usize()
+                .expect("span end pointer should fit in usize");
 
-    runner
-        .vm
-        .get_integer_range(
-            retdata_start,
-            (retdata_end - retdata_start).expect("return data length should not be negative"),
-        )
-        .expect("failed to access vm memory")
-        .iter()
-        .map(|c| c.clone().into_owned())
-        .collect_vec()
+            result.memory[start..end]
+                .iter()
+                .map(|cell| cell.expect("memory cell in span range should be initialized"))
+                .collect()
+        }
+        RunResultValue::Panic(values) => {
+            panic!("VM contract execution panicked: {:?}", values)
+        }
+    }
 }
 
 pub fn compare_inputless_program(program_path: &str) {
