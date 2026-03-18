@@ -2,7 +2,6 @@
 members = [
     "debug_utils",
     "debug_utils/sierra-emu",
-    "debug_utils/casm-data-flow",
     "debug_utils/cairo-native-stress",
     "binaries/cairo-native-compile",
     "binaries/cairo-native-dump",
@@ -95,9 +94,6 @@ walkdir = "2.5.0"
 
 # Can't update until https://github.com/magiclen/educe/issues/27.
 educe = "0.5.11"
-# Using git dependency since doing it otherwise might rise incompatibilities with
-# cairo-lang versions.
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "a87e9e6a2cc4b759ae30a9c1a08efabf78ca4c17" }
 # Can't use version > 0.14.7 due to deprecation, as stated in issue https://github.com/fizyk20/generic-array/issues/158
 generic-array = "<=0.14.7"
 
@@ -193,7 +189,6 @@ serde_json.workspace = true
 test-case.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"] }
 walkdir.workspace = true
-cairo-vm = { workspace = true, features = ["cairo-1-hints"] }
 
 [profile.optimized-dev]
 inherits = "dev"
