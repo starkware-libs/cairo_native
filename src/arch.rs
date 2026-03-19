@@ -110,7 +110,7 @@ impl AbiArgument for ValueWithInfoWrapper<'_> {
                 .to_bytes(buffer, find_dict_drop_override)?,
 
             (Value::Array(_), CoreTypeConcrete::Array(_)) => {
-                // TODO: Assert that `info.ty` matches all the values' types. See: https://github.com/lambdaclass/cairo_native/issues/1216
+                // TODO: Assert that `info.ty` matches all the values' types. See: https://github.com/starkware-libs/cairo_native/issues/1216
 
                 let abi_ptr = self.value.to_ptr(
                     self.arena,
@@ -126,7 +126,7 @@ impl AbiArgument for ValueWithInfoWrapper<'_> {
                 abi.capacity.to_bytes(buffer, find_dict_drop_override)?;
             }
             (Value::BoundedInt { .. }, CoreTypeConcrete::BoundedInt(_)) => {
-                // See: https://github.com/lambdaclass/cairo_native/issues/1217
+                // See: https://github.com/starkware-libs/cairo_native/issues/1217
                 native_panic!("todo: implement AbiArgument for Value::BoundedInt case")
             }
             (Value::Bytes31(value), CoreTypeConcrete::Bytes31(_)) => {

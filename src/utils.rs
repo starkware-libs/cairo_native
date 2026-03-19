@@ -598,7 +598,7 @@ mod tests {
 
     #[test]
     fn decode_error_message() {
-        // Checkout [issue 795](https://github.com/lambdaclass/cairo_native/issues/795) for context.
+        // Checkout [issue 795](https://github.com/starkware-libs/cairo_native/issues/795) for context.
         assert_eq!(
             super::decode_error_message(&[
                 97, 114, 103, 101, 110, 116, 47, 109, 117, 108, 116, 105, 99, 97, 108, 108, 45,
