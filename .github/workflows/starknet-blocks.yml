@@ -30,7 +30,7 @@ jobs:
       - name: Checkout Replay
         uses: actions/checkout@v4
         with:
-          repository: lambdaclass/starknet-replay
+          repository: starkware-libs/starknet-replay
           path: starknet-replay
           ref: 5e75e33d67de77fe68aba06e05571175c0976733
 
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout Sequencer
         uses: actions/checkout@v4
         with:
-          repository: lambdaclass/sequencer
+          repository: starkware-libs/sequencer
           path: sequencer
           # branch main-v0.14.2
           ref: 77a1a32b7b2c52edd9b634276e3bb28f5fbd750c
@@ -71,7 +71,7 @@ jobs:
         run: |
           # Updates sequencer dependency to local path
           name='[[:alnum:]_-]+'
-          sequencer_url='"https:\/\/github.com\/lambdaclass\/sequencer\.git"'
+          sequencer_url='"https:\/\/github.com\/starkware-libs\/sequencer\.git"'
           rev='"[^"]+"'
           new_path='"..\/sequencer\/crates\/\1"'
           sed -i'' -r "s/^($name) = \{ git = $sequencer_url, (rev|branch) = $rev/\1 = { path = $new_path/" Cargo.toml

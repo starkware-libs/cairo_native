@@ -20,7 +20,7 @@ members = [
 version = "0.9.0-rc.2"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/lambdaclass/cairo_native"
+repository = "https://github.com/starkware-libs/cairo_native"
 
 [workspace.dependencies]
 anyhow = "1.0"

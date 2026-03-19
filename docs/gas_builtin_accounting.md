@@ -128,7 +128,7 @@ in the IR.
 ### Final gas usage
 The final gas usage can be easily retrieved from the gas builtin value
 returned by the function. This is accomplished when
-[parsing the return values](https://github.com/lambdaclass/cairo_native/blob/65face8194054b7ed396a34a60e7b1595197543a/src/executor.rs#L286)
+[parsing the return values](https://github.com/starkware-libs/cairo_native/blob/65face8194054b7ed396a34a60e7b1595197543a/src/executor.rs#L286)
 from the function call:
 
 ```rust,ignore

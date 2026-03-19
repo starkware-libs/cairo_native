@@ -639,7 +639,7 @@ impl StarknetSyscallHandler for DummySyscallHandler {
     }
 }
 
-// TODO: Move to the correct place or remove if unused. See: https://github.com/lambdaclass/cairo_native/issues/1222
+// TODO: Move to the correct place or remove if unused. See: https://github.com/starkware-libs/cairo_native/issues/1222
 pub(crate) mod handler {
     use super::*;
     use crate::{

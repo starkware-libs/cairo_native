@@ -5,12 +5,12 @@
 A compiler to convert Cairo's intermediate representation "Sierra" code <br>
 to machine code via MLIR and LLVM.
 
-[Report Bug](https://github.com/lambdaclass/cairo_native/issues/new) · [Request Feature](https://github.com/lambdaclass/cairo_native/issues/new)
+[Report Bug](https://github.com/starkware-libs/cairo_native/issues/new) · [Request Feature](https://github.com/starkware-libs/cairo_native/issues/new)
 
 [![Telegram Chat][tg-badge]][tg-url]
-[![rust](https://github.com/lambdaclass/cairo_native/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdaclass/cairo_native/actions/workflows/ci.yml)
-[![codecov](https://img.shields.io/codecov/c/github/lambdaclass/cairo_native)](https://codecov.io/gh/lambdaclass/cairo_native)
-[![license](https://img.shields.io/github/license/lambdaclass/cairo_native)](/LICENSE)
+[![rust](https://github.com/starkware-libs/cairo_native/actions/workflows/ci.yml/badge.svg)](https://github.com/starkware-libs/cairo_native/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/starkware-libs/cairo_native)](https://codecov.io/gh/starkware-libs/cairo_native)
+[![license](https://img.shields.io/github/license/starkware-libs/cairo_native)](/LICENSE)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](/LICENSE-MIT)
 [![pr-welcome]](#-contributing)
 [![Crates.io Version](https://img.shields.io/crates/v/cairo_native)](https://crates.io/crates/cairo-native)
@@ -420,4 +420,4 @@ This project is dual-licensed under Apache 2.0 and MIT. You may choose either li
 
 See [Apache 2.0 License](/LICENSE) or [MIT License](/LICENSE-MIT) for more information.
 
-[developer documentation]: https://lambdaclass.github.io/cairo_native/cairo_native/docs/index.html
+[developer documentation]: https://starkware-libs.github.io/cairo_native/cairo_native/docs/index.html
