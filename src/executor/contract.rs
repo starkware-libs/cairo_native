@@ -53,7 +53,7 @@ use crate::{
     types::{array::ArrayMetadata, TypeBuilder},
     utils::{
         decode_error_message, generate_function_name, get_integer_layout, get_types_total_size,
-        libc_free, libc_malloc, BuiltinCosts,
+        BuiltinCosts,
     },
     OptLevel,
 };
@@ -499,7 +499,12 @@ impl AotContractExecutor {
 
         let data_ptr = match args.len() {
             0 => std::ptr::null_mut(),
-            _ => unsafe { libc_malloc(felt_layout.size() * args.len()).cast::<u8>() },
+            _ => unsafe {
+                crate::runtime::cairo_native__arena_alloc(
+                    (felt_layout.size() * args.len()) as u64,
+                    felt_layout.align() as u64,
+                )
+            },
         };
 
         for (idx, elem) in args.iter().enumerate() {
@@ -513,14 +518,17 @@ impl AotContractExecutor {
             };
         }
 
-        // Allocate metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut () }
+        // Allocate metadata struct: { max_len: u32, data_ptr: *mut () }
         let metadata_ptr = if data_ptr.is_null() {
             ptr::null_mut()
         } else {
             unsafe {
-                let metadata = libc_malloc(size_of::<ArrayMetadata>()).cast::<ArrayMetadata>();
+                let metadata = crate::runtime::cairo_native__arena_alloc(
+                    size_of::<ArrayMetadata>() as u64,
+                    align_of::<ArrayMetadata>() as u64,
+                )
+                .cast::<ArrayMetadata>();
                 metadata.write(ArrayMetadata {
-                    refcount: 1,
                     max_len: len_u32,
                     data_ptr,
                 });
@@ -678,15 +686,6 @@ impl AotContractExecutor {
                 data[31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
 
                 array_value.push(Felt::from_bytes_le(&data));
-            }
-
-            unsafe {
-                native_assert!(
-                    metadata.refcount == 1,
-                    "return array should have a reference count of 1"
-                );
-                libc_free(data_ptr.cast());
-                libc_free(metadata_ptr.cast());
             }
         }
 

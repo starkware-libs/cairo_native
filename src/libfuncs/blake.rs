@@ -88,7 +88,7 @@ fn build_blake_operation<'ctx, 'this>(
         .to_native_assert_error("runtime library should be available")?;
 
     let out_state_ptr =
-        runtime_bindings.box_alloc(context, helper, entry, location, size, align)?;
+        runtime_bindings.arena_alloc(context, helper, entry, location, size, align)?;
 
     runtime_bindings.libfunc_blake_compress(
         context,
