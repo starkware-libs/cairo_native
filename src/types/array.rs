@@ -15,9 +15,8 @@
 //! |   3   | `i32`       | Allocated capacity[^2].       |
 //!
 //! The ArrayMetadata struct contains:
-//!   1. Reference counter (`u32`).
-//!   2. Array max length (`u32`).
-//!   3. Pointer to array data (`*mut u8`).
+//!   1. Array max length (`u32`).
+//!   2. Pointer to array data (`*mut u8`).
 //!
 //! [^1]: This pointer is null when the array has not yet been allocated (i.e., initially).
 //! [^2]: Those numbers are number of items, **not bytes**.
@@ -27,7 +26,7 @@ use crate::{
     error::Result,
     metadata::{
         drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        realloc_bindings::ReallocBindingsMeta, MetadataStorage,
+        runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
     },
     utils::ProgramRegistryExt,
 };
@@ -39,13 +38,12 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::{arith, llvm, ods},
-    ir::{attribute::IntegerAttribute, r#type::IntegerType, Block, Location, Module, Type},
+    dialect::{func, llvm, ods, scf},
+    ir::{
+        attribute::IntegerAttribute, r#type::IntegerType, Block, BlockLike, Location, Module, Type,
+        Value,
+    },
     Context,
-};
-use melior::{
-    dialect::{arith::CmpiPredicate, func, scf},
-    ir::BlockLike,
 };
 use melior::{
     helpers::{ArithBlockExt, BuiltinBlockExt, GepIndex, LlvmBlockExt},
@@ -101,9 +99,12 @@ pub fn build<'ctx>(
     ))
 }
 
-/// This function clones the array shallowly. That is, it'll increment the reference counter but not
-/// actually clone anything. The deep clone implementation is provided in `src/libfuncs/array.rs` as
-/// part of some libfuncs's implementations.
+/// Array dup.
+///
+/// When the inner element type has a drop or dup override we must deep-copy
+/// the data buffer (and invoke the element dup override if one exists) so
+/// that each copy can be dropped independently. Otherwise the noop dup
+/// (returning the same value twice) is safe because drop is also a noop.
 pub fn build_dup<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
@@ -114,111 +115,34 @@ pub fn build_dup<'ctx>(
     let location = Location::unknown(context);
     let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
 
+    let has_drop = DropOverridesMeta::is_overriden(metadata, &info.ty);
+    let has_dup = DupOverridesMeta::is_overriden(metadata, &info.ty);
+
     let region = Region::new();
     let entry = region.append_block(Block::new(&[(value_ty, location)]));
 
-    let metadata_ptr = entry.extract_value(
-        context,
-        location,
-        entry.argument(0)?.into(),
-        llvm::r#type::pointer(context, 0),
-        0,
-    )?;
+    let arr = entry.argument(0)?.into();
 
-    let null_ptr =
-        entry.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
-    let is_empty = entry.append_op_result(
-        ods::llvm::icmp(
-            context,
-            IntegerType::new(context, 1).into(),
-            metadata_ptr,
-            null_ptr,
-            IntegerAttribute::new(IntegerType::new(context, 64).into(), 0).into(),
-            location,
-        )
-        .into(),
-    )?;
-
-    entry.append_operation(scf::r#if(
-        is_empty,
-        &[],
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[]));
-
-            block.append_operation(scf::r#yield(&[], location));
-            region
-        },
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[]));
-
-            // Metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut u8 }
-            // Access refcount field (index 0)
-            let refcount_ptr = block.gep(
-                context,
-                location,
-                metadata_ptr,
-                &[GepIndex::Const(0), GepIndex::Const(0)],
-                get_metadata_llvm_type(context),
-            )?;
-            let ref_count = block.load(
-                context,
-                location,
-                refcount_ptr,
-                IntegerType::new(context, 32).into(),
-            )?;
-
-            let k1 = block.const_int(context, location, 1, 32)?;
-            let ref_count = block.append_op_result(arith::addi(ref_count, k1, location))?;
-            block.store(context, location, refcount_ptr, ref_count)?;
-
-            block.append_operation(scf::r#yield(&[], location));
-            region
-        },
-        location,
-    ));
-
-    entry.append_operation(func::r#return(
-        &[entry.argument(0)?.into(), entry.argument(0)?.into()],
-        location,
-    ));
-    Ok(region)
-}
-
-/// This function decreases the reference counter of the array by one.
-/// If the reference counter reaches zero, then all the resources are freed.
-pub fn build_drop<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<InfoAndTypeConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, module));
+    if !has_drop && !has_dup {
+        // Inner type is trivial — noop dup is safe.
+        entry.append_operation(func::r#return(&[arr, arr], location));
+        return Ok(region);
     }
 
-    let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
+    // --- Deep-copy path ---
 
-    let elem_ty = registry.get_type(&info.ty)?;
-    let elem_stride = elem_ty.layout(registry)?.pad_to_align().size();
-    let elem_ty = elem_ty.build(context, module, registry, metadata, &info.ty)?;
+    let ptr_ty = llvm::r#type::pointer(context, 0);
+    let i64_ty = IntegerType::new(context, 64).into();
+    let i8_ty = IntegerType::new(context, 8).into();
 
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(value_ty, location)]));
+    let elem_info = registry.get_type(&info.ty)?;
+    let elem_stride = elem_info.layout(registry)?.pad_to_align().size();
+    let elem_align = elem_info.layout(registry)?.align();
+    let elem_ty = elem_info.build(context, module, registry, metadata, &info.ty)?;
 
-    let metadata_ptr = entry.extract_value(
-        context,
-        location,
-        entry.argument(0)?.into(),
-        llvm::r#type::pointer(context, 0),
-        0,
-    )?;
+    let metadata_ptr = entry.extract_value(context, location, arr, ptr_ty, 0)?;
 
-    let null_ptr =
-        entry.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
+    let null_ptr = entry.append_op_result(llvm::zero(ptr_ty, location))?;
     let is_null = entry.append_op_result(
         ods::llvm::icmp(
             context,
@@ -231,187 +155,231 @@ pub fn build_drop<'ctx>(
         .into(),
     )?;
 
-    entry.append_operation(scf::r#if(
+    let new_arr = entry.append_op_result(scf::r#if(
         is_null,
-        &[],
+        &[value_ty],
         {
-            // if the metadata pointer is null, do nothing
-
+            // Null metadata → empty array, noop.
             let region = Region::new();
             let block = region.append_block(Block::new(&[]));
-
-            block.append_operation(scf::r#yield(&[], location));
+            block.append_operation(scf::r#yield(&[arr], location));
             region
         },
         {
-            // if metadata exists, decrease the reference counter
-            // and, in case it reaches zero, free all the resources.
-
             let region = Region::new();
             let block = region.append_block(Block::new(&[]));
 
-            // Metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut u8 }
-            // Access refcount field (index 0)
-            let refcount_ptr = block.gep(
-                context,
-                location,
-                metadata_ptr,
-                &[GepIndex::Const(0), GepIndex::Const(0)],
-                get_metadata_llvm_type(context),
-            )?;
-            let ref_count = block.load(
-                context,
-                location,
-                refcount_ptr,
-                IntegerType::new(context, 32).into(),
-            )?;
+            let elem_stride_val = block.const_int(context, location, elem_stride, 64)?;
+            let k0 = block.const_int(context, location, 0, 64)?;
 
-            // if the reference counter is greater than 1, then it's shared
-            let k1 = block.const_int(context, location, 1, 32)?;
-            let is_shared = block.append_op_result(arith::cmpi(
-                context,
-                CmpiPredicate::Ne,
-                ref_count,
-                k1,
-                location,
-            ))?;
+            // Load max_len and data_ptr from old metadata.
+            let max_len = load_max_len(context, &block, location, metadata_ptr)?;
+            let max_len_64 = block.extui(max_len, i64_ty, location)?;
+            let data_ptr = load_data_ptr(context, &block, location, metadata_ptr)?;
 
-            block.append_operation(scf::r#if(
-                is_shared,
-                &[],
-                {
-                    // if the array is shared, decrease the reference counter by one
-                    let region = Region::new();
-                    let block = region.append_block(Block::new(&[]));
+            // Allocate new data buffer from arena and copy old contents.
+            let data_size = block.muli(max_len_64, elem_stride_val, location)?;
+            let data_align_val = block.const_int(context, location, elem_align, 64)?;
+            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
 
-                    let ref_count = block.append_op_result(arith::subi(ref_count, k1, location))?;
-                    block.store(context, location, refcount_ptr, ref_count)?;
+            let new_data_ptr =
+                rtb.arena_alloc(context, module, &block, location, data_size, data_align_val)?;
+            block.memcpy(context, location, data_ptr, new_data_ptr, data_size);
 
-                    block.append_operation(scf::r#yield(&[], location));
-                    region
-                },
-                {
-                    // if the array is not shared, drop all elements and free the memory
-                    let region = Region::new();
-                    let block = region.append_block(Block::new(&[]));
+            // If inner type has a dup override, iterate elements and invoke it
+            // on each pair so that ref-counted / owned inner values are properly
+            // duplicated.
+            if has_dup {
+                let offset_end = block.muli(max_len_64, elem_stride_val, location)?;
 
-                    if DropOverridesMeta::is_overriden(metadata, &info.ty) {
-                        let k0 = block.const_int(context, location, 0, 64)?;
-                        let elem_stride = block.const_int(context, location, elem_stride, 64)?;
+                block.append_operation(scf::r#for(
+                    k0,
+                    offset_end,
+                    elem_stride_val,
+                    {
+                        let region = Region::new();
+                        let inner = region.append_block(Block::new(&[(i64_ty, location)]));
 
-                        // Load max_len from metadata (field index 1)
-                        let max_len_ptr = block.gep(
+                        let offset = inner.argument(0)?.into();
+
+                        // Pointer to element in old buffer.
+                        let src_ptr = inner.gep(
                             context,
                             location,
-                            metadata_ptr,
-                            &[GepIndex::Const(0), GepIndex::Const(1)],
-                            get_metadata_llvm_type(context),
+                            data_ptr,
+                            &[GepIndex::Value(offset)],
+                            i8_ty,
                         )?;
-                        let max_len = block.load(
+                        let val = inner.load(context, location, src_ptr, elem_ty)?;
+
+                        let (orig, copy) = DupOverridesMeta::invoke_override(
+                            context, registry, module, &inner, &inner, location, metadata,
+                            &info.ty, val,
+                        )?;
+
+                        // Write back to the original buffer (dup may update
+                        // the value, e.g. Rc refcount).
+                        inner.store(context, location, src_ptr, orig)?;
+
+                        // Write copy to new buffer.
+                        let dst_ptr = inner.gep(
                             context,
                             location,
-                            max_len_ptr,
-                            IntegerType::new(context, 32).into(),
+                            new_data_ptr,
+                            &[GepIndex::Value(offset)],
+                            i8_ty,
                         )?;
-                        let max_len =
-                            block.extui(max_len, IntegerType::new(context, 64).into(), location)?;
-                        let offset_end = block.muli(max_len, elem_stride, location)?;
+                        inner.store(context, location, dst_ptr, copy)?;
 
-                        // Load data_ptr from metadata (field index 2)
-                        let data_ptr_ptr = block.gep(
-                            context,
-                            location,
-                            metadata_ptr,
-                            &[GepIndex::Const(0), GepIndex::Const(2)],
-                            get_metadata_llvm_type(context),
-                        )?;
-                        let data_ptr = block.load(
-                            context,
-                            location,
-                            data_ptr_ptr,
-                            llvm::r#type::pointer(context, 0),
-                        )?;
+                        inner.append_operation(scf::r#yield(&[], location));
+                        region
+                    },
+                    location,
+                ));
+            }
 
-                        // Drop each element in the array.
-                        block.append_operation(scf::r#for(
-                            k0,
-                            offset_end,
-                            elem_stride,
-                            {
-                                let region = Region::new();
-                                let block = region.append_block(Block::new(&[(
-                                    IntegerType::new(context, 64).into(),
-                                    location,
-                                )]));
+            // Allocate new metadata and populate it.
+            let meta_size = block.const_int(context, location, calc_metadata_size(), 64)?;
+            let meta_align = block.const_int(context, location, calc_metadata_align(), 64)?;
+            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
 
-                                let elem_offset = block.argument(0)?.into();
-                                let elem_ptr = block.gep(
-                                    context,
-                                    location,
-                                    data_ptr,
-                                    &[GepIndex::Value(elem_offset)],
-                                    IntegerType::new(context, 8).into(),
-                                )?;
-                                let elem_val = block.load(context, location, elem_ptr, elem_ty)?;
+            let new_meta =
+                rtb.arena_alloc(context, module, &block, location, meta_size, meta_align)?;
 
-                                DropOverridesMeta::invoke_override(
-                                    context, registry, module, &block, &block, location, metadata,
-                                    &info.ty, elem_val,
-                                )?;
+            store_max_len(context, &block, location, new_meta, max_len)?;
+            store_data_ptr(context, &block, location, new_meta, new_data_ptr)?;
 
-                                block.append_operation(scf::r#yield(&[], location));
-                                region
-                            },
-                            location,
-                        ));
-                    }
+            // Build new array struct with the new metadata pointer and
+            // capacity equal to max_len (matches the size of the new buffer
+            // allocated above;
+            let new_arr = block.insert_value(context, location, arr, new_meta, 0)?;
+            let new_arr = block.insert_value(context, location, new_arr, max_len, 3)?;
 
-                    // Load data_ptr from metadata (field index 2) and free it
-                    let data_ptr_ptr = block.gep(
-                        context,
-                        location,
-                        metadata_ptr,
-                        &[GepIndex::Const(0), GepIndex::Const(2)],
-                        get_metadata_llvm_type(context),
-                    )?;
-                    let data_ptr = block.load(
-                        context,
-                        location,
-                        data_ptr_ptr,
-                        llvm::r#type::pointer(context, 0),
-                    )?;
-
-                    // Free the data allocation
-                    block.append_operation(ReallocBindingsMeta::free(context, data_ptr, location)?);
-
-                    // Free the metadata struct
-                    block.append_operation(ReallocBindingsMeta::free(
-                        context,
-                        metadata_ptr,
-                        location,
-                    )?);
-
-                    block.append_operation(scf::r#yield(&[], location));
-                    region
-                },
-                location,
-            ));
-
-            block.append_operation(scf::r#yield(&[], location));
+            block.append_operation(scf::r#yield(&[new_arr], location));
             region
         },
         location,
-    ));
+    ))?;
+
+    entry.append_operation(func::r#return(&[arr, new_arr], location));
+    Ok(region)
+}
+
+/// Memory noop drop — arena owns all memory.
+///
+/// If the inner element type has a drop override, we iterate over `0..max_len`
+/// elements and invoke the element drop. Otherwise this is a pure noop.
+pub fn build_drop<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    metadata: &mut MetadataStorage,
+    info: &WithSelf<InfoAndTypeConcreteType>,
+) -> Result<Region<'ctx>> {
+    let location = Location::unknown(context);
+
+    let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
+
+    let elem_ty = registry.get_type(&info.ty)?;
+    let elem_stride = elem_ty.layout(registry)?.pad_to_align().size();
+    let elem_ty = elem_ty.build(context, module, registry, metadata, &info.ty)?;
+
+    let region = Region::new();
+    let entry = region.append_block(Block::new(&[(value_ty, location)]));
+
+    if DropOverridesMeta::is_overriden(metadata, &info.ty) {
+        let metadata_ptr = entry.extract_value(
+            context,
+            location,
+            entry.argument(0)?.into(),
+            llvm::r#type::pointer(context, 0),
+            0,
+        )?;
+
+        let null_ptr =
+            entry.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
+        let is_null = entry.append_op_result(
+            ods::llvm::icmp(
+                context,
+                IntegerType::new(context, 1).into(),
+                metadata_ptr,
+                null_ptr,
+                IntegerAttribute::new(IntegerType::new(context, 64).into(), 0).into(),
+                location,
+            )
+            .into(),
+        )?;
+
+        entry.append_operation(scf::r#if(
+            is_null,
+            &[],
+            {
+                let region = Region::new();
+                let block = region.append_block(Block::new(&[]));
+                block.append_operation(scf::r#yield(&[], location));
+                region
+            },
+            {
+                let region = Region::new();
+                let block = region.append_block(Block::new(&[]));
+
+                let k0 = block.const_int(context, location, 0, 64)?;
+                let elem_stride_val = block.const_int(context, location, elem_stride, 64)?;
+
+                let max_len = load_max_len(context, &block, location, metadata_ptr)?;
+                let max_len =
+                    block.extui(max_len, IntegerType::new(context, 64).into(), location)?;
+                let offset_end = block.muli(max_len, elem_stride_val, location)?;
+
+                let data_ptr = load_data_ptr(context, &block, location, metadata_ptr)?;
+
+                // Drop each element in the array.
+                block.append_operation(scf::r#for(
+                    k0,
+                    offset_end,
+                    elem_stride_val,
+                    {
+                        let region = Region::new();
+                        let block = region.append_block(Block::new(&[(
+                            IntegerType::new(context, 64).into(),
+                            location,
+                        )]));
+
+                        let elem_offset = block.argument(0)?.into();
+                        let elem_ptr = block.gep(
+                            context,
+                            location,
+                            data_ptr,
+                            &[GepIndex::Value(elem_offset)],
+                            IntegerType::new(context, 8).into(),
+                        )?;
+                        let elem_val = block.load(context, location, elem_ptr, elem_ty)?;
+
+                        DropOverridesMeta::invoke_override(
+                            context, registry, module, &block, &block, location, metadata,
+                            &info.ty, elem_val,
+                        )?;
+
+                        block.append_operation(scf::r#yield(&[], location));
+                        region
+                    },
+                    location,
+                ));
+
+                block.append_operation(scf::r#yield(&[], location));
+                region
+            },
+            location,
+        ));
+    }
 
     entry.append_operation(func::r#return(&[], location));
     Ok(region)
 }
 
-/// Metadata struct definition for arrays (RC, maxlen, data_ptr)
-/// Note: capacity stays in the array struct, not here!
+/// Metadata struct definition for arrays (maxlen, data_ptr).
 #[repr(C)]
 pub struct ArrayMetadata {
-    pub refcount: u32,
     pub max_len: u32,
     pub data_ptr: *mut u8,
 }
@@ -421,22 +389,129 @@ pub fn calc_metadata_size() -> usize {
     std::mem::size_of::<ArrayMetadata>()
 }
 
-/// Get the LLVM struct type for ArrayMetadata: { refcount: i32, max_len: i32, data_ptr: ptr }
+/// Returns the metadata struct alignment.
+pub fn calc_metadata_align() -> usize {
+    std::mem::align_of::<ArrayMetadata>()
+}
+
+/// Get the LLVM struct type for ArrayMetadata: { max_len: i32, data_ptr: ptr }
 ///
 /// Field indices:
-/// - 0: refcount (u32)
-/// - 1: max_len (u32)
-/// - 2: data_ptr (*mut u8)
+/// - 0: max_len (u32)
+/// - 1: data_ptr (*mut u8)
 pub fn get_metadata_llvm_type(context: &Context) -> Type<'_> {
     llvm::r#type::r#struct(
         context,
         &[
-            IntegerType::new(context, 32).into(), // refcount: u32
             IntegerType::new(context, 32).into(), // max_len: u32
             llvm::r#type::pointer(context, 0),    // data_ptr: *mut u8
         ],
         false,
     )
+}
+
+#[repr(i32)]
+enum MetadataField {
+    MaxLen = 0,
+    DataPtr = 1,
+}
+
+fn metadata_field_ptr<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    metadata_ptr: Value<'ctx, 'this>,
+    field: MetadataField,
+) -> Result<Value<'ctx, 'this>> {
+    Ok(block.gep(
+        context,
+        location,
+        metadata_ptr,
+        &[GepIndex::Const(0), GepIndex::Const(field as i32)],
+        get_metadata_llvm_type(context),
+    )?)
+}
+
+/// Load `max_len` (i32) from the ArrayMetadata struct.
+pub fn load_max_len<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    metadata_ptr: Value<'ctx, 'this>,
+) -> Result<Value<'ctx, 'this>> {
+    let field_ptr = metadata_field_ptr(
+        context,
+        block,
+        location,
+        metadata_ptr,
+        MetadataField::MaxLen,
+    )?;
+    Ok(block.load(
+        context,
+        location,
+        field_ptr,
+        IntegerType::new(context, 32).into(),
+    )?)
+}
+
+/// Load `data_ptr` from the ArrayMetadata struct.
+pub fn load_data_ptr<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    metadata_ptr: Value<'ctx, 'this>,
+) -> Result<Value<'ctx, 'this>> {
+    let field_ptr = metadata_field_ptr(
+        context,
+        block,
+        location,
+        metadata_ptr,
+        MetadataField::DataPtr,
+    )?;
+    Ok(block.load(
+        context,
+        location,
+        field_ptr,
+        llvm::r#type::pointer(context, 0),
+    )?)
+}
+
+/// Store `max_len` (i32) into the ArrayMetadata struct.
+pub fn store_max_len<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    metadata_ptr: Value<'ctx, 'this>,
+    max_len: Value<'ctx, 'this>,
+) -> Result<()> {
+    let field_ptr = metadata_field_ptr(
+        context,
+        block,
+        location,
+        metadata_ptr,
+        MetadataField::MaxLen,
+    )?;
+    block.store(context, location, field_ptr, max_len)?;
+    Ok(())
+}
+
+/// Store `data_ptr` into the ArrayMetadata struct.
+pub fn store_data_ptr<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    metadata_ptr: Value<'ctx, 'this>,
+    data_ptr: Value<'ctx, 'this>,
+) -> Result<()> {
+    let field_ptr = metadata_field_ptr(
+        context,
+        block,
+        location,
+        metadata_ptr,
+        MetadataField::DataPtr,
+    )?;
+    block.store(context, location, field_ptr, data_ptr)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -467,5 +542,16 @@ mod test {
                 ]),
             ]),
         );
+    }
+
+    /// Noop array dup + element type with destructive drop = double-free.
+    /// SquashedFelt252Dict's drop calls Rc::from_raw → dealloc.
+    /// With buggy noop dup this SIGABRTs; with correct dup it returns 6.
+    #[test]
+    fn test_array_dup_no_double_free() {
+        let program =
+            get_compiled_program("test_data_artifacts/programs/types/array_dup_double_free");
+        let result = run_program(&program, "run_test", &[]).return_value;
+        assert_eq!(result, Value::Felt252(6.into()));
     }
 }

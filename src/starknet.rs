@@ -642,10 +642,7 @@ impl StarknetSyscallHandler for DummySyscallHandler {
 // TODO: Move to the correct place or remove if unused. See: https://github.com/starkware-libs/cairo_native/issues/1222
 pub(crate) mod handler {
     use super::*;
-    use crate::{
-        types::array::ArrayMetadata,
-        utils::{libc_free, libc_malloc},
-    };
+    use crate::{types::array::ArrayMetadata, utils::libc_malloc};
     use std::{
         alloc::Layout,
         fmt::Debug,
@@ -1063,18 +1060,23 @@ pub(crate) mod handler {
                 _ => {
                     let len: u32 = data.len().try_into().unwrap();
 
-                    // Allocate data (no prefix)
-                    let data_ptr =
-                        libc_malloc(Layout::array::<E>(data.len()).unwrap().size()) as *mut E;
+                    // Allocate data from the arena (no prefix).
+                    let data_layout = Layout::array::<E>(data.len()).unwrap();
+                    let data_ptr = crate::runtime::cairo_native__arena_alloc(
+                        data_layout.size() as u64,
+                        data_layout.align() as u64,
+                    ) as *mut E;
 
                     for (i, val) in data.iter().enumerate() {
                         data_ptr.add(i).write(val.clone());
                     }
 
-                    let metadata_ptr =
-                        libc_malloc(size_of::<ArrayMetadata>()) as *mut ArrayMetadata;
+                    let metadata_layout = Layout::new::<ArrayMetadata>();
+                    let metadata_ptr = crate::runtime::cairo_native__arena_alloc(
+                        metadata_layout.size() as u64,
+                        metadata_layout.align() as u64,
+                    ) as *mut ArrayMetadata;
                     metadata_ptr.write(ArrayMetadata {
-                        refcount: 1,
                         max_len: len,
                         data_ptr: data_ptr.cast::<u8>(),
                     });
@@ -1085,27 +1087,6 @@ pub(crate) mod handler {
                         until: len,
                         capacity: len,
                     }
-                }
-            }
-        }
-
-        unsafe fn drop_mlir_array<E>(data: &ArrayAbi<E>) {
-            if data.ptr.is_null() {
-                return;
-            }
-
-            let metadata_ptr = data.ptr.cast::<ArrayMetadata>();
-            let metadata = &mut *metadata_ptr;
-
-            match metadata.refcount {
-                1 => {
-                    // Last reference - free data and metadata
-                    libc_free(metadata.data_ptr.cast());
-                    libc_free(metadata_ptr.cast());
-                }
-                n => {
-                    // Decrement refcount
-                    metadata.refcount = n - 1;
                 }
             }
         }
@@ -1417,9 +1398,6 @@ pub(crate) mod handler {
             let contract_address_salt = Felt::from(contract_address_salt);
 
             let calldata_vec: Vec<_> = calldata.into();
-            unsafe {
-                Self::drop_mlir_array(calldata);
-            }
 
             let result = ptr.deploy(
                 class_hash,
@@ -1476,9 +1454,6 @@ pub(crate) mod handler {
             let function_selector = Felt::from(function_selector);
 
             let calldata_vec: Vec<Felt> = calldata.into();
-            unsafe {
-                Self::drop_mlir_array(calldata);
-            }
 
             let result = ptr.library_call(class_hash, function_selector, &calldata_vec, gas);
 
@@ -1509,9 +1484,6 @@ pub(crate) mod handler {
             let entry_point_selector = Felt::from(entry_point_selector);
 
             let calldata_vec: Vec<Felt> = calldata.into();
-            unsafe {
-                Self::drop_mlir_array(calldata);
-            }
 
             let result = ptr.call_contract(address, entry_point_selector, &calldata_vec, gas);
 
@@ -1584,11 +1556,6 @@ pub(crate) mod handler {
             let keys_vec: Vec<_> = keys.into();
             let data_vec: Vec<_> = data.into();
 
-            unsafe {
-                Self::drop_mlir_array(keys);
-                Self::drop_mlir_array(data);
-            }
-
             let result = ptr.emit_event(&keys_vec, &data_vec, gas);
 
             *result_ptr = match result {
@@ -1611,10 +1578,6 @@ pub(crate) mod handler {
         ) {
             let to_address = Felt::from(to_address);
             let payload_vec: Vec<_> = payload.into();
-
-            unsafe {
-                Self::drop_mlir_array(payload);
-            }
 
             let result = ptr.send_message_to_l1(to_address, &payload_vec, gas);
 
@@ -1652,9 +1615,6 @@ pub(crate) mod handler {
             };
 
             let result = ptr.keccak(input_vec, gas);
-            unsafe {
-                Self::drop_mlir_array(input);
-            }
 
             *result_ptr = match result {
                 Ok(x) => SyscallResultAbi {
@@ -1949,13 +1909,7 @@ pub(crate) mod handler {
             let entry_point_selector = Felt::from(entry_point_selector);
 
             let calldata_vec: Vec<Felt> = calldata.into();
-            unsafe {
-                Self::drop_mlir_array(calldata);
-            }
             let signature_vec: Vec<Felt> = signature.into();
-            unsafe {
-                Self::drop_mlir_array(signature);
-            }
 
             let result = ptr.meta_tx_v0(
                 address,
@@ -1989,10 +1943,6 @@ pub(crate) mod handler {
         ) {
             let selector = Felt::from(selector);
             let input_vec: Vec<_> = input.into();
-
-            unsafe {
-                Self::drop_mlir_array(input);
-            }
 
             let result = ptr
                 .cheatcode(selector, &input_vec)
