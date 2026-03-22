@@ -9,7 +9,6 @@ use crate::{
     libfuncs::r#struct::build_struct_value,
     metadata::{
         drop_overrides::DropOverridesMeta,
-        realloc_bindings::ReallocBindingsMeta,
         runtime_bindings::{CircuitArithOperationType, RuntimeBindingsMeta},
         MetadataStorage,
     },
@@ -102,8 +101,6 @@ fn build_init_circuit_data<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let circuit_info = match registry.get_type(&info.ty)? {
         CoreTypeConcrete::Circuit(CircuitTypeConcrete::Circuit(info)) => &info.circuit_info,
         _ => return Err(SierraAssertError::BadTypeInfo.into()),
@@ -119,22 +116,21 @@ fn build_init_circuit_data<'ctx, 'this>(
 
     // Calculate full capacity for array.
     let capacity = circuit_info.n_inputs;
-    let u384_layout = get_integer_layout(384);
-    let capacity_bytes = layout_repeat(&u384_layout, capacity)?
-        .0
-        .pad_to_align()
-        .size();
-    let capacity_bytes_value = entry.const_int(context, location, capacity_bytes, 64)?;
+    let inputs_layout = layout_repeat(&get_integer_layout(384), capacity)?.0;
+    let capacity_bytes_value =
+        entry.const_int(context, location, inputs_layout.pad_to_align().size(), 64)?;
 
-    // Alloc memory for array.
-    let ptr_ty = llvm::r#type::pointer(context, 0);
-    let ptr = entry.append_op_result(llvm::zero(ptr_ty, location))?;
-    let ptr = entry.append_op_result(ReallocBindingsMeta::realloc(
+    // Alloc memory for array from the arena.
+    let align_value = entry.const_int(context, location, inputs_layout.align(), 64)?;
+    let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let ptr = rtb.arena_alloc(
         context,
-        ptr,
-        capacity_bytes_value,
+        helper.module,
+        entry,
         location,
-    )?)?;
+        capacity_bytes_value,
+        align_value,
+    )?;
 
     // Create accumulator struct.
     let k0 = entry.const_int(context, location, 0, 64)?;
@@ -309,8 +305,6 @@ fn build_eval<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let circuit_info = match registry.get_type(&info.ty)? {
         CoreTypeConcrete::Circuit(CircuitTypeConcrete::Circuit(info)) => &info.circuit_info,
         _ => return Err(SierraAssertError::BadTypeInfo.into()),
@@ -373,21 +367,22 @@ fn build_eval<'ctx, 'this>(
 
         // Calculate capacity for array.
         let outputs_capacity = circuit_info.values.len();
-        let u384_integer_layout = get_integer_layout(384);
-        let outputs_layout = layout_repeat(&u384_integer_layout, outputs_capacity)?.0;
-        let outputs_capacity_bytes = outputs_layout.pad_to_align().size();
+        let outputs_layout = layout_repeat(&get_integer_layout(384), outputs_capacity)?.0;
         let outputs_capacity_bytes_value =
-            ok_block.const_int(context, location, outputs_capacity_bytes, 64)?;
+            ok_block.const_int(context, location, outputs_layout.pad_to_align().size(), 64)?;
 
-        // Alloc memory for array.
-        let ptr_ty = llvm::r#type::pointer(context, 0);
-        let outputs_ptr = ok_block.append_op_result(llvm::zero(ptr_ty, location))?;
-        let outputs_ptr = ok_block.append_op_result(ReallocBindingsMeta::realloc(
+        // Alloc memory for array from the arena.
+        let outputs_align_value =
+            ok_block.const_int(context, location, outputs_layout.align(), 64)?;
+        let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+        let outputs_ptr = rtb.arena_alloc(
             context,
-            outputs_ptr,
-            outputs_capacity_bytes_value,
+            helper.module,
+            ok_block,
             location,
-        )?)?;
+            outputs_capacity_bytes_value,
+            outputs_align_value,
+        )?;
 
         // Insert evaluated gates into the array.
         for (i, gate) in gates.into_iter().enumerate() {
