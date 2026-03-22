@@ -1863,14 +1863,24 @@ pub(crate) mod handler {
             state: *mut [u32; 8],
             block: &[u32; 16],
         ) {
-            let state_ref = unsafe { state.as_mut().unwrap() };
+            // Sha256StateHandle is Copy in corelib, so the input pointer may be
+            // aliased by other live copies. Mutate a fresh arena slot rather than
+            // the input buffer to keep aliased copies observing the prior state.
+            let new_state = unsafe {
+                crate::runtime::cairo_native__arena_alloc(
+                    std::mem::size_of::<[u32; 8]>() as u64,
+                    std::mem::align_of::<[u32; 8]>() as u64,
+                ) as *mut [u32; 8]
+            };
+            unsafe { std::ptr::copy_nonoverlapping(state, new_state, 1) };
+            let state_ref = unsafe { new_state.as_mut().unwrap() };
             let result = ptr.sha256_process_block(state_ref, block, gas);
 
             *result_ptr = match result {
-                Ok(x) => SyscallResultAbi {
+                Ok(_) => SyscallResultAbi {
                     ok: ManuallyDrop::new(SyscallResultAbiOk {
                         tag: 0u8,
-                        payload: ManuallyDrop::new(state),
+                        payload: ManuallyDrop::new(new_state),
                     }),
                 },
                 Err(e) => Self::wrap_error(&e),
