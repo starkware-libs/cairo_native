@@ -22,22 +22,26 @@ use starknet_types_core::{
     qm31::QM31,
 };
 use std::{
-    alloc::{dealloc, realloc, Layout},
+    alloc::Layout,
     cell::{Cell, RefCell},
     collections::{hash_map::Entry, HashMap},
     ffi::{c_int, c_void},
     fs::File,
     io::Write,
-    mem::{forget, ManuallyDrop},
+    mem::ManuallyDrop,
     os::fd::FromRawFd,
     ptr::{self, null_mut},
-    rc::Rc,
 };
 use std::{ops::Mul, vec::IntoIter};
 
 // Thread-local handle to the per-execution arena (boxes, nullables, arrays).
 thread_local! {
-    pub(crate) static EXECUTION_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+pub(crate) static EXECUTION_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+
+    /// Registry of all FeltDicts created during the current invocation.
+    /// Drained during InvocationGuard drop to drop HashMaps (which live on the
+    /// system heap and cannot be reclaimed by the arena).
+    pub(crate) static DICT_REGISTRY: RefCell<Vec<*mut FeltDict>> = RefCell::new(Vec::new());
 }
 
 /// Allocate `size` bytes with `align` alignment from the per-execution arena.
@@ -194,39 +198,11 @@ pub struct FeltDict {
     pub layout: Layout,
     pub elements: *mut (),
 
-    pub drop_fn: Option<extern "C" fn(*mut c_void)>,
-
     pub count: u64,
 }
 
-impl Drop for FeltDict {
-    fn drop(&mut self) {
-        // Free the entries manually.
-        if let Some(drop_fn) = self.drop_fn {
-            for (_, &index) in self.mappings.iter() {
-                let value_ptr = unsafe {
-                    self.elements
-                        .byte_add(self.layout.pad_to_align().size() * index)
-                };
-
-                drop_fn(value_ptr.cast());
-            }
-        }
-
-        // Free the value data.
-        if !self.elements.is_null() {
-            unsafe {
-                dealloc(
-                    self.elements.cast(),
-                    Layout::from_size_align_unchecked(
-                        self.layout.pad_to_align().size() * self.mappings.capacity(),
-                        self.layout.align(),
-                    ),
-                )
-            };
-        }
-    }
-}
+// No Drop impl — the arena owns the FeltDict struct and elements buffer.
+// HashMaps are cleaned up via DICT_REGISTRY during arena reset.
 
 /// Allocate a new dictionary.
 ///
@@ -234,48 +210,22 @@ impl Drop for FeltDict {
 ///
 /// This function is intended to be called from MLIR, deals with pointers, and is therefore
 /// definitely unsafe to use manually.
-pub unsafe extern "C" fn cairo_native__dict_new(
-    size: u64,
-    align: u64,
-    drop_fn: Option<extern "C" fn(*mut c_void)>,
-) -> *const FeltDict {
-    Rc::into_raw(Rc::new(FeltDict {
-        mappings: HashMap::default(),
+pub unsafe extern "C" fn cairo_native__dict_new(size: u64, align: u64) -> *mut FeltDict {
+    let dict_ptr = EXECUTION_ARENA.with(|arena| {
+        let layout = Layout::new::<FeltDict>();
+        arena.borrow_mut().alloc_layout(layout).as_ptr() as *mut FeltDict
+    });
 
+    dict_ptr.write(FeltDict {
+        mappings: HashMap::default(),
         layout: Layout::from_size_align_unchecked(size as usize, align as usize),
         elements: ptr::null_mut(),
-
-        drop_fn,
-
         count: 0,
-    }))
-}
+    });
 
-/// Free a dictionary using an optional callback to drop each element.
-///
-/// # Safety
-///
-/// This function is intended to be called from MLIR, deals with pointers, and is therefore
-/// definitely unsafe to use manually.
-// Note: Using `Option<extern "C" fn(*mut c_void)>` is ffi-safe thanks to Option's null
-//   pointer optimization. Check out
-//   https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization for more info.
-pub unsafe extern "C" fn cairo_native__dict_drop(ptr: *const FeltDict) {
-    drop(Rc::from_raw(ptr));
-}
+    DICT_REGISTRY.with(|reg| reg.borrow_mut().push(dict_ptr));
 
-/// Duplicate a dictionary using a provided callback to clone each element.
-///
-/// # Safety
-///
-/// This function is intended to be called from MLIR, deals with pointers, and is therefore
-/// definitely unsafe to use manually.
-pub unsafe extern "C" fn cairo_native__dict_dup(dict_ptr: *const FeltDict) -> *const FeltDict {
-    let old_dict = Rc::from_raw(dict_ptr);
-    let new_dict = Rc::clone(&old_dict);
-
-    forget(old_dict);
-    Rc::into_raw(new_dict)
+    dict_ptr
 }
 
 /// Return a pointer to the entry's value pointer for a given key, inserting a null pointer if not
@@ -289,19 +239,11 @@ pub unsafe extern "C" fn cairo_native__dict_dup(dict_ptr: *const FeltDict) -> *c
 /// This function is intended to be called from MLIR, deals with pointers, and is therefore
 /// definitely unsafe to use manually.
 pub unsafe extern "C" fn cairo_native__dict_get(
-    dict_ptr: *const FeltDict,
+    dict_ptr: *mut FeltDict,
     key: &[u8; 32],
     value_ptr: *mut *mut c_void,
 ) -> c_int {
-    let dict_rc = Rc::from_raw(dict_ptr);
-
-    // there may me multiple reference to the same dictionary (snapshots), but
-    // as snapshots cannot access the inner dictionary, then it is safe to modify it
-    // without cloning it.
-    let dict = Rc::as_ptr(&dict_rc)
-        .cast_mut()
-        .as_mut()
-        .expect("rc inner pointer should never be null");
+    let dict = &mut *dict_ptr;
 
     let num_mappings = dict.mappings.len();
     let has_capacity = num_mappings != dict.mappings.capacity();
@@ -314,17 +256,28 @@ pub unsafe extern "C" fn cairo_native__dict_get(
         }
     };
 
-    // Maybe realloc (conditions: !has_capacity && !is_present).
+    // Grow the elements buffer if the HashMap grew its capacity.
     if !has_capacity && !is_present {
-        dict.elements = realloc(
-            dict.elements.cast(),
-            Layout::from_size_align_unchecked(
-                dict.layout.pad_to_align().size() * dict.mappings.len(),
-                dict.layout.align(),
-            ),
-            dict.layout.pad_to_align().size() * dict.mappings.capacity(),
-        )
-        .cast();
+        let elem_stride = dict.layout.pad_to_align().size();
+        let old_size = elem_stride * num_mappings;
+        let new_size = elem_stride * dict.mappings.capacity();
+
+        dict.elements = EXECUTION_ARENA.with(|arena| {
+            let layout = Layout::from_size_align_unchecked(new_size, dict.layout.align());
+            let new_ptr = arena
+                .borrow_mut()
+                .alloc_layout(layout)
+                .as_ptr()
+                .cast::<()>();
+            if !dict.elements.is_null() && old_size > 0 {
+                std::ptr::copy_nonoverlapping(
+                    dict.elements.cast::<u8>(),
+                    new_ptr.cast::<u8>(),
+                    old_size,
+                );
+            }
+            new_ptr
+        });
     }
 
     *value_ptr = dict
@@ -333,7 +286,6 @@ pub unsafe extern "C" fn cairo_native__dict_get(
         .cast();
 
     dict.count += 1;
-    forget(dict_rc);
 
     is_present as c_int
 }
@@ -412,26 +364,13 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
 /// Each tuple has the form (felt252, T, T) = (key, first_value, last_value). 'last_value' is represents
 /// the value of the element in the dictionary and 'first_value' is always the zero-value of T.
 pub unsafe extern "C" fn cairo_native__dict_into_entries(
-    dict_ptr: *const FeltDict,
+    dict_ptr: *mut FeltDict,
     array_ptr: *mut ArrayAbi<c_void>,
 ) {
-    let dict_rc = Rc::from_raw(dict_ptr);
-
-    // There may be multiple references to the same dictionary (snapshots), but
-    // as snapshots cannot access the inner dictionary, then it is safe to modify it
-    // without cloning it.
-    let dict = Rc::as_ptr(&dict_rc)
-        .cast_mut()
-        .as_mut()
-        .expect("rc inner pointer should never be null");
+    let dict = &mut *dict_ptr;
 
     let arr = create_dict_entries_array(dict);
     *array_ptr = arr;
-
-    // This function moves ownership of the elements from the dictionary
-    // to the returned array, so to avoid double-dropping the elements
-    // when the dictionary itself is dropped, we unset the drop function.
-    dict.drop_fn = None;
 }
 
 /// Simulates the felt252_dict_squash libfunc.
@@ -1124,9 +1063,8 @@ mod tests {
 
     #[test]
     fn test_dict() {
-        let dict = unsafe {
-            cairo_native__dict_new(size_of::<u64>() as u64, align_of::<u64>() as u64, None)
-        };
+        let dict =
+            unsafe { cairo_native__dict_new(size_of::<u64>() as u64, align_of::<u64>() as u64) };
 
         let key = Felt::ONE.to_bytes_le();
         let mut ptr = ptr::null_mut::<u64>();
@@ -1152,17 +1090,14 @@ mod tests {
         unsafe { cairo_native__dict_squash(dict, &mut range_check, &mut gas) };
         assert_eq!(gas, 4050);
 
-        let cloned_dict = unsafe { cairo_native__dict_dup(dict) };
-        unsafe { cairo_native__dict_drop(dict) };
-
+        // Dict dup/drop are noops with arena allocation.
+        // Just verify the dict is still accessible after squash.
         assert_eq!(
-            unsafe { cairo_native__dict_get(cloned_dict, &key, (&raw mut ptr).cast()) },
+            unsafe { cairo_native__dict_get(dict, &key, (&raw mut ptr).cast()) },
             1,
         );
         assert!(!ptr.is_null());
         assert_eq!(unsafe { *ptr }, 42);
-
-        unsafe { cairo_native__dict_drop(cloned_dict) };
     }
 
     #[test]

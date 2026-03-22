@@ -312,12 +312,7 @@ where
             }
         };
 
-        let executor = AotNativeExecutor::new(
-            shared_library,
-            registry,
-            metadata,
-            native_module.metadata().get().cloned().unwrap_or_default(),
-        );
+        let executor = AotNativeExecutor::new(shared_library, registry, metadata);
         let executor = Arc::new(executor);
 
         self.cache.insert(key, executor.clone());

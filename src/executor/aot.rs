@@ -1,9 +1,7 @@
 use crate::{
     error::Error,
     execution_result::{ContractExecutionResult, ExecutionResult},
-    metadata::{
-        felt252_dict::Felt252DictOverrides, gas::GasMetadata, runtime_bindings::setup_runtime,
-    },
+    metadata::{gas::GasMetadata, runtime_bindings::setup_runtime},
     module::NativeModule,
     starknet::{DummySyscallHandler, StarknetSyscallHandler},
     utils::generate_function_name,
@@ -12,7 +10,7 @@ use crate::{
 };
 use cairo_lang_sierra::{
     extensions::core::{CoreLibfunc, CoreType},
-    ids::{ConcreteTypeId, FunctionId},
+    ids::FunctionId,
     program::FunctionSignature,
     program_registry::ProgramRegistry,
 };
@@ -20,7 +18,7 @@ use educe::Educe;
 use libc::c_void;
 use libloading::Library;
 use starknet_types_core::felt::Felt;
-use std::{io, mem::transmute};
+use std::io;
 use tempfile::NamedTempFile;
 
 #[derive(Educe)]
@@ -32,7 +30,6 @@ pub struct AotNativeExecutor {
     registry: ProgramRegistry<CoreType, CoreLibfunc>,
 
     gas_metadata: GasMetadata,
-    dict_overrides: Felt252DictOverrides,
 }
 
 unsafe impl Send for AotNativeExecutor {}
@@ -43,13 +40,11 @@ impl AotNativeExecutor {
         library: Library,
         registry: ProgramRegistry<CoreType, CoreLibfunc>,
         gas_metadata: GasMetadata,
-        dict_overrides: Felt252DictOverrides,
     ) -> Self {
         let executor = Self {
             library,
             registry,
             gas_metadata,
-            dict_overrides,
         };
 
         setup_runtime(|name| executor.find_symbol_ptr(name));
@@ -86,7 +81,6 @@ impl AotNativeExecutor {
             unsafe { Library::new(&library_path)? },
             registry,
             metadata.remove().ok_or(Error::MissingMetadata)?,
-            metadata.remove().unwrap_or_default(),
         ))
     }
 
@@ -107,7 +101,6 @@ impl AotNativeExecutor {
             args,
             available_gas,
             Option::<DummySyscallHandler>::None,
-            self.build_find_dict_drop_override(),
         )
     }
 
@@ -129,7 +122,6 @@ impl AotNativeExecutor {
             args,
             available_gas,
             Some(syscall_handler),
-            self.build_find_dict_drop_override(),
         )
     }
 
@@ -156,7 +148,6 @@ impl AotNativeExecutor {
             }],
             available_gas,
             Some(syscall_handler),
-            self.build_find_dict_drop_override(),
         )?)
     }
 
@@ -185,17 +176,6 @@ impl AotNativeExecutor {
 
     fn extract_signature(&self, function_id: &FunctionId) -> Result<&FunctionSignature, Error> {
         Ok(&self.registry.get_function(function_id)?.signature)
-    }
-
-    fn build_find_dict_drop_override(
-        &self,
-    ) -> impl '_ + Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)> {
-        |type_id| {
-            self.dict_overrides
-                .get_drop_fn(type_id)
-                .and_then(|symbol| self.find_symbol_ptr(symbol))
-                .map(|ptr| unsafe { transmute(ptr as *const ()) })
-        }
     }
 }
 
