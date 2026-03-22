@@ -7,15 +7,7 @@
 //! insert, get elements and increment the access counter.
 
 use super::WithSelf;
-use crate::{
-    error::{Error, Result},
-    metadata::{
-        drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        felt252_dict::Felt252DictOverrides, realloc_bindings::ReallocBindingsMeta,
-        runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
-    },
-    utils::ProgramRegistryExt,
-};
+use crate::{error::Result, metadata::MetadataStorage};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -24,115 +16,27 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::{func, llvm},
-    helpers::BuiltinBlockExt,
-    ir::{Block, BlockLike, Location, Module, Region, Type},
+    dialect::llvm,
+    ir::{Module, Type},
     Context,
 };
 
 /// Build the MLIR type.
 ///
+/// Dict snapshots are semantically useless in Cairo, so the default dup
+/// (returns the same pointer twice) is correct. The arena owns dict memory and
+/// HashMaps are reclaimed via DICT_REGISTRY during arena reset, so the default
+/// drop (noop) is also correct. No dup/drop overrides are registered.
+///
 /// Check out [the module](self) for more info.
 pub fn build<'ctx>(
     context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: WithSelf<InfoAndTypeConcreteType>,
+    _module: &Module<'ctx>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _metadata: &mut MetadataStorage,
+    _info: WithSelf<InfoAndTypeConcreteType>,
 ) -> Result<Type<'ctx>> {
-    DupOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            // There's no need to build the type here because it'll always be built within
-            // `build_dup`.
-
-            Ok(Some(build_dup(context, module, registry, metadata, &info)?))
-        },
-    )?;
-    DropOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            // There's no need to build the type here because it'll always be built within
-            // `build_drop`.
-
-            Ok(Some(build_drop(
-                context, module, registry, metadata, &info,
-            )?))
-        },
-    )?;
-
     Ok(llvm::r#type::pointer(context, 0))
-}
-
-fn build_dup<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<InfoAndTypeConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, module));
-    }
-
-    let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(value_ty, location)]));
-
-    // The following unwrap is unreachable because the registration logic will always insert it.
-    let value0 = entry.arg(0)?;
-    let value1 = metadata
-        .get_mut::<RuntimeBindingsMeta>()
-        .ok_or(Error::MissingMetadata)?
-        .dict_dup(context, module, &entry, value0, location)?;
-
-    entry.append_operation(func::r#return(&[value0, value1], location));
-    Ok(region)
-}
-
-fn build_drop<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<InfoAndTypeConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, module));
-    }
-
-    let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
-
-    {
-        let mut dict_overrides = metadata
-            .remove::<Felt252DictOverrides>()
-            .unwrap_or_default();
-        dict_overrides.build_drop_fn(context, module, registry, metadata, &info.ty)?;
-        metadata.insert(dict_overrides);
-    }
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(value_ty, location)]));
-
-    // The following unwrap is unreachable because the registration logic will always insert it.
-    let runtime_bindings_meta = metadata
-        .get_mut::<RuntimeBindingsMeta>()
-        .ok_or(Error::MissingMetadata)?;
-    runtime_bindings_meta.dict_drop(context, module, &entry, entry.arg(0)?, location)?;
-
-    entry.append_operation(func::r#return(&[], location));
-    Ok(region)
 }
 
 #[cfg(test)]

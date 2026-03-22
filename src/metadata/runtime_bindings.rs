@@ -44,8 +44,6 @@ enum RuntimeBinding {
     DictNew,
     DictGet,
     DictSquash,
-    DictDrop,
-    DictDup,
     GetCostsBuiltin,
     BlakeCompress,
     DebugPrint,
@@ -80,8 +78,6 @@ impl RuntimeBinding {
             RuntimeBinding::DictNew => "cairo_native__dict_new",
             RuntimeBinding::DictGet => "cairo_native__dict_get",
             RuntimeBinding::DictSquash => "cairo_native__dict_squash",
-            RuntimeBinding::DictDrop => "cairo_native__dict_drop",
-            RuntimeBinding::DictDup => "cairo_native__dict_dup",
             RuntimeBinding::GetCostsBuiltin => "cairo_native__get_costs_builtin",
             RuntimeBinding::BlakeCompress => "cairo_native__libfunc__blake_compress",
             RuntimeBinding::U31ExtendedEuclideanAlgorithm => {
@@ -143,8 +139,6 @@ impl RuntimeBinding {
             RuntimeBinding::DictNew => crate::runtime::cairo_native__dict_new as *const (),
             RuntimeBinding::DictGet => crate::runtime::cairo_native__dict_get as *const (),
             RuntimeBinding::DictSquash => crate::runtime::cairo_native__dict_squash as *const (),
-            RuntimeBinding::DictDrop => crate::runtime::cairo_native__dict_drop as *const (),
-            RuntimeBinding::DictDup => crate::runtime::cairo_native__dict_dup as *const (),
             RuntimeBinding::GetCostsBuiltin => {
                 crate::runtime::cairo_native__get_costs_builtin as *const ()
             }
@@ -799,7 +793,6 @@ impl RuntimeBindingsMeta {
         module: &Module,
         block: &'a Block<'c>,
         location: Location<'c>,
-        drop_fn: Option<Value<'c, 'a>>,
         layout: Layout,
     ) -> Result<Value<'c, 'a>>
     where
@@ -812,17 +805,10 @@ impl RuntimeBindingsMeta {
         let size = block.const_int_from_type(context, location, layout.size(), i64_ty)?;
         let align = block.const_int_from_type(context, location, layout.align(), i64_ty)?;
 
-        let drop_fn = match drop_fn {
-            Some(x) => x,
-            None => {
-                block.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?
-            }
-        };
-
         Ok(block.append_op_result(
             OperationBuilder::new("llvm.call", location)
                 .add_operands(&[function])
-                .add_operands(&[size, align, drop_fn])
+                .add_operands(&[size, align])
                 .add_results(&[llvm::r#type::pointer(context, 0)])
                 .build()?,
         )?)
@@ -831,56 +817,6 @@ impl RuntimeBindingsMeta {
     /// Register if necessary, then invoke the `dict_alloc_new()` function.
     ///
     /// Returns a opaque pointer as the result.
-    #[allow(clippy::too_many_arguments)]
-    pub fn dict_drop<'c, 'a>(
-        &mut self,
-        context: &'c Context,
-        module: &Module,
-        block: &'a Block<'c>,
-        ptr: Value<'c, 'a>,
-        location: Location<'c>,
-    ) -> Result<OperationRef<'c, 'a>>
-    where
-        'c: 'a,
-    {
-        let function =
-            self.build_function(context, module, block, location, RuntimeBinding::DictDrop)?;
-
-        Ok(block.append_operation(
-            OperationBuilder::new("llvm.call", location)
-                .add_operands(&[function])
-                .add_operands(&[ptr])
-                .build()?,
-        ))
-    }
-
-    /// Register if necessary, then invoke the `dict_alloc_new()` function.
-    ///
-    /// Returns a opaque pointer as the result.
-    #[allow(clippy::too_many_arguments)]
-    pub fn dict_dup<'c, 'a>(
-        &mut self,
-        context: &'c Context,
-        module: &Module,
-        block: &'a Block<'c>,
-        ptr: Value<'c, 'a>,
-        location: Location<'c>,
-    ) -> Result<Value<'c, 'a>>
-    where
-        'c: 'a,
-    {
-        let function =
-            self.build_function(context, module, block, location, RuntimeBinding::DictDup)?;
-
-        Ok(block.append_op_result(
-            OperationBuilder::new("llvm.call", location)
-                .add_operands(&[function])
-                .add_operands(&[ptr])
-                .add_results(&[llvm::r#type::pointer(context, 0)])
-                .build()?,
-        )?)
-    }
-
     /// Register if necessary, then invoke the `dict_get()` function.
     ///
     /// Gets the value for a given key, the returned pointer is null if not found.
@@ -1070,8 +1006,6 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::DictNew,
         RuntimeBinding::DictGet,
         RuntimeBinding::DictSquash,
-        RuntimeBinding::DictDrop,
-        RuntimeBinding::DictDup,
         RuntimeBinding::GetCostsBuiltin,
         RuntimeBinding::BlakeCompress,
         RuntimeBinding::DebugPrint,
