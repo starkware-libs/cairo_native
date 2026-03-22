@@ -65,7 +65,6 @@ where
             shared_library,
             registry,
             metadata.remove().ok_or(Error::MissingMetadata)?,
-            metadata.remove().unwrap_or_default(),
         );
 
         let executor = Arc::new(executor);

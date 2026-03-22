@@ -4,9 +4,7 @@ use super::LibfuncHelper;
 use crate::{
     error::{panic::ToNativeAssertError, Result},
     execution_result::SEGMENT_ARENA_BUILTIN_SIZE,
-    metadata::{
-        felt252_dict::Felt252DictOverrides, runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
-    },
+    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     native_panic,
     types::TypeBuilder,
 };
@@ -19,7 +17,6 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::{llvm, ods},
     helpers::{BuiltinBlockExt, LlvmBlockExt},
     ir::{r#type::IntegerType, Block, Location},
     Context,
@@ -69,37 +66,6 @@ pub fn build_new<'ctx, 'this>(
         _ => native_panic!("entered unreachable code"),
     };
 
-    let drop_fn = {
-        let mut dict_overrides = metadata
-            .remove::<Felt252DictOverrides>()
-            .unwrap_or_default();
-
-        let drop_fn = match dict_overrides.build_drop_fn(
-            context,
-            helper,
-            registry,
-            metadata,
-            value_type_id,
-        )? {
-            Some(drop_fn_symbol) => Some(
-                entry.append_op_result(
-                    ods::llvm::mlir_addressof(
-                        context,
-                        llvm::r#type::pointer(context, 0),
-                        drop_fn_symbol,
-                        location,
-                    )
-                    .into(),
-                )?,
-            ),
-            None => None,
-        };
-
-        metadata.insert(dict_overrides);
-
-        drop_fn
-    };
-
     let runtime_bindings = metadata
         .get_mut::<RuntimeBindingsMeta>()
         .to_native_assert_error("runtime library should be available")?;
@@ -108,7 +74,6 @@ pub fn build_new<'ctx, 'this>(
         helper,
         entry,
         location,
-        drop_fn,
         registry.get_type(value_type_id)?.layout(registry)?,
     )?;
 

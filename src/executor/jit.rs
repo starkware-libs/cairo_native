@@ -1,9 +1,7 @@
 use crate::{
     error::Error,
     execution_result::{ContractExecutionResult, ExecutionResult},
-    metadata::{
-        felt252_dict::Felt252DictOverrides, gas::GasMetadata, runtime_bindings::setup_runtime,
-    },
+    metadata::{gas::GasMetadata, runtime_bindings::setup_runtime},
     module::NativeModule,
     starknet::{DummySyscallHandler, StarknetSyscallHandler},
     utils::{create_engine, generate_function_name},
@@ -12,14 +10,13 @@ use crate::{
 };
 use cairo_lang_sierra::{
     extensions::core::{CoreLibfunc, CoreType},
-    ids::{ConcreteTypeId, FunctionId},
+    ids::FunctionId,
     program::FunctionSignature,
     program_registry::ProgramRegistry,
 };
 use libc::c_void;
 use melior::{ir::Module, ExecutionEngine};
 use starknet_types_core::felt::Felt;
-use std::mem::transmute;
 
 /// A MLIR JIT execution engine in the context of Cairo Native.
 pub struct JitNativeExecutor<'m> {
@@ -29,7 +26,6 @@ pub struct JitNativeExecutor<'m> {
     registry: ProgramRegistry<CoreType, CoreLibfunc>,
 
     gas_metadata: GasMetadata,
-    dict_overrides: Felt252DictOverrides,
 }
 
 unsafe impl Send for JitNativeExecutor<'_> {}
@@ -60,7 +56,6 @@ impl<'m> JitNativeExecutor<'m> {
             module,
             registry,
             gas_metadata: metadata.remove().ok_or(Error::MissingMetadata)?,
-            dict_overrides: metadata.remove().unwrap_or_default(),
         };
 
         setup_runtime(|name| executor.find_symbol_ptr(name));
@@ -103,7 +98,6 @@ impl<'m> JitNativeExecutor<'m> {
             args,
             available_gas,
             Option::<DummySyscallHandler>::None,
-            self.build_find_dict_drop_override(),
         )
     }
 
@@ -126,7 +120,6 @@ impl<'m> JitNativeExecutor<'m> {
             args,
             available_gas,
             Some(syscall_handler),
-            self.build_find_dict_drop_override(),
         )
     }
 
@@ -153,7 +146,6 @@ impl<'m> JitNativeExecutor<'m> {
             }],
             available_gas,
             Some(syscall_handler),
-            self.build_find_dict_drop_override(),
         )?)
     }
 
@@ -180,16 +172,5 @@ impl<'m> JitNativeExecutor<'m> {
             .program_registry()
             .get_function(function_id)
             .map(|func| &func.signature)?)
-    }
-
-    fn build_find_dict_drop_override(
-        &self,
-    ) -> impl '_ + Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)> {
-        |type_id| {
-            self.dict_overrides
-                .get_drop_fn(type_id)
-                .and_then(|symbol| self.find_symbol_ptr(symbol))
-                .map(|ptr| unsafe { transmute(ptr as *const ()) })
-        }
     }
 }
