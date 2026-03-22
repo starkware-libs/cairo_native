@@ -7,7 +7,8 @@ use crate::{
     error::{Result, SierraAssertError},
     metadata::{
         drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        realloc_bindings::ReallocBindingsMeta, MetadataStorage,
+        realloc_bindings::ReallocBindingsMeta, runtime_bindings::RuntimeBindingsMeta,
+        MetadataStorage,
     },
     utils::{get_integer_layout, layout_repeat, ProgramRegistryExt},
 };
@@ -147,6 +148,8 @@ pub fn build_circuit_accumulator<'ctx>(
 
             let new_inputs_ptr = build_array_dup(
                 context,
+                module,
+                metadata,
                 &entry,
                 location,
                 inputs_ptr,
@@ -161,6 +164,7 @@ pub fn build_circuit_accumulator<'ctx>(
             Ok(Some(region))
         },
     )?;
+    // Noop drop: arena owns the memory.
     DropOverridesMeta::register_with(
         context,
         module,
@@ -172,17 +176,6 @@ pub fn build_circuit_accumulator<'ctx>(
             let region = Region::new();
             let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
             let entry = region.append_block(Block::new(&[(value_ty, location)]));
-
-            let accumulator = entry.arg(0)?;
-            let inputs_ptr = entry.extract_value(
-                context,
-                location,
-                accumulator,
-                llvm::r#type::pointer(context, 0),
-                1,
-            )?;
-
-            entry.append_operation(ReallocBindingsMeta::free(context, inputs_ptr, location)?);
             entry.append_operation(func::r#return(&[], location));
 
             Ok(Some(region))
@@ -242,6 +235,8 @@ pub fn build_circuit_data<'ctx>(
 
             let new_data_ptr = build_array_dup(
                 context,
+                module,
+                metadata,
                 &entry,
                 location,
                 data_ptr,
@@ -254,6 +249,7 @@ pub fn build_circuit_data<'ctx>(
             Ok(Some(region))
         },
     )?;
+    // Noop drop: arena owns the memory.
     DropOverridesMeta::register_with(
         context,
         module,
@@ -265,10 +261,6 @@ pub fn build_circuit_data<'ctx>(
             let region = Region::new();
             let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
             let entry = region.append_block(Block::new(&[(value_ty, location)]));
-
-            let data_ptr = entry.arg(0)?;
-
-            entry.append_operation(ReallocBindingsMeta::free(context, data_ptr, location)?);
             entry.append_operation(func::r#return(&[], location));
 
             Ok(Some(region))
@@ -342,6 +334,8 @@ pub fn build_circuit_outputs<'ctx>(
 
             let new_gates_ptr = build_array_dup(
                 context,
+                module,
+                metadata,
                 &entry,
                 location,
                 gates_ptr,
@@ -355,6 +349,7 @@ pub fn build_circuit_outputs<'ctx>(
             Ok(Some(region))
         },
     )?;
+    // Noop drop: arena owns the memory.
     DropOverridesMeta::register_with(
         context,
         module,
@@ -366,17 +361,6 @@ pub fn build_circuit_outputs<'ctx>(
             let region = Region::new();
             let value_ty = registry.build_type(context, module, metadata, info.self_ty())?;
             let entry = region.append_block(Block::new(&[(value_ty, location)]));
-
-            let outputs = entry.arg(0)?;
-            let gates_ptr = entry.extract_value(
-                context,
-                location,
-                outputs,
-                llvm::r#type::pointer(context, 0),
-                0,
-            )?;
-
-            entry.append_operation(ReallocBindingsMeta::free(context, gates_ptr, location)?);
             entry.append_operation(func::r#return(&[], location));
 
             Ok(Some(region))
@@ -414,6 +398,8 @@ pub fn build_u96_limbs_less_than_guarantee<'ctx>(
 
 pub fn build_array_dup<'ctx, 'this>(
     context: &'ctx Context,
+    module: &Module<'ctx>,
+    metadata: &mut MetadataStorage,
     block: &'this Block<'ctx>,
     location: Location<'ctx>,
     ptr: Value<'ctx, 'this>,
@@ -422,21 +408,21 @@ pub fn build_array_dup<'ctx, 'this>(
 ) -> Result<Value<'ctx, 'this>> {
     let capacity_bytes = layout_repeat(&layout, capacity)?.0.pad_to_align().size();
     let capacity_bytes_value = block.const_int(context, location, capacity_bytes, 64)?;
+    let align_value = block.const_int(context, location, layout.align(), 64)?;
 
-    let new_inputs_ptr = {
-        let ptr_ty = llvm::r#type::pointer(context, 0);
-        let new_inputs_ptr = block.append_op_result(llvm::zero(ptr_ty, location))?;
-        block.append_op_result(ReallocBindingsMeta::realloc(
-            context,
-            new_inputs_ptr,
-            capacity_bytes_value,
-            location,
-        )?)?
-    };
+    let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let new_ptr = rtb.arena_alloc(
+        context,
+        module,
+        block,
+        location,
+        capacity_bytes_value,
+        align_value,
+    )?;
 
-    block.memcpy(context, location, ptr, new_inputs_ptr, capacity_bytes_value);
+    block.memcpy(context, location, ptr, new_ptr, capacity_bytes_value);
 
-    Ok(new_inputs_ptr)
+    Ok(new_ptr)
 }
 
 pub const fn is_complex(info: &CircuitTypeConcrete) -> bool {
