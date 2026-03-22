@@ -131,7 +131,7 @@ fn build_dup<'ctx>(
         let size_val = block_realloc.const_int(context, location, inner_len, 64)?;
         let align_val = block_realloc.const_int(context, location, inner_align, 64)?;
         let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-        let dst_value = rtb.box_alloc(
+        let dst_value = rtb.arena_alloc(
             context,
             module,
             &block_realloc,

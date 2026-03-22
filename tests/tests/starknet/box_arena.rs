@@ -5,7 +5,7 @@
 //! the syscall returns. With a shared/global arena (the pre-fix design) the
 //! callee's invocation-end reset would free the caller's live boxes; a
 //! subsequent allocation in the caller would land on the same slot, producing
-//! a use-after-free. With per-invocation arenas swapped in/out by
+//! a use-after-free. With per-execution arenas swapped in/out by
 //! `InvocationGuard`, the caller's boxes survive the nested call intact.
 //!
 //! The contract-to-contract dispatch is handled by [`MultiContractHandler`],

@@ -5,10 +5,12 @@ use crate::{
     error::{Error, Result, SierraAssertError},
     metadata::{
         drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        realloc_bindings::ReallocBindingsMeta, MetadataStorage,
+        runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
     },
     native_assert,
-    types::array::{calc_metadata_size, get_metadata_llvm_type},
+    types::array::{
+        calc_metadata_align, calc_metadata_size, load_data_ptr, store_data_ptr, store_max_len,
+    },
     utils::ProgramRegistryExt,
 };
 use cairo_lang_sierra::{
@@ -31,7 +33,6 @@ use melior::{
     },
     Context,
 };
-use std::alloc::Layout;
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -173,8 +174,6 @@ pub fn build_span_from_tuple<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let tuple_len = {
         let CoreTypeConcrete::Struct(info) = registry.get_type(&info.ty)? else {
             return Err(Error::SierraAssert(SierraAssertError::BadTypeInfo));
@@ -185,75 +184,31 @@ pub fn build_span_from_tuple<'ctx, 'this>(
 
     let ptr_ty = llvm::r#type::pointer(context, 0);
     let len_ty = IntegerType::new(context, 32).into();
-    let (_, tuple_layout) = registry.build_type_with_layout(context, helper, metadata, &info.ty)?;
+    registry.build_type(context, helper, metadata, &info.ty)?;
 
-    let array_len_bytes = tuple_layout.pad_to_align().size();
-    let array_len_bytes_val = entry.const_int(context, location, array_len_bytes, 64)?;
     let array_len = entry.const_int_from_type(context, location, tuple_len, len_ty)?;
-
     let k0 = entry.const_int_from_type(context, location, 0, len_ty)?;
-    let k1 = entry.const_int_from_type(context, location, 1, len_ty)?;
 
-    // Allocate space for the array data (no prefix).
-    let data_ptr = entry.append_op_result(llvm::zero(ptr_ty, location))?;
-    let data_ptr = entry.append_op_result(ReallocBindingsMeta::realloc(
-        context,
-        data_ptr,
-        array_len_bytes_val,
-        location,
-    )?)?;
+    // data_ptr aliases the input box: both are arena-backed.
+    let data_ptr: Value = entry.argument(0)?.into();
 
-    // Move the data into the array. Since the tuple and the array are
-    // represented the same way, a simple memcpy is enough.
-    entry.memcpy(
-        context,
-        location,
-        entry.argument(0)?.into(),
-        data_ptr,
-        array_len_bytes_val,
-    );
-
-    // Allocate metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut u8 }
+    // Allocate metadata struct from the arena.
     let metadata_size = entry.const_int(context, location, calc_metadata_size(), 64)?;
-    let metadata_ptr = entry.append_op_result(llvm::zero(ptr_ty, location))?;
-    let metadata_ptr = entry.append_op_result(ReallocBindingsMeta::realloc(
-        context,
-        metadata_ptr,
-        metadata_size,
-        location,
-    )?)?;
+    let metadata_align_val = entry.const_int(context, location, calc_metadata_align(), 64)?;
+    let metadata_ptr = {
+        let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+        rtb.arena_alloc(
+            context,
+            helper.module,
+            entry,
+            location,
+            metadata_size,
+            metadata_align_val,
+        )?
+    };
 
-    let metadata_type = get_metadata_llvm_type(context);
-
-    // Store refcount (field 0)
-    let refcount_ptr = entry.gep(
-        context,
-        location,
-        metadata_ptr,
-        &[GepIndex::Const(0), GepIndex::Const(0)],
-        metadata_type,
-    )?;
-    entry.store(context, location, refcount_ptr, k1)?;
-
-    // Store max_len (field 1)
-    let max_len_ptr = entry.gep(
-        context,
-        location,
-        metadata_ptr,
-        &[GepIndex::Const(0), GepIndex::Const(1)],
-        metadata_type,
-    )?;
-    entry.store(context, location, max_len_ptr, array_len)?;
-
-    // Store data_ptr (field 2)
-    let data_ptr_field = entry.gep(
-        context,
-        location,
-        metadata_ptr,
-        &[GepIndex::Const(0), GepIndex::Const(2)],
-        metadata_type,
-    )?;
-    entry.store(context, location, data_ptr_field, data_ptr)?;
+    store_max_len(context, entry, location, metadata_ptr, array_len)?;
+    store_data_ptr(context, entry, location, metadata_ptr, data_ptr)?;
 
     // Build the array representation (4 fields: metadata_ptr, start, end, capacity)
     let value = entry.append_op_result(llvm::undef(
@@ -289,8 +244,6 @@ pub fn build_tuple_from_span<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let elem_id = {
         let CoreTypeConcrete::Snapshot(info) =
             registry.get_type(&info.signature.param_signatures[0].ty)?
@@ -314,8 +267,6 @@ pub fn build_tuple_from_span<'ctx, 'this>(
     let ptr_ty = llvm::r#type::pointer(context, 0);
     let len_ty = IntegerType::new(context, 32).into();
     let (_, elem_layout) = registry.build_type_with_layout(context, helper, metadata, elem_id)?;
-    let (tuple_ty, tuple_layout) =
-        registry.build_type_with_layout(context, helper, metadata, &info.ty)?;
 
     let metadata_ptr =
         entry.extract_value(context, location, entry.argument(0)?.into(), ptr_ty, 0)?;
@@ -333,7 +284,6 @@ pub fn build_tuple_from_span<'ctx, 'this>(
         location,
     ))?;
 
-    // Ensure the tuple's length matches the array's.
     let valid_block = helper.append_block(Block::new(&[]));
     let error_block = helper.append_block(Block::new(&[]));
     entry.append_operation(cf::cond_br(
@@ -346,23 +296,8 @@ pub fn build_tuple_from_span<'ctx, 'this>(
         location,
     ));
 
-    // Ensure the type's clone and drop implementations are registered.
-    registry.build_type(
-        context,
-        helper,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-    )?;
-
     // Branch for when the lengths match:
     {
-        let value_size = valid_block.const_int(context, location, tuple_layout.size(), 64)?;
-
-        let value = valid_block.append_op_result(llvm::zero(ptr_ty, location))?;
-        let value = valid_block.append_op_result(ReallocBindingsMeta::realloc(
-            context, value, value_size, location,
-        )?)?;
-
         let array_start_offset = valid_block.append_op_result(arith::extui(
             array_start,
             IntegerType::new(context, 64).into(),
@@ -374,14 +309,7 @@ pub fn build_tuple_from_span<'ctx, 'this>(
             location,
         ))?;
 
-        let data_ptr_field = valid_block.gep(
-            context,
-            location,
-            metadata_ptr,
-            &[GepIndex::Const(0), GepIndex::Const(2)],
-            get_metadata_llvm_type(context),
-        )?;
-        let data_ptr = valid_block.load(context, location, data_ptr_field, ptr_ty)?;
+        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
 
         let array_data_start_ptr = valid_block.gep(
             context,
@@ -391,103 +319,10 @@ pub fn build_tuple_from_span<'ctx, 'this>(
             IntegerType::new(context, 8).into(),
         )?;
 
-        // Check if the array is shared.
-        let is_shared = is_shared(context, valid_block, location, metadata_ptr, elem_layout)?;
-        valid_block.append_operation(scf::r#if(
-            is_shared,
-            &[],
-            {
-                // When the array is shared, we should clone the entire data.
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                if DupOverridesMeta::is_overriden(metadata, &info.ty) {
-                    let src_ptr = array_data_start_ptr;
-                    let dst_ptr = value;
-
-                    let value = block.load(context, location, src_ptr, tuple_ty)?;
-
-                    // Invoke the tuple's clone mechanism, which will take care of copying or
-                    // cloning each item in the array.
-                    let values = DupOverridesMeta::invoke_override(
-                        context,
-                        registry,
-                        helper,
-                        helper.init_block(),
-                        &block,
-                        location,
-                        metadata,
-                        &info.ty,
-                        value,
-                    )?;
-                    block.store(context, location, src_ptr, values.0)?;
-                    block.store(context, location, dst_ptr, values.1)?;
-                } else {
-                    block.memcpy(context, location, array_data_start_ptr, value, value_size)
-                }
-
-                // Drop the original array (by decreasing its reference counter).
-                DropOverridesMeta::invoke_override(
-                    context,
-                    registry,
-                    helper,
-                    helper.init_block(),
-                    &block,
-                    location,
-                    metadata,
-                    &info.signature.param_signatures[0].ty,
-                    entry.argument(0)?.into(),
-                )?;
-
-                block.append_operation(scf::r#yield(&[], location));
-                region
-            },
-            {
-                // When the array is not shared, we can just move the data to the new tuple and free
-                // the array.
-
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                block.memcpy(context, location, array_data_start_ptr, value, value_size);
-
-                // NOTE: If the target tuple has no elements, and the array is not shared, then we
-                // would attempt to free 0xfffffffffffffff0. This is not possible and disallowed by
-                // the Cairo compiler.
-
-                // TODO: Drop elements before array_start and between array_end and max length.
-
-                // Free the data allocation
-                block.append_operation(ReallocBindingsMeta::free(context, data_ptr, location)?);
-
-                // Free the metadata struct
-                block.append_operation(ReallocBindingsMeta::free(context, metadata_ptr, location)?);
-
-                block.append_operation(scf::r#yield(&[], location));
-                region
-            },
-            location,
-        ));
-
-        helper.br(valid_block, 0, &[value], location)?;
+        helper.br(valid_block, 0, &[array_data_start_ptr], location)?;
     }
 
-    {
-        // When there's a length mismatch, just consume (drop) the array.
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            error_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[0].ty,
-            entry.argument(0)?.into(),
-        )?;
-
-        helper.br(error_block, 1, &[], location)
-    }
+    helper.br(error_block, 1, &[], location)
 }
 
 /// Generate MLIR operations for the `array_append` libfunc.
@@ -500,8 +335,6 @@ pub fn build_append<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let self_ty = registry.build_type(
         context,
         helper,
@@ -514,6 +347,7 @@ pub fn build_append<'ctx, 'this>(
 
     let (_, elem_layout) = registry.build_type_with_layout(context, helper, metadata, &info.ty)?;
     let elem_stride = entry.const_int(context, location, elem_layout.pad_to_align().size(), 64)?;
+    let elem_align = elem_layout.align();
 
     fn compute_next_capacity<'ctx, 'this>(
         context: &'ctx Context,
@@ -568,59 +402,41 @@ pub fn build_append<'ctx, 'this>(
             let block = region.append_block(Block::new(&[]));
 
             let k0_capacity = block.const_int_from_type(context, location, 0, len_ty)?;
-            let (array_capacity, realloc_size) =
+            let (array_capacity, new_alloc_size) =
                 compute_next_capacity(context, &block, location, elem_stride, k0_capacity)?;
 
-            let null_ptr = block.append_op_result(llvm::zero(ptr_ty, location))?;
-            let data_ptr = block.append_op_result(ReallocBindingsMeta::realloc(
-                context,
-                null_ptr,
-                realloc_size,
-                location,
-            )?)?;
+            // Allocate data buffer from the arena.
+            let data_align = block.const_int(context, location, elem_align, 64)?;
+            let data_ptr = {
+                let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+                rtb.arena_alloc(
+                    context,
+                    helper.module,
+                    &block,
+                    location,
+                    new_alloc_size,
+                    data_align,
+                )?
+            };
 
-            // Allocate metadata struct: { refcount: u32, max_len: u32, capacity: u32, data_ptr: *mut u8 }
+            // Allocate metadata struct from the arena.
             let metadata_size = block.const_int(context, location, calc_metadata_size(), 64)?;
-            let metadata_ptr = block.append_op_result(ReallocBindingsMeta::realloc(
-                context,
-                null_ptr,
-                metadata_size,
-                location,
-            )?)?;
+            let metadata_align_val =
+                block.const_int(context, location, calc_metadata_align(), 64)?;
+            let metadata_ptr = {
+                let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+                rtb.arena_alloc(
+                    context,
+                    helper.module,
+                    &block,
+                    location,
+                    metadata_size,
+                    metadata_align_val,
+                )?
+            };
 
-            let k1 = block.const_int_from_type(context, location, 1, len_ty)?;
-
-            let metadata_type = get_metadata_llvm_type(context);
-
-            // Store refcount (field 0)
-            let refcount_ptr = block.gep(
-                context,
-                location,
-                metadata_ptr,
-                &[GepIndex::Const(0), GepIndex::Const(0)],
-                metadata_type,
-            )?;
-            block.store(context, location, refcount_ptr, k1)?;
-
-            // Store max_len (field 1)
-            let max_len_ptr = block.gep(
-                context,
-                location,
-                metadata_ptr,
-                &[GepIndex::Const(0), GepIndex::Const(1)],
-                metadata_type,
-            )?;
-            block.store(context, location, max_len_ptr, k0)?;
-
-            // Store data_ptr (field 2)
-            let data_ptr_field = block.gep(
-                context,
-                location,
-                metadata_ptr,
-                &[GepIndex::Const(0), GepIndex::Const(2)],
-                metadata_type,
-            )?;
-            block.store(context, location, data_ptr_field, data_ptr)?;
+            store_max_len(context, &block, location, metadata_ptr, k0)?;
+            store_data_ptr(context, &block, location, metadata_ptr, data_ptr)?;
 
             // Build 4-field struct with capacity
             let array_obj = entry.argument(0)?.into();
@@ -659,7 +475,7 @@ pub fn build_append<'ctx, 'this>(
                     let region = Region::new();
                     let block = region.append_block(Block::new(&[]));
 
-                    let (new_capacity, realloc_size) = compute_next_capacity(
+                    let (new_capacity, new_alloc_size) = compute_next_capacity(
                         context,
                         &block,
                         location,
@@ -674,25 +490,30 @@ pub fn build_append<'ctx, 'this>(
                         ptr_ty,
                         0,
                     )?;
-                    let data_ptr_field = block.gep(
-                        context,
-                        location,
-                        metadata_ptr,
-                        &[GepIndex::Const(0), GepIndex::Const(2)],
-                        get_metadata_llvm_type(context),
-                    )?;
-                    let data_ptr = block.load(context, location, data_ptr_field, ptr_ty)?;
+                    let data_ptr = load_data_ptr(context, &block, location, metadata_ptr)?;
 
-                    // Realloc the data
-                    let new_data_ptr = block.append_op_result(ReallocBindingsMeta::realloc(
-                        context,
-                        data_ptr,
-                        realloc_size,
-                        location,
-                    )?)?;
+                    // Only [0, array_end) holds live data; the tail up to capacity is unused.
+                    let array_end_64 =
+                        block.extui(array_end, IntegerType::new(context, 64).into(), location)?;
+                    let copy_size = block.muli(array_end_64, elem_stride, location)?;
+                    let data_align = block.const_int(context, location, elem_align, 64)?;
+
+                    // Arena-realloc the data (old buffer is abandoned in the arena).
+                    let new_data_ptr = {
+                        let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+                        rtb.arena_alloc(
+                            context,
+                            helper.module,
+                            &block,
+                            location,
+                            new_alloc_size,
+                            data_align,
+                        )?
+                    };
+                    block.memcpy(context, location, data_ptr, new_data_ptr, copy_size);
 
                     // Update data_ptr in metadata
-                    block.store(context, location, data_ptr_field, new_data_ptr)?;
+                    store_data_ptr(context, &block, location, metadata_ptr, new_data_ptr)?;
 
                     // Update capacity in struct field 3
                     let array_obj = entry.argument(0)?.into();
@@ -711,15 +532,7 @@ pub fn build_append<'ctx, 'this>(
     ))?;
 
     let metadata_ptr = entry.extract_value(context, location, array_obj, ptr_ty, 0)?;
-    let metadata_type = get_metadata_llvm_type(context);
-    let data_ptr_field = entry.gep(
-        context,
-        location,
-        metadata_ptr,
-        &[GepIndex::Const(0), GepIndex::Const(2)],
-        metadata_type,
-    )?;
-    let data_ptr = entry.load(context, location, data_ptr_field, ptr_ty)?;
+    let data_ptr = load_data_ptr(context, entry, location, metadata_ptr)?;
 
     // Insert the value.
     let target_offset = entry.extract_value(context, location, array_obj, len_ty, 2)?;
@@ -745,15 +558,7 @@ pub fn build_append<'ctx, 'this>(
     let array_end = entry.addi(array_end, k1, location)?;
     let array_obj = entry.insert_value(context, location, array_obj, array_end, 2)?;
 
-    // Update max_len in metadata (field 1)
-    let max_len_ptr = entry.gep(
-        context,
-        location,
-        metadata_ptr,
-        &[GepIndex::Const(0), GepIndex::Const(1)],
-        metadata_type,
-    )?;
-    entry.store(context, location, max_len_ptr, array_end)?;
+    store_max_len(context, entry, location, metadata_ptr, array_end)?;
 
     helper.br(entry, 0, &[array_obj], location)
 }
@@ -780,8 +585,6 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
     metadata: &mut MetadataStorage,
     info: PopInfo,
 ) -> Result<()> {
-    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
-
     let ptr_ty = llvm::r#type::pointer(context, 0);
     let len_ty = IntegerType::new(context, 32).into();
 
@@ -866,14 +669,7 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
 
         let metadata_ptr = valid_block.extract_value(context, location, array_obj, ptr_ty, 0)?;
 
-        let data_ptr_field = valid_block.gep(
-            context,
-            location,
-            metadata_ptr,
-            &[GepIndex::Const(0), GepIndex::Const(2)],
-            get_metadata_llvm_type(context),
-        )?;
-        let data_ptr = valid_block.load(context, location, data_ptr_field, ptr_ty)?;
+        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
 
         let elem_stride =
             valid_block.const_int(context, location, elem_layout.pad_to_align().size(), 64)?;
@@ -924,21 +720,25 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
             (array_obj, source_ptr)
         };
 
-        // Allocate output pointer.
+        // Allocate output pointer from the arena.
         let target_size = valid_block.const_int(
             context,
             location,
             elem_layout.pad_to_align().size() * extract_len,
             64,
         )?;
-        let target_ptr = valid_block
-            .append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
-        let target_ptr = valid_block.append_op_result(ReallocBindingsMeta::realloc(
-            context,
-            target_ptr,
-            target_size,
-            location,
-        )?)?;
+        let target_align = valid_block.const_int(context, location, elem_layout.align(), 64)?;
+        let target_ptr = {
+            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+            rtb.arena_alloc(
+                context,
+                helper.module,
+                valid_block,
+                location,
+                target_size,
+                target_align,
+            )?
+        };
 
         // Clone popped items.
         if DupOverridesMeta::is_overriden(metadata, elem_ty) {
@@ -1077,14 +877,7 @@ pub fn build_get<'ctx, 'this>(
 
         let metadata_ptr =
             valid_block.extract_value(context, location, entry.argument(1)?.into(), ptr_ty, 0)?;
-        let data_ptr_field = valid_block.gep(
-            context,
-            location,
-            metadata_ptr,
-            &[GepIndex::Const(0), GepIndex::Const(2)],
-            get_metadata_llvm_type(context),
-        )?;
-        let data_ptr = valid_block.load(context, location, data_ptr_field, ptr_ty)?;
+        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
 
         let source_ptr = valid_block.gep(
             context,
@@ -1094,14 +887,19 @@ pub fn build_get<'ctx, 'this>(
             IntegerType::new(context, 8).into(),
         )?;
 
-        // Allocate output pointer.
-        let target_ptr = valid_block.append_op_result(llvm::zero(ptr_ty, location))?;
-        let target_ptr = valid_block.append_op_result(ReallocBindingsMeta::realloc(
-            context,
-            target_ptr,
-            elem_stride,
-            location,
-        )?)?;
+        // Allocate output pointer from the arena.
+        let target_align = valid_block.const_int(context, location, elem_layout.align(), 64)?;
+        let target_ptr = {
+            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+            rtb.arena_alloc(
+                context,
+                helper.module,
+                valid_block,
+                location,
+                elem_stride,
+                target_align,
+            )?
+        };
 
         // Clone the output data.
         if DupOverridesMeta::is_overriden(metadata, &info.ty) {
@@ -1273,87 +1071,6 @@ pub fn build_len<'ctx, 'this>(
     )?;
 
     helper.br(entry, 0, &[array_len], location)
-}
-
-fn is_shared<'ctx, 'this>(
-    context: &'ctx Context,
-    block: &'this Block<'ctx>,
-    location: Location<'ctx>,
-    metadata_ptr: Value<'ctx, 'this>,
-    _elem_layout: Layout,
-) -> Result<Value<'ctx, 'this>> {
-    let null_ptr =
-        block.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?;
-    let ptr_is_null = block.append_op_result(
-        ods::llvm::icmp(
-            context,
-            IntegerType::new(context, 1).into(),
-            metadata_ptr,
-            null_ptr,
-            IntegerAttribute::new(IntegerType::new(context, 64).into(), 0).into(),
-            location,
-        )
-        .into(),
-    )?;
-
-    let is_shared = block.append_op_result(scf::r#if(
-        ptr_is_null,
-        &[IntegerType::new(context, 1).into()],
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[]));
-
-            let k0 = block.const_int(context, location, 0, 1)?;
-
-            block.append_operation(scf::r#yield(&[k0], location));
-            region
-        },
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[]));
-
-            let ref_count = block.load(
-                context,
-                location,
-                metadata_ptr,
-                IntegerType::new(context, 32).into(),
-            )?;
-
-            #[cfg(debug_assertions)]
-            {
-                let k0 = block.const_int(context, location, 0, 32)?;
-                let is_nonzero = block.append_op_result(arith::cmpi(
-                    context,
-                    CmpiPredicate::Ne,
-                    ref_count,
-                    k0,
-                    location,
-                ))?;
-
-                block.append_operation(cf::assert(
-                    context,
-                    is_nonzero,
-                    "ref_count must not be zero",
-                    location,
-                ));
-            }
-
-            let k1 = block.const_int(context, location, 1, 32)?;
-            let is_shared = block.append_op_result(arith::cmpi(
-                context,
-                CmpiPredicate::Ne,
-                ref_count,
-                k1,
-                location,
-            ))?;
-
-            block.append_operation(scf::r#yield(&[is_shared], location));
-            region
-        },
-        location,
-    ))?;
-
-    Ok(is_shared)
 }
 
 #[cfg(test)]
