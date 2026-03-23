@@ -71,7 +71,7 @@ program.</p>
 <h3 id="initialization"><a class="doc-anchor" href="#initialization">§</a>Initialization</h3>
 <p>In Cairo Native we provide a API around initializing the context, namely
 <code>NativeContext</code> which does the following when
-<a href="https://github.com/lambdaclass/cairo_native/blob/ca6549a68c1b4266a7f9ea41dc196bf4433a2ee8/src/context.rs#L52-L53">created</a>:</p>
+<a href="https://github.com/starkware-libs/cairo_native/blob/ca6549a68c1b4266a7f9ea41dc196bf4433a2ee8/src/context.rs#L52-L53">created</a>:</p>
 <ul>
 <li>Create the context</li>
 <li>Register all relevant MLIR dialects into the context</li>
@@ -86,7 +86,7 @@ LLVM IR to create a shared library.
 </aside>
 <h3 id="compiling-a-sierra-program-to-mlir"><a class="doc-anchor" href="#compiling-a-sierra-program-to-mlir">§</a>Compiling a Sierra Program to MLIR</h3>
 <p>The <code>NativeContext</code> has a method called
-<a href="https://github.com/lambdaclass/cairo_native/blob/ca6549a68c1b4266a7f9ea41dc196bf4433a2ee8/src/context.rs#L62-L63">compile</a>,
+<a href="https://github.com/starkware-libs/cairo_native/blob/ca6549a68c1b4266a7f9ea41dc196bf4433a2ee8/src/context.rs#L62-L63">compile</a>,
 which does the heavy lifting and returns a <code>NativeModule</code>.
 This module contains the generated MLIR IR code.</p>
 <p>The compile method does the following:</p>

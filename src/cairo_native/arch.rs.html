@@ -110,7 +110,7 @@
 <a href=#110 id=110 data-nosnippet>110</a>                </span>.to_bytes(buffer, find_dict_drop_override)<span class="question-mark">?</span>,
 <a href=#111 id=111 data-nosnippet>111</a>
 <a href=#112 id=112 data-nosnippet>112</a>            (Value::Array(<span class="kw">_</span>), CoreTypeConcrete::Array(<span class="kw">_</span>)) =&gt; {
-<a href=#113 id=113 data-nosnippet>113</a>                <span class="comment">// TODO: Assert that `info.ty` matches all the values' types. See: https://github.com/lambdaclass/cairo_native/issues/1216
+<a href=#113 id=113 data-nosnippet>113</a>                <span class="comment">// TODO: Assert that `info.ty` matches all the values' types. See: https://github.com/starkware-libs/cairo_native/issues/1216
 <a href=#114 id=114 data-nosnippet>114</a>
 <a href=#115 id=115 data-nosnippet>115</a>                </span><span class="kw">let </span>abi_ptr = <span class="self">self</span>.value.to_ptr(
 <a href=#116 id=116 data-nosnippet>116</a>                    <span class="self">self</span>.arena,
@@ -126,7 +126,7 @@
 <a href=#126 id=126 data-nosnippet>126</a>                abi.capacity.to_bytes(buffer, find_dict_drop_override)<span class="question-mark">?</span>;
 <a href=#127 id=127 data-nosnippet>127</a>            }
 <a href=#128 id=128 data-nosnippet>128</a>            (Value::BoundedInt { .. }, CoreTypeConcrete::BoundedInt(<span class="kw">_</span>)) =&gt; {
-<a href=#129 id=129 data-nosnippet>129</a>                <span class="comment">// See: https://github.com/lambdaclass/cairo_native/issues/1217
+<a href=#129 id=129 data-nosnippet>129</a>                <span class="comment">// See: https://github.com/starkware-libs/cairo_native/issues/1217
 <a href=#130 id=130 data-nosnippet>130</a>                </span><span class="macro">native_panic!</span>(<span class="string">"todo: implement AbiArgument for Value::BoundedInt case"</span>)
 <a href=#131 id=131 data-nosnippet>131</a>            }
 <a href=#132 id=132 data-nosnippet>132</a>            (Value::Bytes31(value), CoreTypeConcrete::Bytes31(<span class="kw">_</span>)) =&gt; {
