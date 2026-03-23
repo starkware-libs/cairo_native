@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["cairo_native","cairo_native_bin_utils","cairo_native_compile","cairo_native_dump","cairo_native_run","cairo_native_stress","cairo_native_test","cairo_native_test_2","casm_data_flow","compile_cairo_contract","compile_cairo_project","compile_cairo_tests","contract_to_sierra","scarb_native_dump","scarb_native_test","sierra_emu","starknet_native_compile"];
-//{"start":21,"fragment_lengths":[14,25,23,20,19,22,20,22,17,25,24,22,21,20,20,13,26]}
+window.ALL_CRATES = ["cairo_native","cairo_native_bin_utils","cairo_native_compile","cairo_native_dump","cairo_native_run","cairo_native_stress","cairo_native_test","cairo_native_test_2","compile_cairo_contract","compile_cairo_project","compile_cairo_tests","contract_to_sierra","scarb_native_dump","scarb_native_test","sierra_emu","starknet_native_compile"];
+//{"start":21,"fragment_lengths":[14,25,23,20,19,22,20,22,25,24,22,21,20,20,13,26]}

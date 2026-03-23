@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["decode_instruction"],"mod":["search"],"struct":["GraphMappings","Memory","StepId","Trace","ValueId"]};
