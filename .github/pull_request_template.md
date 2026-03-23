@@ -21,8 +21,8 @@ and our sequencer fork to comply with the latest changes.
 The following checklist can be removed if not required.
 -->
 
-- [ ] Created PR in [sequencer](https://github.com/lambdaclass/sequencer)
-- [ ] Created PR in [starknet-replay](https://github.com/lambdaclass/starknet-replay)   
+- [ ] Created PR in [sequencer](https://github.com/starkware-libs/sequencer)
+- [ ] Created PR in [starknet-replay](https://github.com/starkware-libs/starknet-replay)   
 - [ ] Updated the `starknet-blocks.yml` workflow to use these PRs.
 
 These PRs should be merged after this one right away, in that order.

@@ -63,7 +63,7 @@ export RUST_LOG="cairo_native=trace"
 ## Other tips:
 
 - Try to find the minimal program to reproduce an issue, the more isolated the easier to test.
-- Use the `debug_utils` print utilities, more info [here](https://lambdaclass.github.io/cairo_native/cairo_native/metadata/debug_utils/struct.DebugUtils.html):
+- Use the `debug_utils` print utilities, more info [here](https://starkware-libs.github.io/cairo_native/cairo_native/metadata/debug_utils/struct.DebugUtils.html):
 
 ```rust,ignore
 #[cfg(feature = "with-debug-utils")]
@@ -239,7 +239,7 @@ impl StarknetSyscallHandler for ReplaySyscallHandler {
 ```
 
 If we run something like the above then the
-[replay](https://github.com/lambdaclass/starknet-replay) should start
+[replay](https://github.com/starkware-libs/starknet-replay) should start
 printing the log of what’s actually being executed and where it crashes.
 It may print multiple times the error message, but **only the first one is
 the relevant one** (the others should be the contract call chain in reverse
@@ -364,7 +364,7 @@ In addition to this, we developed the `with-trace-dump` feature for Cairo Native
 
 By combining both tools, we can hopefully pinpoint exactly which *libfunc* implementation is buggy.
 
-Before starting, make sure to clone [starknet-replay](https://github.com/lambdaclass/starknet-replay).
+Before starting, make sure to clone [starknet-replay](https://github.com/starkware-libs/starknet-replay).
 
 #### Obtaining Sierra Emulator Trace in Starknet Replay
 
@@ -391,7 +391,7 @@ As a single transaction can invoke multiple contracts (by contract and library c
 If the execution panics, It may indicate that not all the required libfuncs or types have been implemented (for either sierra emulator or Cairo Native trace dump feature). It is a good idea to patch the dependencies to a local path and implement the missing features. You can add this to `Cargo.toml`
 
 ```toml
-[patch.'https://github.com/lambdaclass/cairo_native']
+[patch.'https://github.com/starkware-libs/cairo_native']
 cairo-native = { path = "../cairo_native" }
 [patch.'https://github.com/lambdaclass/sierra-emu']
 sierra-emu = { path = "../sierra-emu" }
