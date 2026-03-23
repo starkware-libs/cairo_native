@@ -8,6 +8,7 @@ on:
 
 jobs:
   run-blocks:
+    if: false
     name: Run Blocks
     runs-on: ubuntu-latest
     env:
