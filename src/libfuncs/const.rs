@@ -25,7 +25,7 @@ use cairo_lang_sierra::{
 use melior::{
     dialect::llvm::{self, r#type::pointer},
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
-    ir::{Block, Location, Value},
+    ir::{r#type::IntegerType, Block, Location, Value},
     Context,
 };
 use num_bigint::Sign;
@@ -284,6 +284,35 @@ pub fn build_const_type_value<'ctx, 'this>(
 
             Ok(entry.const_int_from_type(context, location, value, inner_ty)?)
         }
+        CoreTypeConcrete::EcPoint(_) => match &info.inner_data[..] {
+            [GenericArg::Value(x), GenericArg::Value(y)] => {
+                let felt252_ty = IntegerType::new(context, 252).into();
+
+                let x = {
+                    let (sign, val) = x.clone().into_parts();
+                    let val = match sign {
+                        Sign::Minus => PRIME.clone() - val,
+                        _ => val,
+                    };
+                    entry.const_int(context, location, val, 252)?
+                };
+                let y = {
+                    let (sign, val) = y.clone().into_parts();
+                    let val = match sign {
+                        Sign::Minus => PRIME.clone() - val,
+                        _ => val,
+                    };
+                    entry.const_int(context, location, val, 252)?
+                };
+
+                let ec_point_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
+                let value = entry.append_op_result(llvm::undef(ec_point_ty, location))?;
+                let value = entry.insert_value(context, location, value, x, 0)?;
+                let value = entry.insert_value(context, location, value, y, 1)?;
+                Ok(value)
+            }
+            _ => Err(Error::ConstDataMismatch),
+        },
         CoreTypeConcrete::Uint8(_)
         | CoreTypeConcrete::Uint16(_)
         | CoreTypeConcrete::Uint32(_)
@@ -318,5 +347,14 @@ pub mod test {
 
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, jit_struct!(Value::Sint32(-2)));
+    }
+
+    #[test]
+    fn run_ec_point_const() {
+        // Tests const_as_box on EcPoint type (Const<EcPoint, x, y>).
+        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_const");
+
+        // Just verify it compiles and runs without panicking.
+        let _ = run_program(&program, "run_test", &[]);
     }
 }

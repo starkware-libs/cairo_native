@@ -166,6 +166,13 @@ fn inner(
 
             Value::Struct(fields)
         }
+        CoreTypeConcrete::EcPoint(_) => match inner_data {
+            [GenericArg::Value(x), GenericArg::Value(y)] => Value::EcPoint {
+                x: x.into(),
+                y: y.into(),
+            },
+            _ => unreachable!(),
+        },
         CoreTypeConcrete::Enum(_) => match inner_data {
             [GenericArg::Value(value_idx), GenericArg::Type(payload_ty)] => {
                 let payload_type = registry.get_type(payload_ty).unwrap();
