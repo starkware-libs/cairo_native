@@ -230,6 +230,16 @@ pub fn find_function_id<'a>(program: &'a Program, function_name: &str) -> Option
 }
 
 /// Parse a numeric string into felt, wrapping negatives around the prime modulo.
+/// Normalize a signed BigInt felt value to its unsigned field representation.
+///
+/// Negative values are mapped to `PRIME - |value|`.
+pub fn felt_to_unsigned(value: &BigInt) -> BigUint {
+    match value.sign() {
+        Sign::Minus => &*PRIME - value.magnitude(),
+        _ => value.magnitude().clone(),
+    }
+}
+
 pub fn felt252_str(value: &str) -> Felt {
     let value = value
         .parse::<BigInt>()

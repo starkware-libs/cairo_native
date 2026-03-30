@@ -4,7 +4,7 @@ use super::LibfuncHelper;
 use crate::{
     error::{panic::ToNativeAssertError, Result},
     metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
-    utils::{ProgramRegistryExt, PRIME},
+    utils::{felt_to_unsigned, ProgramRegistryExt, PRIME},
 };
 use cairo_lang_sierra::{
     extensions::{
@@ -24,7 +24,6 @@ use melior::{
     ir::{r#type::IntegerType, Block, Location, Value, ValueLike},
     Context,
 };
-use num_bigint::{BigInt, Sign};
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -77,15 +76,13 @@ pub fn build_binary_operation<'ctx, 'this>(
             (operation.operator, entry.arg(0)?, entry.arg(1)?)
         }
         Felt252BinaryOperationConcrete::WithConst(operation) => {
-            let value = match operation.c.sign() {
-                Sign::Minus => (BigInt::from_biguint(Sign::Plus, PRIME.clone()) + &operation.c)
-                    .magnitude()
-                    .clone(),
-                _ => operation.c.magnitude().clone(),
-            };
-
             // TODO: Ensure that the constant is on the correct side of the operation.
-            let rhs = entry.const_int_from_type(context, location, value, felt252_ty)?;
+            let rhs = entry.const_int_from_type(
+                context,
+                location,
+                felt_to_unsigned(&operation.c),
+                felt252_ty,
+            )?;
 
             (operation.operator, entry.arg(0)?, rhs)
         }
@@ -206,13 +203,6 @@ pub fn build_const<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &Felt252ConstConcreteLibfunc,
 ) -> Result<()> {
-    let value = match info.c.sign() {
-        Sign::Minus => (&info.c + BigInt::from_biguint(Sign::Plus, PRIME.clone()))
-            .magnitude()
-            .clone(),
-        _ => info.c.magnitude().clone(),
-    };
-
     let felt252_ty = registry.build_type(
         context,
         helper,
@@ -220,7 +210,8 @@ pub fn build_const<'ctx, 'this>(
         &info.branch_signatures()[0].vars[0].ty,
     )?;
 
-    let value = entry.const_int_from_type(context, location, value, felt252_ty)?;
+    let value =
+        entry.const_int_from_type(context, location, felt_to_unsigned(&info.c), felt252_ty)?;
 
     helper.br(entry, 0, &[value], location)
 }
