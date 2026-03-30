@@ -7,7 +7,7 @@ use crate::{
     metadata::{realloc_bindings::ReallocBindingsMeta, MetadataStorage},
     native_panic,
     types::TypeBuilder,
-    utils::{ProgramRegistryExt, RangeExt, PRIME},
+    utils::{felt_to_unsigned, ProgramRegistryExt, RangeExt},
 };
 use cairo_lang_sierra::{
     extensions::{
@@ -25,10 +25,9 @@ use cairo_lang_sierra::{
 use melior::{
     dialect::llvm::{self, r#type::pointer},
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
-    ir::{Block, Location, Value},
+    ir::{r#type::IntegerType, Block, Location, Value},
     Context,
 };
-use num_bigint::Sign;
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -254,36 +253,33 @@ pub fn build_const_type_value<'ctx, 'this>(
                 inner_type.integer_range(registry)?.offset_bit_width(),
             )?)
         }
-        CoreTypeConcrete::Felt252(_) => {
-            let value = match &info.inner_data.as_slice() {
-                [GenericArg::Value(value)] => value.clone(),
-                _ => return Err(Error::ConstDataMismatch),
-            };
-
-            let (sign, value) = value.into_parts();
-            let value = match sign {
-                Sign::Minus => PRIME.clone() - value,
-                _ => value,
-            };
-
-            Ok(entry.const_int_from_type(context, location, value, inner_ty)?)
-        }
-        CoreTypeConcrete::Starknet(
+        CoreTypeConcrete::Felt252(_)
+        | CoreTypeConcrete::Starknet(
             StarknetTypeConcrete::ClassHash(_) | StarknetTypeConcrete::ContractAddress(_),
-        ) => {
-            let value = match &info.inner_data.as_slice() {
-                [GenericArg::Value(value)] => value.clone(),
-                _ => return Err(Error::ConstDataMismatch),
-            };
+        ) => match &info.inner_data[..] {
+            [GenericArg::Value(value)] => Ok(entry.const_int_from_type(
+                context,
+                location,
+                felt_to_unsigned(value),
+                inner_ty,
+            )?),
+            _ => Err(Error::ConstDataMismatch),
+        },
+        CoreTypeConcrete::EcPoint(_) => match &info.inner_data[..] {
+            [GenericArg::Value(x), GenericArg::Value(y)] => {
+                let felt252_ty = IntegerType::new(context, 252).into();
 
-            let (sign, value) = value.into_parts();
-            let value = match sign {
-                Sign::Minus => PRIME.clone() - value,
-                _ => value,
-            };
+                let x = entry.const_int(context, location, felt_to_unsigned(x), 252)?;
+                let y = entry.const_int(context, location, felt_to_unsigned(y), 252)?;
 
-            Ok(entry.const_int_from_type(context, location, value, inner_ty)?)
-        }
+                let ec_point_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
+                let value = entry.append_op_result(llvm::undef(ec_point_ty, location))?;
+                let value = entry.insert_value(context, location, value, x, 0)?;
+                let value = entry.insert_value(context, location, value, y, 1)?;
+                Ok(value)
+            }
+            _ => Err(Error::ConstDataMismatch),
+        },
         CoreTypeConcrete::Uint8(_)
         | CoreTypeConcrete::Uint16(_)
         | CoreTypeConcrete::Uint32(_)
@@ -318,5 +314,14 @@ pub mod test {
 
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, jit_struct!(Value::Sint32(-2)));
+    }
+
+    #[test]
+    fn run_ec_point_const() {
+        // Tests const_as_box on EcPoint type (Const<EcPoint, x, y>).
+        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_const");
+
+        // Just verify it compiles and runs without panicking.
+        let _ = run_program(&program, "run_test", &[]);
     }
 }

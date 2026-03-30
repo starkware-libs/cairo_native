@@ -6,7 +6,7 @@ use crate::{
     ffi::get_struct_field_type_at,
     metadata::{drop_overrides::DropOverridesMeta, MetadataStorage},
     starknet::handler::StarknetSyscallHandlerCallbacks,
-    utils::{get_integer_layout, ProgramRegistryExt, PRIME},
+    utils::{felt_to_unsigned, get_integer_layout, ProgramRegistryExt},
 };
 use cairo_lang_sierra::{
     extensions::{
@@ -31,7 +31,6 @@ use melior::{
     },
     Context,
 };
-use num_bigint::Sign;
 use std::alloc::Layout;
 
 mod secp256;
@@ -306,15 +305,7 @@ pub fn build_class_hash_const<'ctx, 'this>(
     _metadata: &mut MetadataStorage,
     info: &SignatureAndConstConcreteLibfunc,
 ) -> Result<()> {
-    let value = entry.const_int(
-        context,
-        location,
-        match info.c.sign() {
-            Sign::Minus => &*PRIME - info.c.magnitude(),
-            _ => info.c.magnitude().clone(),
-        },
-        252,
-    )?;
+    let value = entry.const_int(context, location, felt_to_unsigned(&info.c), 252)?;
 
     helper.br(entry, 0, &[value], location)
 }
@@ -365,15 +356,7 @@ pub fn build_contract_address_const<'ctx, 'this>(
     _metadata: &mut MetadataStorage,
     info: &SignatureAndConstConcreteLibfunc,
 ) -> Result<()> {
-    let value = entry.const_int(
-        context,
-        location,
-        match info.c.sign() {
-            Sign::Minus => &*PRIME - info.c.magnitude(),
-            _ => info.c.magnitude().clone(),
-        },
-        252,
-    )?;
+    let value = entry.const_int(context, location, felt_to_unsigned(&info.c), 252)?;
 
     helper.br(entry, 0, &[value], location)
 }
@@ -596,15 +579,7 @@ pub fn build_storage_base_address_const<'ctx, 'this>(
     _metadata: &mut MetadataStorage,
     info: &SignatureAndConstConcreteLibfunc,
 ) -> Result<()> {
-    let value = entry.const_int(
-        context,
-        location,
-        match info.c.sign() {
-            Sign::Minus => &*PRIME - info.c.magnitude(),
-            _ => info.c.magnitude().clone(),
-        },
-        252,
-    )?;
+    let value = entry.const_int(context, location, felt_to_unsigned(&info.c), 252)?;
 
     helper.br(entry, 0, &[value], location)
 }
