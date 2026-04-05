@@ -189,6 +189,10 @@ install-scarb-macos:
 	sh -s -- --version $(SCARB_VERSION)
 
 
+test_data/e2e_sierra: vendor/cairo
+	python3 ./scripts/extract_e2e_sierra.py
+
+
 .PHONY: compile-test-data
-compile-test-data:
+compile-test-data: test_data/e2e_sierra
 	python3 ./scripts/compile_test_data.py
