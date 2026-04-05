@@ -5,6 +5,7 @@ pub mod cases;
 pub mod circuit;
 pub mod compile_library;
 pub mod dict;
+pub mod e2e_libfuncs;
 pub mod ec;
 pub mod felt252;
 pub mod libfuncs;

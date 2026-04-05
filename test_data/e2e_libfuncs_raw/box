@@ -1,0 +1,1186 @@
+//! > into_box libfunc for felt252 (size 1)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(x: felt252) -> Box<felt252> {
+    BoxTrait::new(x)
+}
+
+//! > casm
+%{
+if '__boxed_segment' not in globals():
+    __boxed_segment = segments.add()
+memory[ap + 0] = __boxed_segment
+__boxed_segment += 1
+%}
+[fp + -3] = [[ap + 0] + 0], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc into_box<felt252> = into_box<felt252>;
+
+F0:
+into_box<felt252>([0]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: felt252) -> (Box<felt252>);
+
+//! > ==========================================================================
+
+//! > unbox libfunc for felt252 (size 1)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(x: Box<felt252>) -> felt252 {
+    x.unbox()
+}
+
+//! > casm
+[ap + 0] = [[fp + -3] + 0], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc unbox<felt252> = unbox<felt252>;
+libfunc store_temp<felt252> = store_temp<felt252>;
+
+F0:
+unbox<felt252>([0]) -> ([1]);
+store_temp<felt252>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Box<felt252>) -> (felt252);
+
+//! > ==========================================================================
+
+//! > into_box libfunc for u256 (size 2)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(x: u256) -> Box<u256> {
+    BoxTrait::new(x)
+}
+
+//! > casm
+%{
+if '__boxed_segment' not in globals():
+    __boxed_segment = segments.add()
+memory[ap + 0] = __boxed_segment
+__boxed_segment += 2
+%}
+[fp + -4] = [[ap + 0] + 0], ap++;
+[fp + -3] = [[ap + -1] + 1];
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > sierra_code
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc into_box<core::integer::u256> = into_box<core::integer::u256>;
+
+F0:
+into_box<core::integer::u256>([0]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: core::integer::u256) -> (Box<core::integer::u256>);
+
+//! > ==========================================================================
+
+//! > unbox libfunc for u256 (size 2)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(x: Box<u256>) -> u256 {
+    x.unbox()
+}
+
+//! > casm
+[ap + 0] = [[fp + -3] + 0], ap++;
+[ap + 0] = [[fp + -3] + 1], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > sierra_code
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc unbox<core::integer::u256> = unbox<core::integer::u256>;
+libfunc store_temp<core::integer::u256> = store_temp<core::integer::u256>;
+
+F0:
+unbox<core::integer::u256>([0]) -> ([1]);
+store_temp<core::integer::u256>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Box<core::integer::u256>) -> (core::integer::u256);
+
+//! > ==========================================================================
+
+//! > into_box libfunc for unit type (size 0)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(e: ()) -> Box<()> {
+    BoxTrait::new(e)
+}
+
+//! > casm
+[ap + 0] = 1, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type Box<Unit> = Box<Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc into_box<Unit> = into_box<Unit>;
+
+F0:
+into_box<Unit>([0]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Unit) -> (Box<Unit>);
+
+//! > ==========================================================================
+
+//! > unbox libfunc for unit type (size 0)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(x: Box<()>) -> () {
+    x.unbox()
+}
+
+//! > casm
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({})
+
+//! > sierra_code
+type Box<Unit> = Box<Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+
+libfunc drop<Box<Unit>> = drop<Box<Unit>>;
+
+F0:
+drop<Box<Unit>>([0]) -> ();
+return();
+
+test::foo@F0([0]: Box<Unit>) -> ();
+
+//! > ==========================================================================
+
+//! > into_box libfunc for empty struct (size 0)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+struct Empty {}
+fn foo(e: Empty) -> Box<Empty> {
+    BoxTrait::new(e)
+}
+
+//! > casm
+[ap + 0] = 1, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type test::Empty = Struct<ut@test::Empty> [storable: true, drop: true, dup: true, zero_sized: true];
+type Box<test::Empty> = Box<test::Empty> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc into_box<test::Empty> = into_box<test::Empty>;
+
+F0:
+into_box<test::Empty>([0]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: test::Empty) -> (Box<test::Empty>);
+
+//! > ==========================================================================
+
+//! > unbox libfunc for empty struct (size 0)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+struct Empty {}
+fn foo(x: Box<Empty>) -> Empty {
+    x.unbox()
+}
+
+//! > casm
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({})
+
+//! > sierra_code
+type Box<test::Empty> = Box<test::Empty> [storable: true, drop: true, dup: true, zero_sized: false];
+type test::Empty = Struct<ut@test::Empty> [storable: true, drop: true, dup: true, zero_sized: true];
+
+libfunc unbox<test::Empty> = unbox<test::Empty>;
+
+F0:
+unbox<test::Empty>([0]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Box<test::Empty>) -> (test::Empty);
+
+//! > ==========================================================================
+
+//! > box_forward_snapshot libfunc
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: @Box::<Array<felt252>>) -> Box<@Array<felt252>> {
+    core::box::box_forward_snapshot(value)
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Box<Array<felt252>> = Box<Array<felt252>> [storable: true, drop: true, dup: false, zero_sized: false];
+type Snapshot<Box<Array<felt252>>> = Snapshot<Box<Array<felt252>>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Array<felt252> = Array<felt252> [storable: true, drop: true, dup: false, zero_sized: false];
+type Box<Snapshot<Array<felt252>>> = Box<Snapshot<Array<felt252>>> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Snapshot<Array<felt252>> = Snapshot<Array<felt252>> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc box_forward_snapshot<Array<felt252>> = box_forward_snapshot<Array<felt252>>;
+libfunc store_temp<Box<Snapshot<Array<felt252>>>> = store_temp<Box<Snapshot<Array<felt252>>>>;
+
+F0:
+box_forward_snapshot<Array<felt252>>([0]) -> ([1]);
+store_temp<Box<Snapshot<Array<felt252>>>>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Snapshot<Box<Array<felt252>>>) -> (Box<Snapshot<Array<felt252>>>);
+
+//! > ==========================================================================
+
+//! > struct_boxed_deconstruct libfunc
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<A>) -> (Box<u256>, Box<u256>) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u256>, Box<u256>) nopanic;
+
+struct A {
+    a: u256,
+    b: u256,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+[ap + 0] = [fp + -3] + 2, ap++;
+ret;
+
+//! > sierra_code
+type Box<test::A> = Box<test::A> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<core::integer::u256>, Box<core::integer::u256>> = Struct<ut@Tuple, Box<core::integer::u256>, Box<core::integer::u256>> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type test::A = Struct<ut@test::A, core::integer::u256, core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<test::A> = struct_boxed_deconstruct<test::A>;
+libfunc struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+libfunc store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+
+F0:
+struct_boxed_deconstruct<test::A>([0]) -> ([1], [2]);
+struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([1], [2]) -> ([3]);
+store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([3]) -> ([3]);
+return([3]);
+
+test::foo@F0([0]: Box<test::A>) -> (Tuple<Box<core::integer::u256>, Box<core::integer::u256>>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for struct with single member
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<Single>) -> (Box<Array<felt252>>,) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<Array<felt252>>,) nopanic;
+
+struct Single {
+    x: Array<felt252>,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+ret;
+
+//! > sierra_code
+type Box<test::Single> = Box<test::Single> [storable: true, drop: true, dup: false, zero_sized: false];
+type Box<Array<felt252>> = Box<Array<felt252>> [storable: true, drop: true, dup: false, zero_sized: false];
+type Tuple<Box<Array<felt252>>> = Struct<ut@Tuple, Box<Array<felt252>>> [storable: true, drop: true, dup: false, zero_sized: false];
+type Array<felt252> = Array<felt252> [storable: true, drop: true, dup: false, zero_sized: false];
+type test::Single = Struct<ut@test::Single, Array<felt252>> [storable: true, drop: true, dup: false, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<test::Single> = struct_boxed_deconstruct<test::Single>;
+libfunc struct_construct<Tuple<Box<Array<felt252>>>> = struct_construct<Tuple<Box<Array<felt252>>>>;
+libfunc store_temp<Tuple<Box<Array<felt252>>>> = store_temp<Tuple<Box<Array<felt252>>>>;
+
+F0:
+struct_boxed_deconstruct<test::Single>([0]) -> ([1]);
+struct_construct<Tuple<Box<Array<felt252>>>>([1]) -> ([2]);
+store_temp<Tuple<Box<Array<felt252>>>>([2]) -> ([2]);
+return([2]);
+
+test::foo@F0([0]: Box<test::Single>) -> (Tuple<Box<Array<felt252>>>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for struct with many members
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<Many>) -> (Box<u256>, Box<felt252>, Box<Array<felt252>>, Box<u256>) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(
+    value: Box<T>,
+) -> (Box<u256>, Box<felt252>, Box<Array<felt252>>, Box<u256>) nopanic;
+
+struct Many {
+    a: u256,
+    b: felt252,
+    c: Array<felt252>,
+    d: u256,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+[ap + 0] = [fp + -3] + 2, ap++;
+[ap + 0] = [fp + -3] + 3, ap++;
+[ap + 0] = [fp + -3] + 5, ap++;
+ret;
+
+//! > sierra_code
+type Box<test::Many> = Box<test::Many> [storable: true, drop: true, dup: false, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Array<felt252>> = Box<Array<felt252>> [storable: true, drop: true, dup: false, zero_sized: false];
+type Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>> = Struct<ut@Tuple, Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>> [storable: true, drop: true, dup: false, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Array<felt252> = Array<felt252> [storable: true, drop: true, dup: false, zero_sized: false];
+type test::Many = Struct<ut@test::Many, core::integer::u256, felt252, Array<felt252>, core::integer::u256> [storable: true, drop: true, dup: false, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<test::Many> = struct_boxed_deconstruct<test::Many>;
+libfunc struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>> = struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>>;
+libfunc store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>> = store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>>;
+
+F0:
+struct_boxed_deconstruct<test::Many>([0]) -> ([1], [2], [3], [4]);
+struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>>([1], [2], [3], [4]) -> ([5]);
+store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>>([5]) -> ([5]);
+return([5]);
+
+test::foo@F0([0]: Box<test::Many>) -> (Tuple<Box<core::integer::u256>, Box<felt252>, Box<Array<felt252>>, Box<core::integer::u256>>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 400})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for empty struct
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<Empty>) -> () {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> () nopanic;
+
+struct Empty {}
+
+//! > casm
+ret;
+
+//! > sierra_code
+type Box<test::Empty> = Box<test::Empty> [storable: true, drop: true, dup: true, zero_sized: false];
+type test::Empty = Struct<ut@test::Empty> [storable: true, drop: true, dup: true, zero_sized: true];
+
+libfunc struct_boxed_deconstruct<test::Empty> = struct_boxed_deconstruct<test::Empty>;
+
+F0:
+struct_boxed_deconstruct<test::Empty>([0]) -> ();
+return();
+
+test::foo@F0([0]: Box<test::Empty>) -> ();
+
+//! > function_costs
+test::foo: SmallOrderedMap({})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for Box<@A>
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<@A>) -> (Box<@u256>, Box<@u256>) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<@u256>, Box<@u256>) nopanic;
+
+struct A {
+    a: u256,
+    b: u256,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+[ap + 0] = [fp + -3] + 2, ap++;
+ret;
+
+//! > sierra_code
+type Box<test::A> = Box<test::A> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<core::integer::u256>, Box<core::integer::u256>> = Struct<ut@Tuple, Box<core::integer::u256>, Box<core::integer::u256>> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type test::A = Struct<ut@test::A, core::integer::u256, core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<test::A> = struct_boxed_deconstruct<test::A>;
+libfunc struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+libfunc store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+
+F0:
+struct_boxed_deconstruct<test::A>([0]) -> ([1], [2]);
+struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([1], [2]) -> ([3]);
+store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([3]) -> ([3]);
+return([3]);
+
+test::foo@F0([0]: Box<test::A>) -> (Tuple<Box<core::integer::u256>, Box<core::integer::u256>>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for Box<@Single>
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<@Single>) -> (Box<@Array<felt252>>,) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<@Array<felt252>>,) nopanic;
+
+struct Single {
+    x: Array<felt252>,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Box<Snapshot<test::Single>> = Box<Snapshot<test::Single>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Snapshot<Array<felt252>>> = Box<Snapshot<Array<felt252>>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<Snapshot<Array<felt252>>>> = Struct<ut@Tuple, Box<Snapshot<Array<felt252>>>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Array<felt252> = Array<felt252> [storable: true, drop: true, dup: false, zero_sized: false];
+type test::Single = Struct<ut@test::Single, Array<felt252>> [storable: true, drop: true, dup: false, zero_sized: false];
+type Snapshot<test::Single> = Snapshot<test::Single> [storable: true, drop: true, dup: true, zero_sized: false];
+type Snapshot<Array<felt252>> = Snapshot<Array<felt252>> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<Snapshot<test::Single>> = struct_boxed_deconstruct<Snapshot<test::Single>>;
+libfunc struct_construct<Tuple<Box<Snapshot<Array<felt252>>>>> = struct_construct<Tuple<Box<Snapshot<Array<felt252>>>>>;
+libfunc store_temp<Tuple<Box<Snapshot<Array<felt252>>>>> = store_temp<Tuple<Box<Snapshot<Array<felt252>>>>>;
+
+F0:
+struct_boxed_deconstruct<Snapshot<test::Single>>([0]) -> ([1]);
+struct_construct<Tuple<Box<Snapshot<Array<felt252>>>>>([1]) -> ([2]);
+store_temp<Tuple<Box<Snapshot<Array<felt252>>>>>([2]) -> ([2]);
+return([2]);
+
+test::foo@F0([0]: Box<Snapshot<test::Single>>) -> (Tuple<Box<Snapshot<Array<felt252>>>>);
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc for Box<@Many>
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(value: Box<@Many>) -> (Box<@u256>, Box<@felt252>, Box<@Array<felt252>>, Box<@u256>) {
+    struct_boxed_deconstruct(value)
+}
+
+extern fn struct_boxed_deconstruct<T>(
+    value: Box<T>,
+) -> (Box<@u256>, Box<@felt252>, Box<@Array<felt252>>, Box<@u256>) nopanic;
+
+struct Many {
+    a: u256,
+    b: felt252,
+    c: Array<felt252>,
+    d: u256,
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+[ap + 0] = [fp + -3] + 2, ap++;
+[ap + 0] = [fp + -3] + 3, ap++;
+[ap + 0] = [fp + -3] + 5, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 400})
+
+//! > sierra_code
+type Box<Snapshot<test::Many>> = Box<Snapshot<test::Many>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Snapshot<Array<felt252>>> = Box<Snapshot<Array<felt252>>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>> = Struct<ut@Tuple, Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Array<felt252> = Array<felt252> [storable: true, drop: true, dup: false, zero_sized: false];
+type test::Many = Struct<ut@test::Many, core::integer::u256, felt252, Array<felt252>, core::integer::u256> [storable: true, drop: true, dup: false, zero_sized: false];
+type Snapshot<test::Many> = Snapshot<test::Many> [storable: true, drop: true, dup: true, zero_sized: false];
+type Snapshot<Array<felt252>> = Snapshot<Array<felt252>> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<Snapshot<test::Many>> = struct_boxed_deconstruct<Snapshot<test::Many>>;
+libfunc struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>> = struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>>;
+libfunc store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>> = store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>>;
+
+F0:
+struct_boxed_deconstruct<Snapshot<test::Many>>([0]) -> ([1], [2], [3], [4]);
+struct_construct<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>>([1], [2], [3], [4]) -> ([5]);
+store_temp<Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>>([5]) -> ([5]);
+return([5]);
+
+test::foo@F0([0]: Box<Snapshot<test::Many>>) -> (Tuple<Box<core::integer::u256>, Box<felt252>, Box<Snapshot<Array<felt252>>>, Box<core::integer::u256>>);
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc with non-zero offset (non-recursive call)
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+#[inline(never)]
+pub fn helper() -> Box<A> {
+    BoxTrait::new(A { a: 1, b: 2 })
+}
+
+fn foo() -> (Box<u256>, Box<u256>) {
+    let b = helper();
+    struct_boxed_deconstruct::<A>(b)
+}
+
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u256>, Box<u256>) nopanic;
+
+struct A {
+    a: u256,
+    b: u256,
+}
+
+//! > casm
+[ap + 0] = 1, ap++;
+[ap + 0] = 0, ap++;
+[ap + 0] = 2, ap++;
+[ap + 0] = 0, ap++;
+%{
+if '__boxed_segment' not in globals():
+    __boxed_segment = segments.add()
+memory[ap + 0] = __boxed_segment
+__boxed_segment += 4
+%}
+[ap + -4] = [[ap + 0] + 0], ap++;
+[ap + -4] = [[ap + -1] + 1];
+[ap + -3] = [[ap + -1] + 2];
+[ap + -2] = [[ap + -1] + 3];
+ret;
+call rel -13;
+[ap + 0] = [ap + -1], ap++;
+[ap + 0] = [ap + -2] + 2, ap++;
+ret;
+
+//! > function_costs
+test::helper: SmallOrderedMap({Const: 800})
+test::foo: SmallOrderedMap({Const: 1200})
+
+//! > sierra_code
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<core::integer::u256>, Box<core::integer::u256>> = Struct<ut@Tuple, Box<core::integer::u256>, Box<core::integer::u256>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<test::A> = Box<test::A> [storable: true, drop: true, dup: true, zero_sized: false];
+type test::A = Struct<ut@test::A, core::integer::u256, core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Const<core::integer::u256, Const<u128, 2>, Const<u128, 0>> = Const<core::integer::u256, Const<u128, 2>, Const<u128, 0>> [storable: false, drop: false, dup: false, zero_sized: false];
+type Const<core::integer::u256, Const<u128, 1>, Const<u128, 0>> = Const<core::integer::u256, Const<u128, 1>, Const<u128, 0>> [storable: false, drop: false, dup: false, zero_sized: false];
+type Const<u128, 0> = Const<u128, 0> [storable: false, drop: false, dup: false, zero_sized: false];
+type Const<u128, 1> = Const<u128, 1> [storable: false, drop: false, dup: false, zero_sized: false];
+type Const<u128, 2> = Const<u128, 2> [storable: false, drop: false, dup: false, zero_sized: false];
+
+libfunc const_as_immediate<Const<core::integer::u256, Const<u128, 1>, Const<u128, 0>>> = const_as_immediate<Const<core::integer::u256, Const<u128, 1>, Const<u128, 0>>>;
+libfunc const_as_immediate<Const<core::integer::u256, Const<u128, 2>, Const<u128, 0>>> = const_as_immediate<Const<core::integer::u256, Const<u128, 2>, Const<u128, 0>>>;
+libfunc struct_construct<test::A> = struct_construct<test::A>;
+libfunc store_temp<test::A> = store_temp<test::A>;
+libfunc into_box<test::A> = into_box<test::A>;
+libfunc function_call<user@test::helper> = function_call<user@test::helper>;
+libfunc struct_boxed_deconstruct<test::A> = struct_boxed_deconstruct<test::A>;
+libfunc struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+libfunc store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>> = store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>;
+
+F0:
+const_as_immediate<Const<core::integer::u256, Const<u128, 1>, Const<u128, 0>>>() -> ([0]);
+const_as_immediate<Const<core::integer::u256, Const<u128, 2>, Const<u128, 0>>>() -> ([1]);
+struct_construct<test::A>([0], [1]) -> ([2]);
+store_temp<test::A>([2]) -> ([2]);
+into_box<test::A>([2]) -> ([3]);
+return([3]);
+F1:
+function_call<user@test::helper>() -> ([0]);
+struct_boxed_deconstruct<test::A>([0]) -> ([1], [2]);
+struct_construct<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([1], [2]) -> ([3]);
+store_temp<Tuple<Box<core::integer::u256>, Box<core::integer::u256>>>([3]) -> ([3]);
+return([3]);
+
+test::helper@F0() -> (Box<test::A>);
+test::foo@F1() -> (Tuple<Box<core::integer::u256>, Box<core::integer::u256>>);
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc recursive
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+mod a {
+    extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u256>, Box<u256>) nopanic;
+}
+
+mod b {
+    extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u128>, Box<u128>) nopanic;
+}
+
+fn foo(a: Box<(u256, u256)>) -> (Box<u128>, Box<u128>, Box<u128>, Box<u128>) {
+    let (b1, b2) = a::struct_boxed_deconstruct(a);
+    let (c1, c2) = b::struct_boxed_deconstruct(b1);
+    let (c3, c4) = b::struct_boxed_deconstruct(b2);
+    (c1, c2, c3, c4)
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+[ap + 0] = [fp + -3] + 1, ap++;
+[ap + 0] = [fp + -3] + 2, ap++;
+[ap + 0] = [fp + -3] + 3, ap++;
+ret;
+
+//! > sierra_code
+type Box<Tuple<core::integer::u256, core::integer::u256>> = Box<Tuple<core::integer::u256, core::integer::u256>> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<u128> = Box<u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>> = Struct<ut@Tuple, Box<u128>, Box<u128>, Box<u128>, Box<u128>> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<core::integer::u256, core::integer::u256> = Struct<ut@Tuple, core::integer::u256, core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<Tuple<core::integer::u256, core::integer::u256>> = struct_boxed_deconstruct<Tuple<core::integer::u256, core::integer::u256>>;
+libfunc struct_boxed_deconstruct<core::integer::u256> = struct_boxed_deconstruct<core::integer::u256>;
+libfunc struct_construct<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>> = struct_construct<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>>;
+libfunc store_temp<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>> = store_temp<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>>;
+
+F0:
+struct_boxed_deconstruct<Tuple<core::integer::u256, core::integer::u256>>([0]) -> ([1], [2]);
+struct_boxed_deconstruct<core::integer::u256>([1]) -> ([3], [4]);
+struct_boxed_deconstruct<core::integer::u256>([2]) -> ([5], [6]);
+struct_construct<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>>([3], [4], [5], [6]) -> ([7]);
+store_temp<Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>>([7]) -> ([7]);
+return([7]);
+
+test::foo@F0([0]: Box<Tuple<core::integer::u256, core::integer::u256>>) -> (Tuple<Box<u128>, Box<u128>, Box<u128>, Box<u128>>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 400})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc first same as param
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u128>, Box<u128>) nopanic;
+
+fn foo(a: Box<u256>) -> (u128, u128) {
+    let (a1, a2) = struct_boxed_deconstruct(a);
+    // Since `unbox` expects its argument by value (`deref`), we expect `a1` to be used directly,
+    // while `a2` to be stored prior to `unbox` call.
+    (a1.unbox(), a2.unbox())
+}
+
+//! > casm
+[ap + 0] = [fp + -3] + 1, ap++;
+[ap + 0] = [[fp + -3] + 0], ap++;
+[ap + 0] = [[ap + -2] + 0], ap++;
+ret;
+
+//! > sierra_code
+type Box<core::integer::u256> = Box<core::integer::u256> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<u128, u128> = Struct<ut@Tuple, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type core::integer::u256 = Struct<ut@core::integer::u256, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<u128> = Box<u128> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<core::integer::u256> = struct_boxed_deconstruct<core::integer::u256>;
+libfunc unbox<u128> = unbox<u128>;
+libfunc store_temp<Box<u128>> = store_temp<Box<u128>>;
+libfunc struct_construct<Tuple<u128, u128>> = struct_construct<Tuple<u128, u128>>;
+libfunc store_temp<Tuple<u128, u128>> = store_temp<Tuple<u128, u128>>;
+
+F0:
+struct_boxed_deconstruct<core::integer::u256>([0]) -> ([1], [2]);
+unbox<u128>([1]) -> ([3]);
+store_temp<Box<u128>>([2]) -> ([2]);
+unbox<u128>([2]) -> ([4]);
+struct_construct<Tuple<u128, u128>>([3], [4]) -> ([5]);
+store_temp<Tuple<u128, u128>>([5]) -> ([5]);
+return([5]);
+
+test::foo@F0([0]: Box<core::integer::u256>) -> (Tuple<u128, u128>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > ==========================================================================
+
+//! > box_struct_deconstruct libfunc first-non-zero-sized same as param
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<()>, Box<()>, Box<u128>) nopanic;
+
+fn foo(a: Box<((), (), u128)>) -> u128 {
+    let (_, _, b) = struct_boxed_deconstruct(a);
+    b.unbox()
+}
+
+//! > casm
+[ap + 0] = [[fp + -3] + 0], ap++;
+ret;
+
+//! > sierra_code
+type Box<Tuple<Unit, Unit, u128>> = Box<Tuple<Unit, Unit, u128>> [storable: true, drop: true, dup: true, zero_sized: false];
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type Tuple<Unit, Unit, u128> = Struct<ut@Tuple, Unit, Unit, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<u128> = Box<u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Unit> = Box<Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_boxed_deconstruct<Tuple<Unit, Unit, u128>> = struct_boxed_deconstruct<Tuple<Unit, Unit, u128>>;
+libfunc drop<Box<Unit>> = drop<Box<Unit>>;
+libfunc unbox<u128> = unbox<u128>;
+libfunc store_temp<u128> = store_temp<u128>;
+
+F0:
+struct_boxed_deconstruct<Tuple<Unit, Unit, u128>>([0]) -> ([1], [2], [3]);
+drop<Box<Unit>>([1]) -> ();
+drop<Box<Unit>>([2]) -> ();
+unbox<u128>([3]) -> ([4]);
+store_temp<u128>([4]) -> ([4]);
+return([4]);
+
+test::foo@F0([0]: Box<Tuple<Unit, Unit, u128>>) -> (u128);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > ==========================================================================
+
+//! > local_into_box with fp-based variable
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+fn foo(x: felt252) -> Box<felt252> {
+    local_into_box(x)
+}
+
+//! > casm
+call rel 5;
+[ap + 0] = [ap + -2] + -3, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > sierra_code
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc local_into_box<felt252> = local_into_box<felt252>;
+libfunc store_temp<Box<felt252>> = store_temp<Box<felt252>>;
+
+F0:
+local_into_box<felt252>([0]) -> ([1]);
+store_temp<Box<felt252>>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: felt252) -> (Box<felt252>);
+
+//! > ==========================================================================
+
+//! > reference operator with zero-sized type
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+fn foo(x: ()) -> Box<()> {
+    local_into_box(x)
+}
+
+//! > casm
+call rel 4;
+[ap + 0] = [ap + -2], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type Box<Unit> = Box<Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc local_into_box<Unit> = local_into_box<Unit>;
+libfunc store_temp<Box<Unit>> = store_temp<Box<Unit>>;
+
+F0:
+local_into_box<Unit>([0]) -> ([1]);
+store_temp<Box<Unit>>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Unit) -> (Box<Unit>);
+
+//! > ==========================================================================
+
+//! > reference operator non-local zero-sized type
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+
+fn foo() -> Box<()> {
+    local_into_box(())
+}
+
+//! > casm
+call rel 4;
+[ap + 0] = [ap + -2], ap++;
+ret;
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type Box<Unit> = Box<Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc struct_construct<Unit> = struct_construct<Unit>;
+libfunc local_into_box<Unit> = local_into_box<Unit>;
+libfunc store_temp<Box<Unit>> = store_temp<Box<Unit>>;
+
+F0:
+struct_construct<Unit>() -> ([0]);
+local_into_box<Unit>([0]) -> ([1]);
+store_temp<Box<Unit>>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0() -> (Box<Unit>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > ==========================================================================
+
+//! > local_into_box with size 3 tuple
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+fn foo(x: (felt252, felt252, felt252)) -> Box<(felt252, felt252, felt252)> {
+    local_into_box(x)
+}
+
+//! > casm
+call rel 5;
+[ap + 0] = [ap + -2] + -5, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > sierra_code
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<felt252, felt252, felt252> = Struct<ut@Tuple, felt252, felt252, felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Tuple<felt252, felt252, felt252>> = Box<Tuple<felt252, felt252, felt252>> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc local_into_box<Tuple<felt252, felt252, felt252>> = local_into_box<Tuple<felt252, felt252, felt252>>;
+libfunc store_temp<Box<Tuple<felt252, felt252, felt252>>> = store_temp<Box<Tuple<felt252, felt252, felt252>>>;
+
+F0:
+local_into_box<Tuple<felt252, felt252, felt252>>([0]) -> ([1]);
+store_temp<Box<Tuple<felt252, felt252, felt252>>>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: Tuple<felt252, felt252, felt252>) -> (Box<Tuple<felt252, felt252, felt252>>);
+
+//! > ==========================================================================
+
+//! > local into box with offset 0.
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+
+#[inline(never)]
+fn bar() -> felt252 {
+    1000
+}
+
+fn foo() -> Box<felt252> {
+    let local_with_offset_0 = bar();
+    core::internal::revoke_ap_tracking();
+    local_into_box(local_with_offset_0)
+}
+
+//! > casm
+[ap + 0] = 1000, ap++;
+ret;
+ap += 1;
+call rel -5;
+[fp + 0] = [ap + -1];
+call rel 4;
+[ap + 0] = [ap + -2], ap++;
+ret;
+
+//! > function_costs
+test::bar: SmallOrderedMap({Const: 100})
+test::foo: SmallOrderedMap({Const: 800})
+
+//! > sierra_code
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<felt252> = Box<felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type Uninitialized<felt252> = Uninitialized<felt252> [storable: false, drop: true, dup: false, zero_sized: false];
+type Const<felt252, 1000> = Const<felt252, 1000> [storable: false, drop: false, dup: false, zero_sized: false];
+
+libfunc const_as_immediate<Const<felt252, 1000>> = const_as_immediate<Const<felt252, 1000>>;
+libfunc store_temp<felt252> = store_temp<felt252>;
+libfunc alloc_local<felt252> = alloc_local<felt252>;
+libfunc finalize_locals = finalize_locals;
+libfunc disable_ap_tracking = disable_ap_tracking;
+libfunc function_call<user@test::bar> = function_call<user@test::bar>;
+libfunc store_local<felt252> = store_local<felt252>;
+libfunc revoke_ap_tracking = revoke_ap_tracking;
+libfunc local_into_box<felt252> = local_into_box<felt252>;
+libfunc store_temp<Box<felt252>> = store_temp<Box<felt252>>;
+
+F0:
+const_as_immediate<Const<felt252, 1000>>() -> ([0]);
+store_temp<felt252>([0]) -> ([0]);
+return([0]);
+F1:
+alloc_local<felt252>() -> ([1]);
+finalize_locals() -> ();
+disable_ap_tracking() -> ();
+function_call<user@test::bar>() -> ([0]);
+store_local<felt252>([1], [0]) -> ([0]);
+revoke_ap_tracking() -> ();
+local_into_box<felt252>([0]) -> ([2]);
+store_temp<Box<felt252>>([2]) -> ([2]);
+return([2]);
+
+test::bar@F0() -> (felt252);
+test::foo@F1() -> (Box<felt252>);
+
+//! > ==========================================================================
+
+//! > ReprPointer (&T) with large struct triggers local_into_box optimization.
+
+//! > test_runner_name
+SmallE2ETestRunner(future_sierra: true)
+
+//! > cairo_code
+#[derive(Drop, Copy)]
+struct LargeStruct {
+    a: felt252,
+    b: felt252,
+    c: felt252,
+}
+
+fn foo(s: LargeStruct) -> &LargeStruct {
+    &s
+}
+
+//! > casm
+call rel 5;
+[ap + 0] = [ap + -2] + -5, ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > sierra_code
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+type test::LargeStruct = Struct<ut@test::LargeStruct, felt252, felt252, felt252> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<test::LargeStruct> = Box<test::LargeStruct> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc snapshot_take<test::LargeStruct> = snapshot_take<test::LargeStruct>;
+libfunc drop<test::LargeStruct> = drop<test::LargeStruct>;
+libfunc local_into_box<test::LargeStruct> = local_into_box<test::LargeStruct>;
+libfunc store_temp<Box<test::LargeStruct>> = store_temp<Box<test::LargeStruct>>;
+
+F0:
+snapshot_take<test::LargeStruct>([0]) -> ([1], [2]);
+drop<test::LargeStruct>([1]) -> ();
+local_into_box<test::LargeStruct>([2]) -> ([3]);
+store_temp<Box<test::LargeStruct>>([3]) -> ([3]);
+return([3]);
+
+test::foo@F0([0]: test::LargeStruct) -> (Box<test::LargeStruct>);
+
+//! > ==========================================================================
+
+//! > local_into_box and box_struct_deconstruct libfuncs - no intermediate stores.
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
+extern fn struct_boxed_deconstruct<T>(value: Box<T>) -> (Box<u128>, Box<u128>, Box<u128>) nopanic;
+
+fn foo(a: (u128, u128, u128)) -> Box<u128> {
+    let boxed = local_into_box(a);
+    let (_, _, c) = struct_boxed_deconstruct(boxed);
+    c
+}
+
+//! > casm
+call rel 5;
+[ap + 0] = [ap + -2] + -3, ap++;
+ret;
+
+//! > sierra_code
+type u128 = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+type Tuple<u128, u128, u128> = Struct<ut@Tuple, u128, u128, u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<u128> = Box<u128> [storable: true, drop: true, dup: true, zero_sized: false];
+type Box<Tuple<u128, u128, u128>> = Box<Tuple<u128, u128, u128>> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc local_into_box<Tuple<u128, u128, u128>> = local_into_box<Tuple<u128, u128, u128>>;
+libfunc struct_boxed_deconstruct<Tuple<u128, u128, u128>> = struct_boxed_deconstruct<Tuple<u128, u128, u128>>;
+libfunc drop<Box<u128>> = drop<Box<u128>>;
+libfunc store_temp<Box<u128>> = store_temp<Box<u128>>;
+
+F0:
+local_into_box<Tuple<u128, u128, u128>>([0]) -> ([1]);
+struct_boxed_deconstruct<Tuple<u128, u128, u128>>([1]) -> ([2], [3], [4]);
+drop<Box<u128>>([2]) -> ();
+drop<Box<u128>>([3]) -> ();
+store_temp<Box<u128>>([4]) -> ([4]);
+return([4]);
+
+test::foo@F0([0]: Tuple<u128, u128, u128>) -> (Box<u128>);
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})

@@ -1,0 +1,179 @@
+//! > bool_xor libfunc
+
+//! > test_comments
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(mut a: bool, b: bool) -> bool {
+    a ^ b
+}
+
+//! > casm
+[fp + -4] = [ap + 0] + [fp + -3], ap++;
+[ap + 0] = [ap + -1] * [ap + -1], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type core::bool = Enum<ut@core::bool, Unit, Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc bool_xor_impl = bool_xor_impl;
+libfunc store_temp<core::bool> = store_temp<core::bool>;
+
+F0:
+bool_xor_impl([0], [1]) -> ([2]);
+store_temp<core::bool>([2]) -> ([2]);
+return([2]);
+
+test::foo@F0([0]: core::bool, [1]: core::bool) -> (core::bool);
+
+//! > ==========================================================================
+
+//! > bool_or libfunc
+
+//! > test_comments
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(a: bool, b: bool) -> bool {
+    a | b
+}
+
+//! > casm
+[ap + 0] = [fp + -4] + [fp + -3], ap++;
+[ap + 0] = [fp + -4] * [fp + -3], ap++;
+[ap + -2] = [ap + 0] + [ap + -1], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 300})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type core::bool = Enum<ut@core::bool, Unit, Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc bool_or_impl = bool_or_impl;
+libfunc store_temp<core::bool> = store_temp<core::bool>;
+
+F0:
+bool_or_impl([0], [1]) -> ([2]);
+store_temp<core::bool>([2]) -> ([2]);
+return([2]);
+
+test::foo@F0([0]: core::bool, [1]: core::bool) -> (core::bool);
+
+//! > ==========================================================================
+
+//! > bool_and libfunc
+
+//! > test_comments
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(a: bool, b: bool) -> bool {
+    a & b
+}
+
+//! > casm
+[ap + 0] = [fp + -4] * [fp + -3], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type core::bool = Enum<ut@core::bool, Unit, Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc bool_and_impl = bool_and_impl;
+libfunc store_temp<core::bool> = store_temp<core::bool>;
+
+F0:
+bool_and_impl([0], [1]) -> ([2]);
+store_temp<core::bool>([2]) -> ([2]);
+return([2]);
+
+test::foo@F0([0]: core::bool, [1]: core::bool) -> (core::bool);
+
+//! > ==========================================================================
+
+//! > bool_not libfunc
+
+//! > test_comments
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(a: bool) -> bool {
+    // TODO(orizi): When inlining is supported move to calling `bool_not` directly.
+    !a
+}
+
+//! > casm
+[ap + 0] = 1, ap++;
+[ap + -1] = [ap + 0] + [fp + -3], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 200})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type core::bool = Enum<ut@core::bool, Unit, Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc bool_not_impl = bool_not_impl;
+libfunc store_temp<core::bool> = store_temp<core::bool>;
+
+F0:
+bool_not_impl([0]) -> ([1]);
+store_temp<core::bool>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: core::bool) -> (core::bool);
+
+//! > ==========================================================================
+
+//! > bool_to_felt252 libfunc.
+
+//! > test_comments
+//! see comment of: bool_to_felt252 libfunc.
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo(a: bool) -> felt252 {
+    bool_to_felt252(a)
+}
+
+//! > casm
+[ap + 0] = [fp + -3], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 100})
+
+//! > sierra_code
+type Unit = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+type core::bool = Enum<ut@core::bool, Unit, Unit> [storable: true, drop: true, dup: true, zero_sized: false];
+type felt252 = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc bool_to_felt252 = bool_to_felt252;
+libfunc store_temp<felt252> = store_temp<felt252>;
+
+F0:
+bool_to_felt252([0]) -> ([1]);
+store_temp<felt252>([1]) -> ([1]);
+return([1]);
+
+test::foo@F0([0]: core::bool) -> (felt252);
