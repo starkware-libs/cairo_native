@@ -111,6 +111,8 @@ pub fn build_circuit_accumulator<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, module));
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };
@@ -211,6 +213,8 @@ pub fn build_circuit_data<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, module));
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };
@@ -302,6 +306,8 @@ pub fn build_circuit_outputs<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<InfoOnlyConcreteType>,
 ) -> Result<Type<'ctx>> {
+    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, module));
+
     let Some(GenericArg::Type(circuit_type_id)) = info.info.long_id.generic_args.first() else {
         return Err(SierraAssertError::BadTypeInfo.into());
     };

@@ -102,6 +102,8 @@ fn build_init_circuit_data<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
+    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
+
     let circuit_info = match registry.get_type(&info.ty)? {
         CoreTypeConcrete::Circuit(CircuitTypeConcrete::Circuit(info)) => &info.circuit_info,
         _ => return Err(SierraAssertError::BadTypeInfo.into()),
@@ -307,6 +309,8 @@ fn build_eval<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
+    metadata.get_or_insert_with(|| ReallocBindingsMeta::new(context, helper));
+
     let circuit_info = match registry.get_type(&info.ty)? {
         CoreTypeConcrete::Circuit(CircuitTypeConcrete::Circuit(info)) => &info.circuit_info,
         _ => return Err(SierraAssertError::BadTypeInfo.into()),
