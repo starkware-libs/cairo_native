@@ -191,6 +191,12 @@ install-scarb-macos:
 .PHONY: pull-external-projects
 pull-external-projects:
 	python3 ./scripts/pull_external_projects.py v${CAIRO_2_VERSION}
+	python3 ./scripts/extract_e2e_sierra.py
+
+.PHONY: extract-e2e-sierra
+extract-e2e-sierra:
+	python3 ./scripts/extract_e2e_sierra.py
+
 
 .PHONY: compile-test-data
 compile-test-data:
