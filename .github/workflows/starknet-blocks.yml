@@ -8,7 +8,6 @@ on:
 
 jobs:
   run-blocks:
-    if: false
     name: Run Blocks
     runs-on: ubuntu-latest
     env:
@@ -33,7 +32,7 @@ jobs:
         with:
           repository: starkware-libs/starknet-replay
           path: starknet-replay
-          ref: 5e75e33d67de77fe68aba06e05571175c0976733
+          ref: 4b896e523bd33da66b95c8b2afdb7423785e99d4
 
       # We need native to use the linux deps ci action
       - name: Checkout Native
@@ -46,8 +45,8 @@ jobs:
           repository: starkware-libs/sequencer
           path: sequencer
           # branch main-v0.14.2
-          ref: 77a1a32b7b2c52edd9b634276e3bb28f5fbd750c
-      
+          ref: efa9bd7d9e33e44d0cea08bf67c7b413fb20c7cb
+
       - name: Restore RPC Calls
         id: restore-rpc-calls
         uses: actions/cache/restore@v4.2.0
@@ -108,14 +107,14 @@ jobs:
         with:
           name: dump-${{matrix.block}}-${{matrix.runner}}
           path: starknet-replay/state_dumps/${{matrix.runner}}
-        
+
       - name: Save RPC Calls
         uses: actions/cache/save@v4.2.0
         if: ${{ always() && matrix.runner == 'vm' }}
         with:
           path: starknet-replay/cache
           key: ${{ steps.restore-rpc-calls.outputs.cache-primary-key }}
-          
+
   compare-dumps:
     name: Compare Dumps
     needs: [run-blocks]
