@@ -1,15 +1,10 @@
 //! # State value duplication libfunc
 //!
-//! Most types are trivial and don't need any clone (or rather, they will be cloned automatically by
-//! MLIR). For those types, this libfunc is a no-op.
-//!
-//! However, types like an array need special handling.
+//! All types use arena allocation, so duplication is a simple bitwise copy.
+//! No deep cloning is needed because the arena owns all memory.
 
 use super::LibfuncHelper;
-use crate::{
-    error::Result,
-    metadata::{dup_overrides::DupOverridesMeta, MetadataStorage},
-};
+use crate::{error::Result, metadata::MetadataStorage};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -25,28 +20,17 @@ use melior::{
 
 /// Generate MLIR operations for the `dup` libfunc.
 ///
-/// The Cairo compiler will avoid using `dup` for some non-trivially-copyable
-/// types, but not all of them. For example, it'll not generate a clone
-/// implementation for `Box<T>`. That's why we need to provide a clone in MLIR.
+/// Since all types use arena allocation, dup is just a bitwise copy — return
+/// the same value twice.
 pub fn build<'ctx, 'this>(
-    context: &'ctx Context,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _context: &'ctx Context,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
-    info: &SignatureOnlyConcreteLibfunc,
+    _metadata: &mut MetadataStorage,
+    _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
-    let values = DupOverridesMeta::invoke_override(
-        context,
-        registry,
-        helper,
-        helper.init_block(),
-        entry,
-        location,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-        entry.arg(0)?,
-    )?;
-    helper.br(entry, 0, &[values.0, values.1], location)
+    let value = entry.arg(0)?;
+    helper.br(entry, 0, &[value, value], location)
 }
