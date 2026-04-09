@@ -1,6 +1,5 @@
-use crate::common::{any_felt, run_native_program, run_vm_program};
+use crate::common::{any_felt, felt_to_arg, run_native_program, run_vm_program};
 use crate::common::{compare_outputs, DEFAULT_GAS};
-use cairo_lang_runner::Arg;
 use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::testing::load_program_and_runner;
 use cairo_native::Value;
@@ -13,7 +12,7 @@ fn array_get_test() {
     let result_vm = run_vm_program(
         program,
         "run_test",
-        vec![Arg::Value(Felt::from(10)), Arg::Value(Felt::from(5))],
+        vec![felt_to_arg(Felt::from(10)), felt_to_arg(Felt::from(5))],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -39,8 +38,8 @@ proptest! {
     fn array_get_test_proptest(value in any_felt(), idx in 0u32..26) {
         let program = &load_program_and_runner("test_data_artifacts/programs/array_get");
         let result_vm = run_vm_program(program, "run_test", vec![
-            Arg::Value(Felt::from_bytes_be(&value.to_bytes_be())),
-            Arg::Value(Felt::from(idx))
+            felt_to_arg(Felt::from_bytes_be(&value.to_bytes_be())),
+            felt_to_arg(Felt::from(idx))
         ], Some(DEFAULT_GAS as usize)).unwrap();
         let result_native = run_native_program(
             program,

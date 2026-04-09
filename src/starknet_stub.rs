@@ -21,7 +21,6 @@ use crate::{
 };
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ff::{BigInt, PrimeField};
-use cairo_lang_runner::RunResultValue;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_starknet::contract::ContractInfo;
 use cairo_lang_starknet_classes::casm_contract_class::ENTRY_POINT_COST;
@@ -291,13 +290,8 @@ impl StubSyscallHandler {
             *gas_counter = remaining_gas;
         }
 
-        let starknet_result = read_contract_result(&concrete_result.return_value)
-            .expect("return value was not a starknet panic result");
-
-        match starknet_result {
-            RunResultValue::Success(felts) => Ok(felts),
-            RunResultValue::Panic(felts) => Err(felts),
-        }
+        read_contract_result(&concrete_result.return_value)
+            .expect("return value was not a starknet panic result")
     }
 
     /// Replaces the addresses in the context.
@@ -328,10 +322,11 @@ impl StubSyscallHandler {
     }
 }
 
-/// Creates a `RunResultValue` from a contract entrypoint result.
+/// Reads a contract entrypoint result.
 ///
 /// The value should be of type `PanicResult<(Span<Felt>,)>`.
-fn read_contract_result(value: &Value) -> Result<RunResultValue, Error> {
+/// Returns `Ok(Ok(felts))` for success, `Ok(Err(felts))` for panic.
+fn read_contract_result(value: &Value) -> Result<Result<Vec<Felt>, Vec<Felt>>, Error> {
     let unexpected_value_error = Err(Error::UnexpectedValue(String::from(
         "PanicResult<(Span<Felt>,)>",
     )));
@@ -378,7 +373,7 @@ fn read_contract_result(value: &Value) -> Result<RunResultValue, Error> {
             else {
                 return unexpected_value_error;
             };
-            Ok(RunResultValue::Success(values))
+            Ok(Ok(values))
         }
         1 => {
             // The value should be of type: Struct<Panic,Array<Felt>>
@@ -408,7 +403,7 @@ fn read_contract_result(value: &Value) -> Result<RunResultValue, Error> {
             else {
                 return unexpected_value_error;
             };
-            Ok(RunResultValue::Panic(values))
+            Ok(Err(values))
         }
         _ => unexpected_value_error,
     }
@@ -488,12 +483,12 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
 
         /// Max value for a contract address: 2**251 - 256.
         const CONTRACT_ADDRESS_BOUND: NonZeroFelt =
-            NonZeroFelt::from_felt_unchecked(Felt::from_hex_unchecked(
+            NonZeroFelt::from_felt_unchecked(Felt::from_hex_unwrap(
                 "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00",
             ));
         /// Cairo string for "STARKNET_CONTRACT_ADDRESS"
         const CONTRACT_ADDRESS_PREFIX: Felt =
-            Felt::from_hex_unchecked("0x535441524b4e45545f434f4e54524143545f41444452455353");
+            Felt::from_hex_unwrap("0x535441524b4e45545f434f4e54524143545f41444452455353");
 
         let deployer_address = if deploy_from_zero {
             Felt::zero()
@@ -578,7 +573,12 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
         let Some(contract_info) = self.contracts_info.get(&class_hash).cloned() else {
             return Err(vec![Felt::from_bytes_be_slice(b"CLASS_HASH_NOT_DECLARED")]);
         };
-        let Some(entry_point) = contract_info.externals.get(&function_selector) else {
+        let Some(entry_point) = contract_info
+            .externals
+            .iter()
+            .find(|(k, _)| k.to_bytes_le() == function_selector.to_bytes_le())
+            .map(|(_, v)| v)
+        else {
             return Err(vec![
                 Felt::from_bytes_be_slice(b"ENTRYPOINT_NOT_FOUND"),
                 Felt::from_bytes_be_slice(b"ENTRYPOINT_FAILED"),
@@ -616,7 +616,12 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
             .get(class_hash)
             .expect("Deployed contract not found in registry.")
             .clone();
-        let Some(entry_point) = contract_info.externals.get(&entry_point_selector) else {
+        let Some(entry_point) = contract_info
+            .externals
+            .iter()
+            .find(|(k, _)| k.to_bytes_le() == entry_point_selector.to_bytes_le())
+            .map(|(_, v)| v)
+        else {
             return Err(vec![
                 Felt::from_bytes_be_slice(b"ENTRYPOINT_NOT_FOUND"),
                 Felt::from_bytes_be_slice(b"ENTRYPOINT_FAILED"),

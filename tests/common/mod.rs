@@ -52,6 +52,12 @@ use proptest::{strategy::Strategy, test_runner::TestCaseError};
 use starknet_types_core::felt::Felt;
 use std::{collections::HashMap, env::var, fs, ops::Neg, path::Path};
 
+/// Creates an `Arg::Value` from a `Felt`, bridging the starknet-types-core
+/// version gap (our 1.0.0 vs cairo-lang's 0.2.x).
+pub fn felt_to_arg(felt: Felt) -> Arg {
+    Arg::Value(felt.to_biguint().into())
+}
+
 #[allow(unused_macros)]
 macro_rules! load_cairo {
     ( $( $program:tt )+ ) => {
@@ -333,7 +339,7 @@ pub fn run_vm_contract(
     let result = runner
         .run_function_with_starknet_context(
             runner.find_function(&func_name).unwrap(),
-            vec![Arg::Array(args.iter().cloned().map(Arg::Value).collect())],
+            vec![Arg::Array(args.iter().cloned().map(felt_to_arg).collect())],
             Some(usize::MAX),
             StarknetState::default(),
         )
@@ -359,7 +365,10 @@ pub fn run_vm_contract(
 
             result.memory[start..end]
                 .iter()
-                .map(|cell| cell.expect("memory cell in span range should be initialized"))
+                .map(|cell| {
+                    let old_felt = cell.expect("memory cell in span range should be initialized");
+                    Felt::from_bytes_be(&old_felt.to_bytes_be())
+                })
                 .collect()
         }
         RunResultValue::Panic(values) => {
@@ -759,11 +768,12 @@ pub fn compare_outputs(
             .map(|x| x.starts_with("core::panics::PanicResult"))
             .unwrap_or(false)
     });
+    // Convert old Felt (0.2.x from cairo-lang) gas counter to BigInt for comparison.
     assert_eq!(
         vm_result
             .gas_counter
-            .unwrap_or_else(|| Felt::from(0))
-            .to_bigint(),
+            .map(|f| f.to_bigint())
+            .unwrap_or_default(),
         Felt::from(native_result.remaining_gas.unwrap_or(0)).to_bigint(),
         "gas mismatch"
     );
@@ -797,8 +807,19 @@ pub fn compare_outputs(
 
     assert_eq_sorted!(vm_builtins, native_builtins, "builtin mismatch",);
 
+    // Convert old Felt (0.2.x from cairo-lang) to new Felt (1.0.0).
+    let vm_memory: Vec<Option<Felt>> = vm_result
+        .memory
+        .iter()
+        .map(|cell| cell.as_ref().map(|f| Felt::from_bytes_be(&f.to_bytes_be())))
+        .collect();
+
     let vm_result = match &vm_result.value {
         RunResultValue::Success(values) if !values.is_empty() | returns_panic => {
+            let values: Vec<Felt> = values
+                .iter()
+                .map(|f| Felt::from_bytes_be(&f.to_bytes_be()))
+                .collect();
             if returns_panic {
                 let inner_ty = match registry.get_type(ty.unwrap())? {
                     CoreTypeConcrete::Enum(info) => &info.variants[0],
@@ -809,8 +830,8 @@ pub fn compare_outputs(
                     value: Box::new(map_vm_values(
                         &mut size_cache,
                         &registry,
-                        &vm_result.memory,
-                        values,
+                        &vm_memory,
+                        &values,
                         inner_ty,
                     )),
                     debug_name: None,
@@ -819,8 +840,8 @@ pub fn compare_outputs(
                 map_vm_values(
                     &mut size_cache,
                     &registry,
-                    &vm_result.memory,
-                    values,
+                    &vm_memory,
+                    &values,
                     ty.unwrap(),
                 )
             } else {

@@ -1102,7 +1102,7 @@ mod test {
     use num_traits::{Num, One};
     use starknet_types_core::felt::Felt;
 
-    fn u384(limbs: [&str; 4]) -> Value {
+    fn u384(limbs: [&'static str; 4]) -> Value {
         fn u96_range() -> Range {
             Range {
                 lower: BigUint::from_str_radix("0", 16).unwrap().into(),
@@ -1115,19 +1115,19 @@ mod test {
         Value::Struct {
             fields: vec![
                 Value::BoundedInt {
-                    value: Felt::from_hex_unchecked(limbs[0]),
+                    value: Felt::from_hex_unwrap(limbs[0]),
                     range: u96_range(),
                 },
                 Value::BoundedInt {
-                    value: Felt::from_hex_unchecked(limbs[1]),
+                    value: Felt::from_hex_unwrap(limbs[1]),
                     range: u96_range(),
                 },
                 Value::BoundedInt {
-                    value: Felt::from_hex_unchecked(limbs[2]),
+                    value: Felt::from_hex_unwrap(limbs[2]),
                     range: u96_range(),
                 },
                 Value::BoundedInt {
-                    value: Felt::from_hex_unchecked(limbs[3]),
+                    value: Felt::from_hex_unwrap(limbs[3]),
                     range: u96_range(),
                 },
             ],
