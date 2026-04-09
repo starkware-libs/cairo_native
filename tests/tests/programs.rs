@@ -1,5 +1,6 @@
-use crate::common::{any_felt, compare_outputs, run_native_program, run_vm_program, DEFAULT_GAS};
-use cairo_lang_runner::Arg;
+use crate::common::{
+    any_felt, compare_outputs, felt_to_arg, run_native_program, run_vm_program, DEFAULT_GAS,
+};
 use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::felt252_str;
 use cairo_native::utils::testing::load_program_and_runner;
@@ -13,7 +14,7 @@ fn fib() {
     let result_vm = run_vm_program(
         &program,
         "fibonacci",
-        vec![Arg::Value(Felt::from(10))],
+        vec![felt_to_arg(Felt::from(10))],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -40,7 +41,7 @@ fn logistic_map() {
     let result_vm = run_vm_program(
         &program,
         "run_test",
-        vec![Arg::Value(Felt::from(1000))],
+        vec![felt_to_arg(Felt::from(1000))],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -68,13 +69,13 @@ fn pedersen() {
         &program,
         "run_test",
         vec![
-            Arg::Value(
+            felt_to_arg(
                 Felt::from_dec_str(
                     "2163739901324492107409690946633517860331020929182861814098856895601180685",
                 )
                 .unwrap(),
             ),
-            Arg::Value(
+            felt_to_arg(
                 Felt::from_dec_str(
                     "2392090257937917229310563411601744459500735555884672871108624696010915493156",
                 )
@@ -114,7 +115,7 @@ fn factorial() {
     let result_vm = run_vm_program(
         &program,
         "run_test",
-        vec![Arg::Value(Felt::from(13))],
+        vec![felt_to_arg(Felt::from(13))],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -142,7 +143,7 @@ proptest! {
         let result_vm = run_vm_program(
             &program,
             "run_test",
-            vec![Arg::Value(Felt::from(n))],
+            vec![felt_to_arg(Felt::from(n))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
@@ -168,7 +169,7 @@ proptest! {
         let result_vm = run_vm_program(
             &program,
             "run_test",
-            vec![Arg::Value(Felt::from(n))],
+            vec![felt_to_arg(Felt::from(n))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
@@ -194,7 +195,7 @@ proptest! {
         let result_vm = run_vm_program(
             &program,
             "run_test",
-            vec![Arg::Value(Felt::from(n))],
+            vec![felt_to_arg(Felt::from(n))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
@@ -220,7 +221,7 @@ proptest! {
         let result_vm = run_vm_program(
             &program,
             "run_test",
-            vec![Arg::Value(Felt::from_bytes_be(&a.clone().to_bytes_be())), Arg::Value(Felt::from_bytes_be(&b.clone().to_bytes_be()))],
+            vec![felt_to_arg(Felt::from_bytes_be(&a.clone().to_bytes_be())), felt_to_arg(Felt::from_bytes_be(&b.clone().to_bytes_be()))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
@@ -247,9 +248,9 @@ proptest! {
         let result_vm = run_vm_program(
             &program,
             "run_test",
-            vec![Arg::Value(Felt::from_bytes_be(&a.clone().to_bytes_be())),
-             Arg::Value(Felt::from_bytes_be(&b.clone().to_bytes_be())),
-            Arg::Value(Felt::from_bytes_be(&c.clone().to_bytes_be()))],
+            vec![felt_to_arg(Felt::from_bytes_be(&a.clone().to_bytes_be())),
+             felt_to_arg(Felt::from_bytes_be(&b.clone().to_bytes_be())),
+            felt_to_arg(Felt::from_bytes_be(&c.clone().to_bytes_be()))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
