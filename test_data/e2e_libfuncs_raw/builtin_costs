@@ -1,0 +1,39 @@
+//! > get_builtin_costs libfunc
+
+//! > test_runner_name
+SmallE2ETestRunner
+
+//! > cairo_code
+fn foo() -> BuiltinCosts {
+    let res = get_builtin_costs();
+    // Add a dummy second invocation.
+    get_builtin_costs();
+    res
+}
+
+//! > casm
+call rel 10;
+[ap + 0] = [ap + -1] + 9, ap++;
+call rel 6;
+[ap + 0] = [ap + -1] + 5, ap++;
+[ap + 0] = [[ap + -4] + 0], ap++;
+ret;
+
+//! > function_costs
+test::foo: SmallOrderedMap({Const: 700})
+
+//! > sierra_code
+type BuiltinCosts = BuiltinCosts [storable: true, drop: true, dup: true, zero_sized: false];
+
+libfunc get_builtin_costs = get_builtin_costs;
+libfunc drop<BuiltinCosts> = drop<BuiltinCosts>;
+libfunc store_temp<BuiltinCosts> = store_temp<BuiltinCosts>;
+
+F0:
+get_builtin_costs() -> ([0]);
+get_builtin_costs() -> ([1]);
+drop<BuiltinCosts>([1]) -> ();
+store_temp<BuiltinCosts>([0]) -> ([0]);
+return([0]);
+
+test::foo@F0() -> (BuiltinCosts);
