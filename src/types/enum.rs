@@ -126,10 +126,7 @@
 use super::{TypeBuilder, WithSelf};
 use crate::{
     error::Result,
-    metadata::{
-        drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta, MetadataStorage,
-    },
-    native_panic,
+    metadata::MetadataStorage,
     utils::{get_integer_layout, ProgramRegistryExt},
 };
 use cairo_lang_sierra::{
@@ -141,15 +138,11 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::{cf, func, llvm},
-    helpers::{BuiltinBlockExt, LlvmBlockExt},
-    ir::{r#type::IntegerType, Block, BlockLike, Location, Module, Region, Type, Value},
+    dialect::llvm,
+    ir::{r#type::IntegerType, Module, Type},
     Context,
 };
-use std::{
-    alloc::Layout,
-    collections::{hash_map::Entry, HashMap},
-};
+use std::alloc::Layout;
 
 /// An MLIR type with its memory layout.
 pub type TypeLayout<'ctx> = (Type<'ctx>, Layout);
@@ -164,53 +157,6 @@ pub fn build<'ctx>(
     metadata: &mut MetadataStorage,
     info: WithSelf<EnumConcreteType>,
 ) -> Result<Type<'ctx>> {
-    // Register enum's clone impl (if required).
-    DupOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            let mut needs_override = false;
-            for variant in &info.variants {
-                registry.build_type(context, module, metadata, variant)?;
-                if DupOverridesMeta::is_overriden(metadata, variant) {
-                    needs_override = true;
-                    break;
-                }
-            }
-
-            needs_override
-                .then(|| build_dup(context, module, registry, metadata, &info))
-                .transpose()
-        },
-    )?;
-    DropOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            // The following unwrap is unreachable because `register_with` will always insert it
-            // before calling this closure.
-            let mut needs_override = false;
-            for variant in &info.variants {
-                registry.build_type(context, module, metadata, variant)?;
-
-                if DropOverridesMeta::is_overriden(metadata, variant) {
-                    needs_override = true;
-                    break;
-                }
-            }
-
-            needs_override
-                .then(|| build_drop(context, module, registry, metadata, &info))
-                .transpose()
-        },
-    )?;
-
     let tag_bits = info.variants.len().next_power_of_two().trailing_zeros();
 
     let tag_layout = get_integer_layout(tag_bits);
@@ -256,200 +202,6 @@ pub fn build<'ctx>(
             false,
         ),
     })
-}
-
-fn build_dup<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<EnumConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-
-    let self_ty = registry.build_type(context, module, metadata, info.self_ty())?;
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(self_ty, location)]));
-
-    let (layout, (tag_ty, _), variant_tys) = crate::types::r#enum::get_type_for_variants(
-        context,
-        module,
-        registry,
-        metadata,
-        &info.variants,
-    )?;
-
-    match variant_tys.len() {
-        0 => native_panic!("attempt to clone a zero-variant enum"),
-        1 => {
-            let values = DupOverridesMeta::invoke_override(
-                context,
-                registry,
-                module,
-                &entry,
-                &entry,
-                location,
-                metadata,
-                &info.variants[0],
-                entry.arg(0)?,
-            )?;
-
-            entry.append_operation(func::r#return(&[values.0, values.1], location));
-        }
-        _ => {
-            let ptr = entry.alloca1(context, location, self_ty, layout.align())?;
-            entry.store(context, location, ptr, entry.arg(0)?)?;
-
-            let mut variant_blocks = HashMap::new();
-            for (variant_id, variant_ty) in info
-                .variants
-                .iter()
-                .zip(variant_tys.iter().map(|(x, _)| *x))
-            {
-                if let Entry::Vacant(entry) = variant_blocks.entry(variant_id.id) {
-                    let block = entry.insert(region.append_block(Block::new(&[])));
-
-                    let container = block.load(
-                        context,
-                        location,
-                        ptr,
-                        llvm::r#type::r#struct(context, &[tag_ty, variant_ty], false),
-                    )?;
-                    let value = block.extract_value(context, location, container, variant_ty, 1)?;
-
-                    let values = DupOverridesMeta::invoke_override(
-                        context, registry, module, block, block, location, metadata, variant_id,
-                        value,
-                    )?;
-
-                    let value = block.insert_value(context, location, container, values.0, 1)?;
-                    block.store(context, location, ptr, value)?;
-                    let value0 = block.load(context, location, ptr, self_ty)?;
-
-                    let value = block.insert_value(context, location, container, values.1, 1)?;
-                    block.store(context, location, ptr, value)?;
-                    let value1 = block.load(context, location, ptr, self_ty)?;
-
-                    block.append_operation(func::r#return(&[value0, value1], location));
-                }
-            }
-
-            let default_block = region.append_block(Block::new(&[]));
-
-            let tag_value = entry.load(context, location, ptr, tag_ty)?;
-            entry.append_operation(cf::switch(
-                context,
-                &(0..info.variants.len() as _).collect::<Vec<_>>(),
-                tag_value,
-                tag_ty,
-                (&default_block, &[]),
-                &info
-                    .variants
-                    .iter()
-                    .map(|id| (&*variant_blocks[&id.id], &[] as &[Value]))
-                    .collect::<Vec<_>>(),
-                location,
-            )?);
-
-            default_block.append_operation(llvm::unreachable(location));
-        }
-    }
-
-    Ok(region)
-}
-
-fn build_drop<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<EnumConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-
-    let self_ty = registry.build_type(context, module, metadata, info.self_ty())?;
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(self_ty, location)]));
-
-    let (layout, (tag_ty, _), variant_tys) = crate::types::r#enum::get_type_for_variants(
-        context,
-        module,
-        registry,
-        metadata,
-        &info.variants,
-    )?;
-
-    match variant_tys.len() {
-        0 => native_panic!("attempt to drop a zero-variant enum"),
-        1 => {
-            DropOverridesMeta::invoke_override(
-                context,
-                registry,
-                module,
-                &entry,
-                &entry,
-                location,
-                metadata,
-                &info.variants[0],
-                entry.arg(0)?,
-            )?;
-
-            entry.append_operation(func::r#return(&[], location));
-        }
-        _ => {
-            let ptr = entry.alloca1(context, location, self_ty, layout.align())?;
-            entry.store(context, location, ptr, entry.arg(0)?)?;
-
-            let mut variant_blocks = HashMap::new();
-            for (variant_id, variant_ty) in info
-                .variants
-                .iter()
-                .zip(variant_tys.iter().map(|(x, _)| *x))
-            {
-                if let Entry::Vacant(entry) = variant_blocks.entry(variant_id.id) {
-                    let block = entry.insert(region.append_block(Block::new(&[])));
-
-                    let container = block.load(
-                        context,
-                        location,
-                        ptr,
-                        llvm::r#type::r#struct(context, &[tag_ty, variant_ty], false),
-                    )?;
-                    let value = block.extract_value(context, location, container, variant_ty, 1)?;
-
-                    DropOverridesMeta::invoke_override(
-                        context, registry, module, block, block, location, metadata, variant_id,
-                        value,
-                    )?;
-
-                    block.append_operation(func::r#return(&[], location));
-                }
-            }
-
-            let default_block = region.append_block(Block::new(&[]));
-
-            let tag_value = entry.load(context, location, ptr, tag_ty)?;
-            entry.append_operation(cf::switch(
-                context,
-                &(0..info.variants.len() as _).collect::<Vec<_>>(),
-                tag_value,
-                tag_ty,
-                (&default_block, &[]),
-                &info
-                    .variants
-                    .iter()
-                    .map(|id| (&*variant_blocks[&id.id], &[] as &[Value]))
-                    .collect::<Vec<_>>(),
-                location,
-            )?);
-
-            default_block.append_operation(llvm::unreachable(location));
-        }
-    }
-
-    Ok(region)
 }
 
 /// Extract layout for the default enum representation, its discriminant and all its payloads.

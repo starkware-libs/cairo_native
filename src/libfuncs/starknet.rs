@@ -4,7 +4,7 @@ use super::LibfuncHelper;
 use crate::{
     error::{Error, Result},
     ffi::get_struct_field_type_at,
-    metadata::{drop_overrides::DropOverridesMeta, MetadataStorage},
+    metadata::MetadataStorage,
     starknet::handler::StarknetSyscallHandlerCallbacks,
     utils::{felt_to_unsigned, get_integer_layout, ProgramRegistryExt},
 };
@@ -2033,17 +2033,7 @@ pub fn build_sha256_process_block_syscall<'ctx, 'this>(
         metadata,
         &info.signature.param_signatures[3].ty,
     )?;
-    DropOverridesMeta::invoke_override(
-        context,
-        registry,
-        helper,
-        helper.init_block(),
-        entry,
-        location,
-        metadata,
-        &info.signature.param_signatures[3].ty,
-        sha256_current_block_ptr,
-    )?;
+
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
     helper.cond_br(

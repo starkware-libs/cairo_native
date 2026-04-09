@@ -2,11 +2,7 @@
 
 use super::LibfuncHelper;
 use crate::{
-    error::Result,
-    libfuncs::r#box::{into_box, unbox},
-    metadata::MetadataStorage,
-    native_panic,
-    types::TypeBuilder,
+    error::Result, metadata::MetadataStorage, native_panic, types::TypeBuilder,
     utils::ProgramRegistryExt,
 };
 use cairo_lang_sierra::{
@@ -22,7 +18,7 @@ use cairo_lang_sierra::{
 use itertools::Itertools;
 use melior::{
     dialect::llvm::{self},
-    helpers::{BuiltinBlockExt, LlvmBlockExt},
+    helpers::{BuiltinBlockExt, GepIndex, LlvmBlockExt},
     ir::{Block, BlockLike, Location, Value},
     Context,
 };
@@ -180,41 +176,23 @@ pub fn build_boxed_deconstruct<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &ConcreteStructBoxedDeconstructLibfunc,
 ) -> Result<()> {
-    // Unbox the container
     let CoreTypeConcrete::Box(box_info) = registry.get_type(&info.param_signatures()[0].ty)? else {
-        native_panic!("Should receibe a Box type as argument");
+        native_panic!("Should receive a Box type as argument");
     };
-    let container = unbox(
-        context,
-        registry,
-        entry,
-        location,
-        helper,
-        metadata,
-        &box_info.ty,
-    )?;
+    let struct_ty = registry.build_type(context, helper, metadata, &box_info.ty)?;
+    let box_ptr = entry.arg(0)?;
 
-    let mut fields = Vec::<Value>::with_capacity(info.members.len());
-    for (i, member_type_id) in info.members.iter().enumerate() {
-        let type_info = registry.get_type(member_type_id)?;
-        let field_ty = type_info.build(context, helper, registry, metadata, member_type_id)?;
-
-        let member = entry.extract_value(context, location, container, field_ty, i)?;
-        let (_, member_layout) =
-            registry.build_type_with_layout(context, helper, metadata, member_type_id)?;
-        // Box the member
-        let member = into_box(
-            context,
-            helper.module,
-            entry,
-            location,
-            member,
-            member_layout,
-            metadata,
-        )?;
-
-        fields.push(member);
-    }
+    let fields = (0..info.members.len())
+        .map(|i| {
+            entry.gep(
+                context,
+                location,
+                box_ptr,
+                &[GepIndex::Const(0), GepIndex::Const(i as i32)],
+                struct_ty,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     helper.br(entry, 0, &fields, location)
 }

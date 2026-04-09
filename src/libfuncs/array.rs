@@ -3,10 +3,7 @@
 use super::LibfuncHelper;
 use crate::{
     error::{Error, Result, SierraAssertError},
-    metadata::{
-        drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        runtime_bindings::RuntimeBindingsMeta, MetadataStorage,
-    },
+    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     native_assert,
     types::array::{
         calc_metadata_align, calc_metadata_size, load_data_ptr, store_data_ptr, store_max_len,
@@ -588,14 +585,8 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
     let ptr_ty = llvm::r#type::pointer(context, 0);
     let len_ty = IntegerType::new(context, 32).into();
 
-    let (self_ty, elem_ty, array_obj, extract_len, branch_values) = match info {
-        PopInfo::Single(info) => (
-            &info.signature.param_signatures[0].ty,
-            &info.ty,
-            entry.argument(0)?.into(),
-            1,
-            Vec::new(),
-        ),
+    let (elem_ty, array_obj, extract_len, branch_values) = match info {
+        PopInfo::Single(info) => (&info.ty, entry.argument(0)?.into(), 1, Vec::new()),
         PopInfo::Multi(ConcreteMultiPopLibfunc {
             popped_ty,
             signature,
@@ -628,7 +619,6 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
             );
 
             (
-                &signature.param_signatures[1].ty,
                 ty,
                 entry.argument(1)?.into(),
                 info.members.len(),
@@ -636,8 +626,7 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
             )
         }
     };
-    let (elem_type, elem_layout) =
-        registry.build_type_with_layout(context, helper, metadata, elem_ty)?;
+    let (_, elem_layout) = registry.build_type_with_layout(context, helper, metadata, elem_ty)?;
 
     let array_start = entry.extract_value(context, location, array_obj, len_ty, 1)?;
     let array_end = entry.extract_value(context, location, array_obj, len_ty, 2)?;
@@ -720,88 +709,15 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
             (array_obj, source_ptr)
         };
 
-        // Allocate output pointer from the arena.
-        let target_size = valid_block.const_int(
-            context,
-            location,
-            elem_layout.pad_to_align().size() * extract_len,
-            64,
-        )?;
-        let target_align = valid_block.const_int(context, location, elem_layout.align(), 64)?;
-        let target_ptr = {
-            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-            rtb.arena_alloc(
-                context,
-                helper.module,
-                valid_block,
-                location,
-                target_size,
-                target_align,
-            )?
-        };
-
-        // Clone popped items.
-        if DupOverridesMeta::is_overriden(metadata, elem_ty) {
-            for i in 0..extract_len {
-                let source_ptr = valid_block.gep(
-                    context,
-                    location,
-                    source_ptr,
-                    &[GepIndex::Const(
-                        (elem_layout.pad_to_align().size() * i) as i32,
-                    )],
-                    IntegerType::new(context, 8).into(),
-                )?;
-                let target_ptr = valid_block.gep(
-                    context,
-                    location,
-                    target_ptr,
-                    &[GepIndex::Const(
-                        (elem_layout.pad_to_align().size() * i) as i32,
-                    )],
-                    IntegerType::new(context, 8).into(),
-                )?;
-
-                let value = valid_block.load(context, location, source_ptr, elem_type)?;
-                let values = DupOverridesMeta::invoke_override(
-                    context,
-                    registry,
-                    helper,
-                    helper.init_block(),
-                    valid_block,
-                    location,
-                    metadata,
-                    elem_ty,
-                    value,
-                )?;
-                valid_block.store(context, location, source_ptr, values.0)?;
-                valid_block.store(context, location, target_ptr, values.1)?;
-            }
-        } else {
-            valid_block.memcpy(context, location, source_ptr, target_ptr, target_size)
-        }
-
         branch_values.push(array_obj);
-        branch_values.push(target_ptr);
+        branch_values.push(source_ptr);
         helper.br(valid_block, 0, &branch_values, location)?;
     }
 
     {
         let mut branch_values = branch_values.clone();
 
-        if CONSUME {
-            DropOverridesMeta::invoke_override(
-                context,
-                registry,
-                helper,
-                helper.init_block(),
-                error_block,
-                location,
-                metadata,
-                self_ty,
-                array_obj,
-            )?;
-        } else {
+        if !CONSUME {
             branch_values.push(array_obj);
         }
 
@@ -824,7 +740,6 @@ pub fn build_get<'ctx, 'this>(
     let ptr_ty = llvm::r#type::pointer(context, 0);
     let len_ty = IntegerType::new(context, 32).into();
 
-    // Build the type so that the drop impl invocation works properly.
     registry.build_type(
         context,
         helper,
@@ -861,7 +776,7 @@ pub fn build_get<'ctx, 'this>(
     ));
 
     {
-        let (elem_ty, elem_layout) =
+        let (_, elem_layout) =
             registry.build_type_with_layout(context, helper, metadata, &info.ty)?;
         let elem_stride =
             valid_block.const_int(context, location, elem_layout.pad_to_align().size(), 64)?;
@@ -887,69 +802,10 @@ pub fn build_get<'ctx, 'this>(
             IntegerType::new(context, 8).into(),
         )?;
 
-        // Allocate output pointer from the arena.
-        let target_align = valid_block.const_int(context, location, elem_layout.align(), 64)?;
-        let target_ptr = {
-            let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-            rtb.arena_alloc(
-                context,
-                helper.module,
-                valid_block,
-                location,
-                elem_stride,
-                target_align,
-            )?
-        };
-
-        // Clone the output data.
-        if DupOverridesMeta::is_overriden(metadata, &info.ty) {
-            let value = valid_block.load(context, location, source_ptr, elem_ty)?;
-            let values = DupOverridesMeta::invoke_override(
-                context,
-                registry,
-                helper,
-                helper.init_block(),
-                valid_block,
-                location,
-                metadata,
-                &info.ty,
-                value,
-            )?;
-            valid_block.store(context, location, source_ptr, values.0)?;
-            valid_block.store(context, location, target_ptr, values.1)?;
-        } else {
-            valid_block.memcpy(context, location, source_ptr, target_ptr, elem_stride)
-        }
-
-        // Drop the input array.
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            valid_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[1].ty,
-            entry.argument(1)?.into(),
-        )?;
-
-        helper.br(valid_block, 0, &[range_check, target_ptr], location)?;
+        helper.br(valid_block, 0, &[range_check, source_ptr], location)?;
     }
 
     {
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            error_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[1].ty,
-            entry.argument(1)?.into(),
-        )?;
-
         helper.br(error_block, 1, &[range_check], location)?;
     }
 
@@ -959,12 +815,12 @@ pub fn build_get<'ctx, 'this>(
 /// Generate MLIR operations for the `array_slice` libfunc.
 pub fn build_slice<'ctx, 'this>(
     context: &'ctx Context,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
-    info: &SignatureAndTypeConcreteLibfunc,
+    _metadata: &mut MetadataStorage,
+    _info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
     let len_ty = IntegerType::new(context, 32).into();
 
@@ -1022,18 +878,6 @@ pub fn build_slice<'ctx, 'this>(
     }
 
     {
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            error_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[1].ty,
-            array_obj,
-        )?;
-
         helper.br(error_block, 1, &[range_check], location)?;
     }
 
@@ -1043,12 +887,12 @@ pub fn build_slice<'ctx, 'this>(
 /// Generate MLIR operations for the `array_len` libfunc.
 pub fn build_len<'ctx, 'this>(
     context: &'ctx Context,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
-    info: &SignatureAndTypeConcreteLibfunc,
+    _metadata: &mut MetadataStorage,
+    _info: &SignatureAndTypeConcreteLibfunc,
 ) -> Result<()> {
     let len_ty = IntegerType::new(context, 32).into();
 
@@ -1057,18 +901,6 @@ pub fn build_len<'ctx, 'this>(
     let array_end = entry.extract_value(context, location, entry.argument(0)?.into(), len_ty, 2)?;
 
     let array_len = entry.append_op_result(arith::subi(array_end, array_start, location))?;
-
-    DropOverridesMeta::invoke_override(
-        context,
-        registry,
-        helper,
-        helper.init_block(),
-        entry,
-        location,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-        entry.argument(0)?.into(),
-    )?;
 
     helper.br(entry, 0, &[array_len], location)
 }
