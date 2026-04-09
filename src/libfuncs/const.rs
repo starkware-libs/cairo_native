@@ -74,6 +74,8 @@ pub fn build_const_as_box<'ctx, 'this>(
     let const_ty = registry.get_type(&const_type.inner_ty)?;
     let inner_layout = const_ty.layout(registry)?;
 
+    // TODO: For struct/enum const types we could emit the constant directly into constant memmory instead of building the
+    // SSA value and then `into_box`-ing it.
     let ptr = into_box(
         context,
         helper.module,

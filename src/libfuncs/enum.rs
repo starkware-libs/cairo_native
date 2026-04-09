@@ -5,15 +5,13 @@
 use super::LibfuncHelper;
 use crate::{
     error::{panic::ToNativeAssertError, Error, Result},
-    libfuncs::r#box::into_box,
     metadata::{enum_snapshot_variants::EnumSnapshotVariantsMeta, MetadataStorage},
     native_assert, native_panic,
     types::TypeBuilder,
-    utils::ProgramRegistryExt,
 };
 use cairo_lang_sierra::{
     extensions::{
-        core::{CoreLibfunc, CoreType, CoreTypeConcrete},
+        core::{CoreLibfunc, CoreType},
         enm::{
             EnumBoxedMatchConcreteLibfunc, EnumConcreteLibfunc, EnumFromBoundedIntConcreteLibfunc,
             EnumInitConcreteLibfunc,
@@ -659,47 +657,21 @@ pub fn build_boxed_match<'ctx, 'this>(
                 default_block.append_operation(llvm::unreachable(location));
             }
 
-            for (i, (block, (payload_ty, payload_layout))) in
+            for (i, (block, (_payload_ty, payload_layout))) in
                 variant_blocks.into_iter().zip(variant_tys).enumerate()
             {
-                // Extract the payload from the enum
-                let payload_val = {
-                    let payload_offset = tag_layout.extend(payload_layout)?.1;
-                    let ptr = block.gep(
-                        context,
-                        location,
-                        entry.arg(0)?,
-                        &[GepIndex::Const(payload_offset.try_into()?)],
-                        IntegerType::new(context, 8).into(),
-                    )?;
-                    block.load(context, location, ptr, payload_ty)?
-                };
-
-                // Get the output variant type layout for boxing
-                let output_variant_type_id = &info.branch_signatures()[i].vars[0].ty;
-                let CoreTypeConcrete::Box(output_box_info) =
-                    registry.get_type(output_variant_type_id)?
-                else {
-                    native_panic!("Output should be a Box type");
-                };
-                let (_, output_layout) = registry.build_type_with_layout(
+                // The input is a `Box<Enum>`; the output for this variant is `Box<Payload>`. The
+                // payload lives inside the input box at `payload_offset` bytes.
+                let payload_offset = tag_layout.extend(payload_layout)?.1;
+                let payload_ptr = block.gep(
                     context,
-                    helper,
-                    metadata,
-                    &output_box_info.ty,
-                )?;
-
-                let boxed_payload = into_box(
-                    context,
-                    helper.module,
-                    block,
                     location,
-                    payload_val,
-                    output_layout,
-                    metadata,
+                    entry.arg(0)?,
+                    &[GepIndex::Const(payload_offset.try_into()?)],
+                    IntegerType::new(context, 8).into(),
                 )?;
 
-                helper.br(block, i, &[boxed_payload], location)?;
+                helper.br(block, i, &[payload_ptr], location)?;
             }
         }
     }

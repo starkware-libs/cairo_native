@@ -1,16 +1,8 @@
-//! # `AP` tracking libfuncs
-//!
-//! Most types are trivial and don't need dropping (or rather, they will be dropped automatically
-//! by MLIR). For those types, this libfunc is a no-op.
-//!
-//! However, types like an array need manual dropping.
+//! All types use arena allocation, so dropping is a no-op. Memory is reclaimed
+//! when the arena is destroyed at invocation end.
 
 use super::LibfuncHelper;
-use crate::{
-    error::Result,
-    metadata::{drop_overrides::DropOverridesMeta, MetadataStorage},
-    utils::ProgramRegistryExt,
-};
+use crate::{error::Result, metadata::MetadataStorage};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -18,40 +10,19 @@ use cairo_lang_sierra::{
     },
     program_registry::ProgramRegistry,
 };
-use melior::{
-    helpers::BuiltinBlockExt,
-    ir::{Block, Location},
-    Context,
-};
+use melior::ir::{Block, Location};
+use melior::Context;
 
 /// Generate MLIR operations for the `drop` libfunc.
 pub fn build<'ctx, 'this>(
-    context: &'ctx Context,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _context: &'ctx Context,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
-    info: &SignatureOnlyConcreteLibfunc,
+    _metadata: &mut MetadataStorage,
+    _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
-    registry.build_type(
-        context,
-        helper,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-    )?;
-
-    DropOverridesMeta::invoke_override(
-        context,
-        registry,
-        helper,
-        helper.init_block(),
-        entry,
-        location,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-        entry.arg(0)?,
-    )?;
-
+    // Noop: arena owns all memory.
     helper.br(entry, 0, &[], location)
 }
