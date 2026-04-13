@@ -34,10 +34,8 @@ cairo-*.tar
 
 *.ipynb
 cairo-native-stress-logs.jsonl
- 
 .DS_Store
 bench_starknet_compilation_data
-cairo
 
 test_data_artifacts/programs
 test_data_artifacts/contracts
