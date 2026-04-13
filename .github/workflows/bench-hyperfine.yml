@@ -24,6 +24,8 @@ jobs:
       LLVM_SYS_191_PREFIX: /usr/lib/llvm-19/
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: check and free hdd space left
         run: |
           echo "Listing 20 largest packages"
@@ -162,6 +164,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request[matrix.branch].sha }}
+          submodules: true
 
       - name: Install Hyperfine
         uses: taiki-e/install-action@v2

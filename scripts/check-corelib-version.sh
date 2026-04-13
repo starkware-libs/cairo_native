@@ -5,8 +5,7 @@
 _result=$(grep "version = \"$1\"" corelib/Scarb.toml)
 
 if [ $? -ne 0 ]; then
-  echo "corelib version mismatch, please run both:"
-  echo "- make pull-external-projects"
-  echo "- make deps"
+  echo "corelib version mismatch, please update the vendor/cairo submodule:"
+  echo "- git submodule update --init"
   exit 1
 fi

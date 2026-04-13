@@ -21,6 +21,8 @@ jobs:
       TABLEGEN_190_PREFIX: /usr/lib/llvm-19/
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@1.84.1
         with:
           components: clippy, rustfmt
@@ -116,6 +118,8 @@ jobs:
       RUST_LOG: cairo_native=debug,cairo_native_test=debug
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Install testing tools
         uses: taiki-e/install-action@v2
         with:
@@ -171,6 +175,8 @@ jobs:
       RUST_LOG: cairo_native=debug,cairo_native_test=debug
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Install testing tools
         uses: taiki-e/install-action@v2
         with:
@@ -194,6 +200,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: check and free hdd space left
         run: |
           echo "Listing 20 largest packages"
@@ -222,6 +230,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: true
     - name: Retreive cached dependecies
       uses: Swatinem/rust-cache@v2
     - name: Install dependencies
