@@ -188,10 +188,6 @@ install-scarb-macos:
 	sed 's/zsh_completion_block/zsh_completions_block/g' | \
 	sh -s -- --version $(SCARB_VERSION)
 
-.PHONY: pull-external-projects
-pull-external-projects:
-	python3 ./scripts/pull_external_projects.py v${CAIRO_2_VERSION}
-
 test_data/e2e_sierra: vendor/cairo
 	python3 ./scripts/extract_e2e_sierra.py
 
