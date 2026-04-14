@@ -33,6 +33,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Set env
         run: |
           echo "MLIR_SYS_190_PREFIX=${{ matrix.dep_base_dir }}" >> $GITHUB_ENV

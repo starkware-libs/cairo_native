@@ -106,6 +106,7 @@ description = "A compiler to convert Cairo's IR Sierra code to MLIR and execute 
 readme = "README.md"
 keywords = ["starknet", "cairo", "compiler", "mlir"]
 categories = ["compilers"]
+exclude = ["vendor/"]
 version.workspace = true
 edition.workspace = true
 license.workspace = true

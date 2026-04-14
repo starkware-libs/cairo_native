@@ -1,0 +1,4 @@
+[submodule "vendor/cairo"]
+	path = vendor/cairo
+	url = https://github.com/starkware-libs/cairo.git
+	branch = v2.16.0
