@@ -14,7 +14,6 @@ use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 use rand::Rng;
-use starknet_curve::curve_params::BETA;
 use starknet_types_core::{
     curve::{AffinePoint, ProjectivePoint},
     felt::Felt,
@@ -35,6 +34,15 @@ use std::{
     rc::Rc,
 };
 use std::{ops::Mul, vec::IntoIter};
+
+///Todo(TomerStarkware): use starknet_curve::curve_params::BETA when they update starknet_types_core
+/// Beta constant of the Stark curve.
+const BETA: Felt = Felt::from_raw([
+    88155977965380735,
+    12360725113329547591,
+    7432612994240712710,
+    3863487492851900874,
+]);
 
 lazy_static! {
     pub static ref HALF_PRIME: Felt = Felt::from_dec_str(

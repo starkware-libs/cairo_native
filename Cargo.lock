@@ -575,7 +575,7 @@ dependencies = [
  "postcard",
  "salsa",
  "serde",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
  "tracing",
 ]
@@ -695,7 +695,7 @@ dependencies = [
  "salsa",
  "serde",
  "sha2",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
 ]
 
@@ -724,7 +724,7 @@ dependencies = [
  "salsa",
  "serde",
  "sha3",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "toml",
  "tracing",
 ]
@@ -751,7 +751,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "smol_str",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
 ]
 
@@ -829,7 +829,7 @@ dependencies = [
  "itertools 0.14.0",
  "num-bigint",
  "num-traits",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
 ]
 
@@ -871,7 +871,7 @@ dependencies = [
  "salsa",
  "serde",
  "serde_json",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
  "typetag",
 ]
@@ -896,7 +896,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "smol_str",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
 ]
 
@@ -955,7 +955,7 @@ dependencies = [
  "num-traits",
  "salsa",
  "serde",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
 ]
 
 [[package]]
@@ -979,7 +979,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "salsa",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
 ]
 
 [[package]]
@@ -1064,7 +1064,7 @@ dependencies = [
  "sha2",
  "sierra-emu",
  "starknet-curve",
- "starknet-types-core",
+ "starknet-types-core 1.0.0",
  "tempfile",
  "test-case",
  "thiserror",
@@ -1092,7 +1092,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "scarb-metadata",
- "starknet-types-core",
+ "starknet-types-core 1.0.0",
  "tracing",
 ]
 
@@ -1211,7 +1211,7 @@ dependencies = [
  "sha2",
  "sha3",
  "starknet-crypto",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "thiserror",
  "tracing",
  "zip",
@@ -3591,7 +3591,7 @@ dependencies = [
  "smallvec",
  "starknet-crypto",
  "starknet-curve",
- "starknet-types-core",
+ "starknet-types-core 1.0.0",
  "thiserror",
  "tracing",
  "tracing-subscriber",
@@ -3703,7 +3703,7 @@ dependencies = [
  "rfc6979",
  "sha2",
  "starknet-curve",
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
  "zeroize",
 ]
 
@@ -3713,7 +3713,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22c898ae81b6409532374cf237f1bd752d068b96c6ad500af9ebbd0d9bb712f6"
 dependencies = [
- "starknet-types-core",
+ "starknet-types-core 0.2.4",
 ]
 
 [[package]]
@@ -3739,6 +3739,25 @@ dependencies = [
  "lambdaworks-crypto",
  "lambdaworks-math",
  "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand 0.9.2",
+ "serde",
+ "zeroize",
+]
+
+[[package]]
+name = "starknet-types-core"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a12690813e587969cb4a9e7d8ebdb069d4bb7ec8d03275c5f719310c8e1f07c"
+dependencies = [
+ "blake2",
+ "digest",
+ "generic-array",
+ "lambdaworks-crypto",
+ "lambdaworks-math",
  "num-bigint",
  "num-integer",
  "num-traits",

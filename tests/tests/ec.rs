@@ -1,5 +1,6 @@
-use crate::common::{any_felt, compare_outputs, run_native_program, run_vm_program, DEFAULT_GAS};
-use cairo_lang_runner::Arg;
+use crate::common::{
+    any_felt, compare_outputs, felt_to_arg, run_native_program, run_vm_program, DEFAULT_GAS,
+};
 use cairo_native::utils::testing::load_program_and_runner;
 use cairo_native::{starknet::DummySyscallHandler, Value};
 use num_bigint::BigUint;
@@ -41,7 +42,7 @@ fn ec_point_from_x_big() {
     let result_vm = run_vm_program(
         program,
         "run_test",
-        vec![Arg::Value(x)],
+        vec![felt_to_arg(x)],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -69,7 +70,7 @@ fn ec_point_from_x_small() {
     let result_vm = run_vm_program(
         program,
         "run_test",
-        vec![Arg::Value(x)],
+        vec![felt_to_arg(x)],
         Some(DEFAULT_GAS as usize),
     )
     .unwrap();
@@ -97,7 +98,7 @@ proptest! {
         let result_vm = run_vm_program(
             program,
             "run_test",
-            vec![Arg::Value(Felt::from_bytes_be(&a.clone().to_bytes_be())), Arg::Value(Felt::from_bytes_be(&b.clone().to_bytes_be()))],
+            vec![felt_to_arg(Felt::from_bytes_be(&a.clone().to_bytes_be())), felt_to_arg(Felt::from_bytes_be(&b.clone().to_bytes_be()))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
@@ -123,7 +124,7 @@ proptest! {
         let result_vm = run_vm_program(
             program,
             "run_test",
-            vec![Arg::Value(Felt::from_bytes_be(&a.clone().to_bytes_be()))],
+            vec![felt_to_arg(Felt::from_bytes_be(&a.clone().to_bytes_be()))],
             Some(DEFAULT_GAS as usize),
         )
         .unwrap();
