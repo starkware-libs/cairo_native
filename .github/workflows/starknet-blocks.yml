@@ -32,7 +32,7 @@ jobs:
         with:
           repository: starkware-libs/starknet-replay
           path: starknet-replay
-          ref: 4b896e523bd33da66b95c8b2afdb7423785e99d4
+          ref: b18c0db3d8d751c366e0659cd228ad1985b568e8
 
       # We need native to use the linux deps ci action
       - name: Checkout Native
@@ -45,7 +45,7 @@ jobs:
           repository: starkware-libs/sequencer
           path: sequencer
           # branch main-v0.14.2
-          ref: efa9bd7d9e33e44d0cea08bf67c7b413fb20c7cb
+          ref: 0381287e0e81d5bd404c80eb553d71b5db16e3dc
 
       - name: Restore RPC Calls
         id: restore-rpc-calls
