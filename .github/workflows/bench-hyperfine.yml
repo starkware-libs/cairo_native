@@ -131,6 +131,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request[matrix.branch].sha }}
+          submodules: true
 
       - name: Fetch Rust cache
         uses: Swatinem/rust-cache@v2
