@@ -1,7 +1,7 @@
 use cairo_lang_sierra::{
     extensions::{
         blake::BlakeConcreteLibfunc,
-        core::{CoreLibfunc, CoreType},
+        core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         lib_func::SignatureOnlyConcreteLibfunc,
     },
     program_registry::ProgramRegistry,
@@ -15,6 +15,8 @@ use melior::{
 use crate::{
     error::{panic::ToNativeAssertError, Result},
     metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
+    native_panic,
+    types::TypeBuilder,
 };
 
 use super::LibfuncHelper;
@@ -57,12 +59,12 @@ pub fn build<'ctx, 'this>(
 #[allow(clippy::too_many_arguments)]
 fn build_blake_operation<'ctx, 'this>(
     context: &'ctx Context,
-    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
     metadata: &mut MetadataStorage,
-    _info: &SignatureOnlyConcreteLibfunc,
+    info: &SignatureOnlyConcreteLibfunc,
     finalize: bool,
 ) -> Result<()> {
     let state_ptr = entry.arg(0)?;
@@ -70,14 +72,29 @@ fn build_blake_operation<'ctx, 'this>(
     let message = entry.arg(2)?;
     let k_finalize = entry.const_int(context, location, finalize as u8, 1)?;
 
+    // The state parameter is `Box<[u32; 8]>`; we need the layout of the inner
+    // `[u32; 8]` to size the output slot, not the layout of the box pointer.
+    let CoreTypeConcrete::Box(box_info) =
+        registry.get_type(&info.signature.param_signatures[0].ty)?
+    else {
+        native_panic!("blake state parameter should be a Box");
+    };
+    let inner_layout = registry.get_type(&box_info.ty)?.layout(registry)?;
+    let size = entry.const_int(context, location, inner_layout.size(), 64)?;
+    let align = entry.const_int(context, location, inner_layout.align(), 64)?;
+
     let runtime_bindings = metadata
         .get_mut::<RuntimeBindingsMeta>()
         .to_native_assert_error("runtime library should be available")?;
+
+    let out_state_ptr =
+        runtime_bindings.box_alloc(context, helper, entry, location, size, align)?;
 
     runtime_bindings.libfunc_blake_compress(
         context,
         helper,
         entry,
+        out_state_ptr,
         state_ptr,
         message,
         bytes_count,
@@ -85,7 +102,7 @@ fn build_blake_operation<'ctx, 'this>(
         location,
     )?;
 
-    helper.br(entry, 0, &[state_ptr], location)?;
+    helper.br(entry, 0, &[out_state_ptr], location)?;
 
     Ok(())
 }
