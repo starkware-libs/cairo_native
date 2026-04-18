@@ -14,10 +14,10 @@ use crate::{
         SEGMENT_ARENA_BUILTIN_SIZE,
     },
     native_panic,
-    runtime::{BLAKE_CALL_COUNT, BUILTIN_COSTS},
+    runtime::{BoxArenaGuard, BLAKE_CALL_COUNT, BUILTIN_COSTS},
     starknet::{handler::StarknetSyscallHandlerCallbacks, StarknetSyscallHandler},
     types::TypeBuilder,
-    utils::{libc_free, BuiltinCosts, RangeExt},
+    utils::{BuiltinCosts, RangeExt},
     values::Value,
 };
 use bumpalo::Bump;
@@ -152,6 +152,7 @@ fn invoke_dynamic(
     let builtin_costs = BuiltinCosts::default();
     let builtin_costs_guard = BuiltinCostsGuard::install(builtin_costs);
 
+    let box_arena_guard = BoxArenaGuard::install();
     // Generate argument list.
     let mut iter = args.iter();
     for item in function_signature.param_types.iter().filter_map(|type_id| {
@@ -351,9 +352,10 @@ fn invoke_dynamic(
     // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
     // like other builtins, so it's tracked globally via the blake libfuncs)
     builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
-
     #[cfg(feature = "with-mem-tracing")]
     crate::utils::mem_tracing::report_stats();
+
+    drop(box_arena_guard);
 
     Ok(ExecutionResult {
         remaining_gas,
@@ -437,7 +439,6 @@ fn parse_result(
             let ptr =
                 return_ptr.unwrap_or_else(|| NonNull::new_unchecked(ret_registers[0] as *mut ()));
             let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-            libc_free(ptr.cast().as_ptr());
             Ok(value)
         },
         CoreTypeConcrete::EcPoint(_) | CoreTypeConcrete::EcState(_) => Ok(Value::from_ptr(
@@ -575,7 +576,6 @@ fn parse_result(
             } else {
                 let ptr = NonNull::new_unchecked(ptr);
                 let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-                libc_free(ptr.as_ptr().cast());
                 Ok(value)
             }
         },

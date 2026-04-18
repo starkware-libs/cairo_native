@@ -5,6 +5,7 @@ use crate::{
     types::array::ArrayMetadata,
     utils::{blake_utils, libc_malloc, BuiltinCosts},
 };
+use bumpalo::Bump;
 use cairo_lang_sierra_gas::core_libfunc_cost::{
     DICT_SQUASH_REPEATED_ACCESS_COST, DICT_SQUASH_UNIQUE_KEY_COST,
 };
@@ -23,7 +24,7 @@ use starknet_types_core::{
 };
 use std::{
     alloc::{dealloc, realloc, Layout},
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::{hash_map::Entry, HashMap},
     ffi::{c_int, c_void},
     fs::File,
@@ -35,6 +36,40 @@ use std::{
     rc::Rc,
 };
 use std::{ops::Mul, vec::IntoIter};
+
+// Thread-local handle to the box arena currently active for this invocation.
+// Each native invocation installs its own `Bump` via `BoxArenaGuard::install`;
+// nested invocations save the outer arena and restore it on guard drop.
+thread_local! {
+    static BOX_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+}
+
+/// Allocate `size` bytes with `align` alignment from the per-invocation box arena.
+pub unsafe extern "C" fn cairo_native__box_alloc(size: u64, align: u64) -> *mut u8 {
+    BOX_ARENA.with(|arena| {
+        let layout = Layout::from_size_align(size as usize, align as usize)
+            .expect("cairo_native__box_alloc: invalid layout");
+        arena.borrow_mut().alloc_layout(layout).as_ptr()
+    })
+}
+
+/// RAII guard that swaps a fresh box arena into `BOX_ARENA` for the duration of
+/// an invocation. On drop, the previous arena is restored and the just-used
+/// arena is dropped, freeing all its chunks.
+pub struct BoxArenaGuard(Bump);
+
+impl BoxArenaGuard {
+    pub fn install() -> Self {
+        let previous = BOX_ARENA.with(|c| std::mem::replace(&mut *c.borrow_mut(), Bump::new()));
+        Self(previous)
+    }
+}
+
+impl Drop for BoxArenaGuard {
+    fn drop(&mut self) {
+        BOX_ARENA.with(|c| std::mem::swap(&mut *c.borrow_mut(), &mut self.0));
+    }
+}
 
 lazy_static! {
     pub static ref HALF_PRIME: Felt = Felt::from_dec_str(
@@ -151,7 +186,8 @@ pub unsafe extern "C" fn cairo_native__libfunc__hades_permutation(
 }
 
 pub unsafe extern "C" fn cairo_native__libfunc__blake_compress(
-    state: &mut [u32; 8],
+    out_state: &mut [u32; 8],
+    state: &[u32; 8],
     message: &[u32; 16],
     count_bytes: u32,
     finalize: bool,
@@ -165,7 +201,7 @@ pub unsafe extern "C" fn cairo_native__libfunc__blake_compress(
         0,
     );
 
-    *state = new_state;
+    *out_state = new_state;
 
     // Track blake invocations: Blake doesn't have an implicit counter argument
     // like buffer-based builtins, so we count calls here directly.
