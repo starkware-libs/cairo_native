@@ -708,11 +708,6 @@ impl Value {
                 CoreTypeConcrete::Box(info) => {
                     let inner = *ptr.cast::<NonNull<()>>().as_ptr();
                     let value = Self::from_ptr(inner, &info.ty, registry, should_drop)?;
-
-                    if should_drop {
-                        libc_free(inner.as_ptr().cast());
-                    }
-
                     value
                 }
                 CoreTypeConcrete::EcPoint(_) => {
@@ -775,10 +770,6 @@ impl Value {
                             registry,
                             should_drop,
                         )?;
-
-                        if should_drop {
-                            libc_free(inner_ptr.cast());
-                        }
 
                         value
                     }

@@ -58,6 +58,7 @@ enum RuntimeBinding {
     QM31Sub,
     QM31Mul,
     QM31Div,
+    BoxAlloc,
     #[cfg(feature = "with-cheatcode")]
     VtableCheatcode,
 }
@@ -98,6 +99,7 @@ impl RuntimeBinding {
             RuntimeBinding::QM31Sub => "cairo_native__libfunc__qm31__qm31_sub",
             RuntimeBinding::QM31Mul => "cairo_native__libfunc__qm31__qm31_mul",
             RuntimeBinding::QM31Div => "cairo_native__libfunc__qm31__qm31_div",
+            RuntimeBinding::BoxAlloc => "cairo_native__box_alloc",
             #[cfg(feature = "with-cheatcode")]
             RuntimeBinding::VtableCheatcode => "cairo_native__vtable_cheatcode",
         }
@@ -168,6 +170,7 @@ impl RuntimeBinding {
             | RuntimeBinding::U252ExtendedEuclideanAlgorithm
             | RuntimeBinding::U384ExtendedEuclideanAlgorithm => return None,
             RuntimeBinding::CircuitArithOperation => return None,
+            RuntimeBinding::BoxAlloc => crate::runtime::cairo_native__box_alloc as *const (),
             #[cfg(feature = "with-cheatcode")]
             RuntimeBinding::VtableCheatcode => {
                 crate::starknet::cairo_native__vtable_cheatcode as *const ()
@@ -762,6 +765,33 @@ impl RuntimeBindingsMeta {
     ///
     /// Returns a opaque pointer as the result.
     #[allow(clippy::too_many_arguments)]
+    /// Register the `cairo_native__box_alloc` global if necessary, then invoke
+    /// it to allocate `size` bytes with alignment `align` from the per-invocation
+    /// arena.  Returns an opaque pointer to the allocated memory.
+    pub fn box_alloc<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        location: Location<'c>,
+        size: Value<'c, 'a>,
+        align: Value<'c, 'a>,
+    ) -> Result<Value<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let function =
+            self.build_function(context, module, block, location, RuntimeBinding::BoxAlloc)?;
+
+        Ok(block.append_op_result(
+            OperationBuilder::new("llvm.call", location)
+                .add_operands(&[function])
+                .add_operands(&[size, align])
+                .add_results(&[llvm::r#type::pointer(context, 0)])
+                .build()?,
+        )?)
+    }
+
     pub fn dict_new<'c, 'a>(
         &mut self,
         context: &'c Context,
@@ -1049,6 +1079,7 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::QM31Sub,
         RuntimeBinding::QM31Mul,
         RuntimeBinding::QM31Div,
+        RuntimeBinding::BoxAlloc,
         #[cfg(feature = "with-cheatcode")]
         RuntimeBinding::VtableCheatcode,
     ] {
