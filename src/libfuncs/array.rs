@@ -212,11 +212,6 @@ pub fn build_span_from_tuple<'ctx, 'this>(
         data_ptr,
         array_len_bytes_val,
     );
-    entry.append_operation(ReallocBindingsMeta::free(
-        context,
-        entry.argument(0)?.into(),
-        location,
-    )?);
 
     // Allocate metadata struct: { refcount: u32, max_len: u32, data_ptr: *mut u8 }
     let metadata_size = entry.const_int(context, location, calc_metadata_size(), 64)?;
