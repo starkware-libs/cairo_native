@@ -429,6 +429,7 @@ impl AotContractExecutor {
         builtin_costs: Option<BuiltinCosts>,
         mut syscall_handler: impl StarknetSyscallHandler,
     ) -> Result<ContractExecutionResult> {
+        let box_arena_guard = crate::runtime::BoxArenaGuard::install();
         let arena = Bump::new();
         let mut invoke_data = Vec::<u8>::new();
 
@@ -705,9 +706,10 @@ impl AotContractExecutor {
         // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
         // like other builtins, so it's tracked globally via the blake libfuncs on each invocation)
         builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
-
         #[cfg(feature = "with-mem-tracing")]
         crate::utils::mem_tracing::report_stats();
+
+        drop(box_arena_guard);
 
         Ok(ContractExecutionResult {
             remaining_gas,

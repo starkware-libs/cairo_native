@@ -5,6 +5,7 @@ use crate::{
     types::array::ArrayMetadata,
     utils::{blake_utils, libc_malloc, BuiltinCosts},
 };
+use bumpalo::Bump;
 use cairo_lang_sierra_gas::core_libfunc_cost::{
     DICT_SQUASH_REPEATED_ACCESS_COST, DICT_SQUASH_UNIQUE_KEY_COST,
 };
@@ -23,7 +24,7 @@ use starknet_types_core::{
 };
 use std::{
     alloc::{dealloc, realloc, Layout},
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::{hash_map::Entry, HashMap},
     ffi::{c_int, c_void},
     fs::File,
@@ -35,6 +36,43 @@ use std::{
     rc::Rc,
 };
 use std::{ops::Mul, vec::IntoIter};
+
+// Thread-local handle to the box arena currently active for this invocation.
+// Each native invocation installs its own `Bump` via `BoxArenaGuard::install`;
+// nested invocations save the outer arena and restore it on guard drop.
+thread_local! {
+    static BOX_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+}
+
+/// Allocate `size` bytes with `align` alignment from the per-invocation box arena.
+pub unsafe extern "C" fn cairo_native__box_alloc(size: u64, align: u64) -> *mut u8 {
+    BOX_ARENA.with(|arena| {
+        let layout = Layout::from_size_align(size as usize, align as usize)
+            .expect("cairo_native__box_alloc: invalid layout");
+        let ptr = arena.borrow_mut().alloc_layout(layout).as_ptr();
+        ptr
+    })
+}
+
+/// RAII guard that swaps a fresh box arena into `BOX_ARENA` for the duration of
+/// an invocation. On drop, the previous arena is restored and the just-used
+/// arena is dropped, freeing all its chunks.
+///
+pub struct BoxArenaGuard(Option<Bump>);
+
+impl BoxArenaGuard {
+    pub fn install() -> Self {
+        let previous = BOX_ARENA.with(|c| std::mem::replace(&mut *c.borrow_mut(), Bump::new()));
+        Self(Some(previous))
+    }
+}
+
+impl Drop for BoxArenaGuard {
+    fn drop(&mut self) {
+        let saved = self.0.take().expect("BoxArenaGuard dropped twice");
+        let _used = BOX_ARENA.with(|c| std::mem::replace(&mut *c.borrow_mut(), saved));
+    }
+}
 
 lazy_static! {
     pub static ref HALF_PRIME: Felt = Felt::from_dec_str(
