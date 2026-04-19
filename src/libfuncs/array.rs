@@ -1185,24 +1185,26 @@ pub fn build_slice<'ctx, 'this>(
 
     let slice_start = entry.argument(2)?.into();
     let slice_len = entry.argument(3)?.into();
-    let slice_end = entry.append_op_result(arith::addi(slice_start, slice_len, location))?;
 
-    let slice_lhs_bound = entry.append_op_result(arith::cmpi(
+    // Compute `slice_end = slice_start + slice_len` in 64 bits. In 32-bit
+    // arithmetic the sum wraps and lets an attacker-chosen `slice_len`
+    // sneak past the bound below. Since `slice_len` is unsigned (Sierra
+    // u32) it cannot be negative, so once we've checked
+    // `slice_end <= array_len` we also know `slice_start <= array_len`.
+    let wide_ty = IntegerType::new(context, 64).into();
+    let slice_start_wide = entry.extui(slice_start, wide_ty, location)?;
+    let slice_len_wide = entry.extui(slice_len, wide_ty, location)?;
+    let array_len_wide = entry.extui(array_len, wide_ty, location)?;
+    let slice_end_wide =
+        entry.append_op_result(arith::addi(slice_start_wide, slice_len_wide, location))?;
+
+    let slice_bounds = entry.append_op_result(arith::cmpi(
         context,
         CmpiPredicate::Ule,
-        slice_start,
-        array_len,
+        slice_end_wide,
+        array_len_wide,
         location,
     ))?;
-    let slice_rhs_bound = entry.append_op_result(arith::cmpi(
-        context,
-        CmpiPredicate::Ule,
-        slice_end,
-        array_len,
-        location,
-    ))?;
-    let slice_bounds =
-        entry.append_op_result(arith::andi(slice_lhs_bound, slice_rhs_bound, location))?;
 
     let valid_block = helper.append_block(Block::new(&[]));
     let error_block = helper.append_block(Block::new(&[]));
