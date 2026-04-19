@@ -37,8 +37,9 @@ jobs:
           keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
       - name: Install LLVM
         run: sudo apt-get install llvm-19 llvm-19-dev llvm-19-runtime clang-19 clang-tools-19 lld-19 libpolly-19-dev libmlir-19-dev mlir-19-tools
-      - name: publish sierra emu
-        run: cargo publish --token ${CRATES_TOKEN} --all-features -p sierra-emu
+      # sierra-emu 0.9.0-rc.6 already published; re-enable for the next release.
+      # - name: publish sierra emu
+      #   run: cargo publish --token ${CRATES_TOKEN} --all-features -p sierra-emu
       - name: publish cairo native
         run: cargo publish --token ${CRATES_TOKEN} --all-features -p cairo-native
       - name: publish starknet-native-compile
