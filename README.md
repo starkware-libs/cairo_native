@@ -49,7 +49,7 @@ often so use it at your own risk. 🚧
 
 For versions under `1.0` `cargo` doesn't comply with
 [semver](https://semver.org/), so we advise to pin the version you
-use. This can be done by adding `cairo-native = "0.9.0-rc.2"` to your Cargo.toml
+use. This can be done by adding `cairo-native = "0.9.0-rc.6"` to your Cargo.toml
 
 ## Getting Started
 
