@@ -17,7 +17,7 @@ use crate::{
     runtime::{BLAKE_CALL_COUNT, BUILTIN_COSTS},
     starknet::{handler::StarknetSyscallHandlerCallbacks, StarknetSyscallHandler},
     types::TypeBuilder,
-    utils::{libc_free, BuiltinCosts, RangeExt},
+    utils::{BuiltinCosts, RangeExt},
     values::Value,
 };
 use bumpalo::Bump;
@@ -352,6 +352,8 @@ fn invoke_dynamic(
     // like other builtins, so it's tracked globally via the blake libfuncs)
     builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
 
+    // Reset the box arena to free all allocated memory.
+    crate::runtime::cairo_native__reset_box_arena();
     #[cfg(feature = "with-mem-tracing")]
     crate::utils::mem_tracing::report_stats();
 
@@ -437,7 +439,6 @@ fn parse_result(
             let ptr =
                 return_ptr.unwrap_or_else(|| NonNull::new_unchecked(ret_registers[0] as *mut ()));
             let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-            libc_free(ptr.cast().as_ptr());
             Ok(value)
         },
         CoreTypeConcrete::EcPoint(_) | CoreTypeConcrete::EcState(_) => Ok(Value::from_ptr(
@@ -575,7 +576,6 @@ fn parse_result(
             } else {
                 let ptr = NonNull::new_unchecked(ptr);
                 let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-                libc_free(ptr.as_ptr().cast());
                 Ok(value)
             }
         },
