@@ -122,7 +122,9 @@ with-debug-utils = []
 with-mem-tracing = []
 with-libfunc-profiling = []
 with-segfault-catcher = []
-with-trace-dump = ["dep:sierra-emu"]
+with-trace-dump = ["sierra-emu"]
+# Enables `sierra_emu_bridge` for routing a cairo-native syscall handler into the sierra-emu VM.
+sierra-emu = ["dep:sierra-emu"]
 testing = ["dep:cairo-lang-compiler", "dep:cairo-lang-filesystem"]
 
 [dependencies]
