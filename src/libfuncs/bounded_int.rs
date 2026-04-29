@@ -844,6 +844,11 @@ mod test {
     #[test_case("bi_m100x0_times_bi_0x100", -100, 100, -10000)]
     #[test_case("bi_1x1_times_bi_1x1", 1, 1, 1)]
     #[test_case("bi_m5x5_times_ui_2", -3, 2, -6)]
+    // `BoundedInt` ranges with non-power-of-two exclusive upper
+    #[test_case("bi_m3x5_times_bi_m3x5", 5, 5, 25)]
+    #[test_case("bi_m3x5_times_bi_m3x5", -3, 5, -15)]
+    #[test_case("bi_m3x5_times_bi_m3x5", -3, -3, 9)]
+    #[test_case("bi_m3x5_times_bi_m3x5", 5, -3, -15)]
     fn test_mul(entry_point: &str, lhs: i32, rhs: i32, expected_result: i32) {
         let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_mul");
         let result = run_program(

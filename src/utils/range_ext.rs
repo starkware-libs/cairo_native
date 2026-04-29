@@ -14,8 +14,9 @@ impl RangeExt for Range {
         // Formula for unsigned integers:
         //     x.bits()
         //
-        // Formula for signed values:
-        //   - Positive: (x.magnitude() + BigUint::one()).bits()
+        // Formula for signed values (n-bit two's complement holds
+        // [-2^(n-1), 2^(n-1) - 1]):
+        //   - Positive: x.magnitude().bits() + 1
         //   - Negative: (x.magnitude() - BigUint::one()).bits() + 1
         //   - Zero: 0
 
@@ -26,7 +27,7 @@ impl RangeExt for Range {
                 match upper.sign() {
                     Sign::Minus => (upper.magnitude() - BigUint::one()).bits() + 1,
                     Sign::NoSign => 0,
-                    Sign::Plus => (upper.magnitude() + BigUint::one()).bits(),
+                    Sign::Plus => upper.magnitude().bits() + 1,
                 }
             };
 
