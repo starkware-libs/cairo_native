@@ -43,7 +43,7 @@ use crate::{
         POSEIDON_BUILTIN_SIZE, RANGE_CHECK96_BUILTIN_SIZE, RANGE_CHECK_BUILTIN_SIZE,
         SEGMENT_ARENA_BUILTIN_SIZE,
     },
-    executor::{invoke_trampoline, BuiltinCostsGuard},
+    executor::{invoke_trampoline, InvocationGuard},
     metadata::runtime_bindings::setup_runtime,
     module::NativeModule,
     native_assert, native_panic,
@@ -444,10 +444,15 @@ impl AotContractExecutor {
         let function_ptr = self.find_function_ptr(&function_id, true)?;
 
         // Initialize syscall handler and builtin costs.
-        // We may be inside a recursive contract, save the possible saved builtin costs to restore it after our call.
+        // We may be inside a recursive contract, save the possibly saved thread-local state to
+        // restore it after our call.
         let mut syscall_handler = StarknetSyscallHandlerCallbacks::new(&mut syscall_handler);
         let builtin_costs = builtin_costs.unwrap_or_default();
-        let builtin_costs_guard = BuiltinCostsGuard::install(builtin_costs);
+        let invocation_guard = InvocationGuard::install(
+            builtin_costs,
+            #[cfg(feature = "with-cheatcode")]
+            None,
+        );
 
         //  it can vary from contract to contract thats why we need to store/ load it.
         let builtins_size: usize = self.contract_info.entry_points[&selector]
@@ -699,12 +704,10 @@ impl AotContractExecutor {
             }
         };
 
-        // Restore the original builtin costs pointer.
-        drop(builtin_costs_guard);
-
         // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
         // like other builtins, so it's tracked globally via the blake libfuncs on each invocation)
-        builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
+        builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.get()) as usize;
+        drop(invocation_guard);
 
         #[cfg(feature = "with-mem-tracing")]
         crate::utils::mem_tracing::report_stats();
