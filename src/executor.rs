@@ -151,6 +151,7 @@ fn invoke_dynamic(
     // We may be inside a recursive contract, save the possible saved builtin costs to restore it after our call.
     let builtin_costs = BuiltinCosts::default();
     let builtin_costs_guard = BuiltinCostsGuard::install(builtin_costs);
+    let blake_call_count_guard = BlakeCallCountGuard::install();
 
     // Generate argument list.
     let mut iter = args.iter();
@@ -350,7 +351,8 @@ fn invoke_dynamic(
 
     // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
     // like other builtins, so it's tracked globally via the blake libfuncs)
-    builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
+    builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.get()) as usize;
+    drop(blake_call_count_guard);
 
     #[cfg(feature = "with-mem-tracing")]
     crate::utils::mem_tracing::report_stats();
@@ -398,6 +400,21 @@ impl BuiltinCostsGuard {
 impl Drop for BuiltinCostsGuard {
     fn drop(&mut self) {
         BUILTIN_COSTS.set(self.0);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct BlakeCallCountGuard(u64);
+
+impl BlakeCallCountGuard {
+    pub fn install() -> Self {
+        Self(BLAKE_CALL_COUNT.with(|c| c.replace(0)))
+    }
+}
+
+impl Drop for BlakeCallCountGuard {
+    fn drop(&mut self) {
+        BLAKE_CALL_COUNT.with(|c| c.set(self.0));
     }
 }
 

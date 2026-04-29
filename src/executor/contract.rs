@@ -43,7 +43,7 @@ use crate::{
         POSEIDON_BUILTIN_SIZE, RANGE_CHECK96_BUILTIN_SIZE, RANGE_CHECK_BUILTIN_SIZE,
         SEGMENT_ARENA_BUILTIN_SIZE,
     },
-    executor::{invoke_trampoline, BuiltinCostsGuard},
+    executor::{invoke_trampoline, BlakeCallCountGuard, BuiltinCostsGuard},
     metadata::runtime_bindings::setup_runtime,
     module::NativeModule,
     native_assert, native_panic,
@@ -448,6 +448,7 @@ impl AotContractExecutor {
         let mut syscall_handler = StarknetSyscallHandlerCallbacks::new(&mut syscall_handler);
         let builtin_costs = builtin_costs.unwrap_or_default();
         let builtin_costs_guard = BuiltinCostsGuard::install(builtin_costs);
+        let blake_call_count_guard = BlakeCallCountGuard::install();
 
         //  it can vary from contract to contract thats why we need to store/ load it.
         let builtins_size: usize = self.contract_info.entry_points[&selector]
@@ -704,7 +705,8 @@ impl AotContractExecutor {
 
         // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
         // like other builtins, so it's tracked globally via the blake libfuncs on each invocation)
-        builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
+        builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.get()) as usize;
+        drop(blake_call_count_guard);
 
         #[cfg(feature = "with-mem-tracing")]
         crate::utils::mem_tracing::report_stats();
