@@ -88,3 +88,14 @@ fn bi_m5x5_times_ui_2(a: felt252, b: felt252) -> BoundedInt<-10, 10> {
 
     mul(a,b)
 }
+
+impl MulHelperBI_m3x5_BI_m3x5 of MulHelper<BoundedInt<-3, 5>, BoundedInt<-3, 5>> {
+    type Result = BoundedInt<-15, 25>;
+}
+
+fn bi_m3x5_times_bi_m3x5(a: felt252, b: felt252) -> BoundedInt<-15, 25> {
+    let a: BoundedInt<-3, 5> = a.try_into().unwrap();
+    let b: BoundedInt<-3, 5> = b.try_into().unwrap();
+
+    mul(a,b)
+}
