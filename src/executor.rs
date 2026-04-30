@@ -142,15 +142,15 @@ fn invoke_dynamic(
     let mut syscall_handler = syscall_handler
         .as_mut()
         .map(|syscall_handler| StarknetSyscallHandlerCallbacks::new(syscall_handler));
-    // We only care for the previous syscall handler if we actually modify it
-    #[cfg(feature = "with-cheatcode")]
-    let syscall_handler_guard = syscall_handler
-        .as_mut()
-        .map(|syscall_handler| SyscallHandlerGuard::install(syscall_handler as *mut _));
 
-    // We may be inside a recursive contract, save the possible saved builtin costs to restore it after our call.
+    // We may be inside a recursive contract, save the possibly saved thread-local state to
+    // restore it after our call.
     let builtin_costs = BuiltinCosts::default();
-    let builtin_costs_guard = BuiltinCostsGuard::install(builtin_costs);
+    let invocation_guard = InvocationGuard::install(
+        builtin_costs,
+        #[cfg(feature = "with-cheatcode")]
+        syscall_handler.as_mut().map(|h| h as *mut _ as *mut ()),
+    );
 
     // Generate argument list.
     let mut iter = args.iter();
@@ -231,11 +231,6 @@ fn invoke_dynamic(
     crate::utils::safe_runner::run_safely(run_trampoline).map_err(Error::SafeRunner)?;
     #[cfg(not(feature = "with-segfault-catcher"))]
     run_trampoline();
-
-    // Restore the previous syscall handler and builtin costs.
-    #[cfg(feature = "with-cheatcode")]
-    drop(syscall_handler_guard);
-    drop(builtin_costs_guard);
 
     // Parse final gas.
     unsafe fn read_value<T>(ptr: &mut NonNull<()>) -> &T {
@@ -350,7 +345,8 @@ fn invoke_dynamic(
 
     // Get the blake call count from the global counter (blake doesn't have a buffer-based counter
     // like other builtins, so it's tracked globally via the blake libfuncs)
-    builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.replace(0)) as usize;
+    builtin_stats.blake = BLAKE_CALL_COUNT.with(|c| c.get()) as usize;
+    drop(invocation_guard);
 
     #[cfg(feature = "with-mem-tracing")]
     crate::utils::mem_tracing::report_stats();
@@ -362,42 +358,45 @@ fn invoke_dynamic(
     })
 }
 
-#[cfg(feature = "with-cheatcode")]
+/// Saves and restores the thread-local state shared between the host and compiled code
+/// for the duration of a single invocation. On drop, all installed values are reverted to
+/// their previous state, which is required to support recursive (contract-in-contract) calls.
 #[derive(Debug)]
-struct SyscallHandlerGuard(*mut ());
+pub(crate) struct InvocationGuard {
+    builtin_costs: BuiltinCosts,
+    blake_call_count: u64,
+    #[cfg(feature = "with-cheatcode")]
+    syscall_handler: Option<*mut ()>,
+}
 
-#[cfg(feature = "with-cheatcode")]
-impl SyscallHandlerGuard {
-    // NOTE: It is the caller's responsibility to ensure that the syscall handler is alive until the
-    //   guard is dropped.
-    pub fn install<T>(value: *mut T) -> Self {
-        let previous_value = crate::starknet::SYSCALL_HANDLER_VTABLE.get();
-        let syscall_handler_ptr = value as *mut ();
-        crate::starknet::SYSCALL_HANDLER_VTABLE.set(syscall_handler_ptr);
-
-        Self(previous_value)
+impl InvocationGuard {
+    // NOTE: When `syscall_handler` is `Some`, it is the caller's responsibility to ensure that
+    //   the syscall handler is alive until the guard is dropped.
+    pub fn install(
+        builtin_costs: BuiltinCosts,
+        #[cfg(feature = "with-cheatcode")] syscall_handler: Option<*mut ()>,
+    ) -> Self {
+        Self {
+            builtin_costs: BUILTIN_COSTS.replace(builtin_costs),
+            blake_call_count: BLAKE_CALL_COUNT.with(|c| c.replace(0)),
+            #[cfg(feature = "with-cheatcode")]
+            syscall_handler: syscall_handler.map(|ptr| {
+                let previous_value = crate::starknet::SYSCALL_HANDLER_VTABLE.get();
+                crate::starknet::SYSCALL_HANDLER_VTABLE.set(ptr);
+                previous_value
+            }),
+        }
     }
 }
 
-#[cfg(feature = "with-cheatcode")]
-impl Drop for SyscallHandlerGuard {
+impl Drop for InvocationGuard {
     fn drop(&mut self) {
-        crate::starknet::SYSCALL_HANDLER_VTABLE.set(self.0);
-    }
-}
-
-#[derive(Debug)]
-struct BuiltinCostsGuard(BuiltinCosts);
-
-impl BuiltinCostsGuard {
-    pub fn install(value: BuiltinCosts) -> Self {
-        Self(BUILTIN_COSTS.replace(value))
-    }
-}
-
-impl Drop for BuiltinCostsGuard {
-    fn drop(&mut self) {
-        BUILTIN_COSTS.set(self.0);
+        BUILTIN_COSTS.set(self.builtin_costs);
+        BLAKE_CALL_COUNT.with(|c| c.set(self.blake_call_count));
+        #[cfg(feature = "with-cheatcode")]
+        if let Some(previous_value) = self.syscall_handler {
+            crate::starknet::SYSCALL_HANDLER_VTABLE.set(previous_value);
+        }
     }
 }
 
