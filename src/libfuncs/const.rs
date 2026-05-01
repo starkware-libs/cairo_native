@@ -3,8 +3,8 @@
 use super::LibfuncHelper;
 use crate::{
     error::{Error, Result},
-    libfuncs::{r#enum::build_enum_value, r#struct::build_struct_value},
-    metadata::{realloc_bindings::ReallocBindingsMeta, MetadataStorage},
+    libfuncs::{r#box::into_box, r#enum::build_enum_value, r#struct::build_struct_value},
+    metadata::MetadataStorage,
     native_panic,
     types::TypeBuilder,
     utils::{felt_to_unsigned, ProgramRegistryExt, RangeExt},
@@ -23,7 +23,7 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    dialect::llvm::{self, r#type::pointer},
+    dialect::llvm::{self},
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
     ir::{r#type::IntegerType, Block, Location, Value},
     Context,
@@ -59,10 +59,6 @@ pub fn build_const_as_box<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &ConstAsBoxConcreteLibfunc,
 ) -> Result<()> {
-    if metadata.get::<ReallocBindingsMeta>().is_none() {
-        metadata.insert(ReallocBindingsMeta::new(context, helper));
-    }
-
     let const_type_outer = registry.get_type(&info.const_type)?;
 
     // Create constant
@@ -78,16 +74,15 @@ pub fn build_const_as_box<'ctx, 'this>(
     let const_ty = registry.get_type(&const_type.inner_ty)?;
     let inner_layout = const_ty.layout(registry)?;
 
-    // Create box
-    let value_len = entry.const_int(context, location, inner_layout.pad_to_align().size(), 64)?;
-
-    let ptr = entry.append_op_result(llvm::zero(pointer(context, 0), location))?;
-    let ptr = entry.append_op_result(ReallocBindingsMeta::realloc(
-        context, ptr, value_len, location,
-    )?)?;
-
-    // Store constant in box
-    entry.store(context, location, ptr, value)?;
+    let ptr = into_box(
+        context,
+        helper.module,
+        entry,
+        location,
+        value,
+        inner_layout,
+        metadata,
+    )?;
 
     helper.br(entry, 0, &[ptr], location)
 }

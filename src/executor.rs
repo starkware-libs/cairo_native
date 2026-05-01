@@ -14,10 +14,10 @@ use crate::{
         SEGMENT_ARENA_BUILTIN_SIZE,
     },
     native_panic,
-    runtime::{BLAKE_CALL_COUNT, BUILTIN_COSTS},
+    runtime::{BLAKE_CALL_COUNT, BOX_ARENA, BUILTIN_COSTS},
     starknet::{handler::StarknetSyscallHandlerCallbacks, StarknetSyscallHandler},
     types::TypeBuilder,
-    utils::{libc_free, BuiltinCosts, RangeExt},
+    utils::{BuiltinCosts, RangeExt},
     values::Value,
 };
 use bumpalo::Bump;
@@ -151,7 +151,6 @@ fn invoke_dynamic(
         #[cfg(feature = "with-cheatcode")]
         syscall_handler.as_mut().map(|h| h as *mut _ as *mut ()),
     );
-
     // Generate argument list.
     let mut iter = args.iter();
     for item in function_signature.param_types.iter().filter_map(|type_id| {
@@ -365,6 +364,7 @@ fn invoke_dynamic(
 pub(crate) struct InvocationGuard {
     builtin_costs: BuiltinCosts,
     blake_call_count: u64,
+    box_arena: Bump,
     #[cfg(feature = "with-cheatcode")]
     syscall_handler: Option<*mut ()>,
 }
@@ -379,6 +379,7 @@ impl InvocationGuard {
         Self {
             builtin_costs: BUILTIN_COSTS.replace(builtin_costs),
             blake_call_count: BLAKE_CALL_COUNT.with(|c| c.replace(0)),
+            box_arena: BOX_ARENA.with(|c| std::mem::replace(&mut *c.borrow_mut(), Bump::new())),
             #[cfg(feature = "with-cheatcode")]
             syscall_handler: syscall_handler.map(|ptr| {
                 let previous_value = crate::starknet::SYSCALL_HANDLER_VTABLE.get();
@@ -393,6 +394,7 @@ impl Drop for InvocationGuard {
     fn drop(&mut self) {
         BUILTIN_COSTS.set(self.builtin_costs);
         BLAKE_CALL_COUNT.with(|c| c.set(self.blake_call_count));
+        BOX_ARENA.with(|c| std::mem::swap(&mut *c.borrow_mut(), &mut self.box_arena));
         #[cfg(feature = "with-cheatcode")]
         if let Some(previous_value) = self.syscall_handler {
             crate::starknet::SYSCALL_HANDLER_VTABLE.set(previous_value);
@@ -436,7 +438,6 @@ fn parse_result(
             let ptr =
                 return_ptr.unwrap_or_else(|| NonNull::new_unchecked(ret_registers[0] as *mut ()));
             let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-            libc_free(ptr.cast().as_ptr());
             Ok(value)
         },
         CoreTypeConcrete::EcPoint(_) | CoreTypeConcrete::EcState(_) => Ok(Value::from_ptr(
@@ -574,7 +575,6 @@ fn parse_result(
             } else {
                 let ptr = NonNull::new_unchecked(ptr);
                 let value = Value::from_ptr(ptr, &info.ty, registry, true)?;
-                libc_free(ptr.as_ptr().cast());
                 Ok(value)
             }
         },

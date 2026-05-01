@@ -707,13 +707,7 @@ impl Value {
                 }
                 CoreTypeConcrete::Box(info) => {
                     let inner = *ptr.cast::<NonNull<()>>().as_ptr();
-                    let value = Self::from_ptr(inner, &info.ty, registry, should_drop)?;
-
-                    if should_drop {
-                        libc_free(inner.as_ptr().cast());
-                    }
-
-                    value
+                    Self::from_ptr(inner, &info.ty, registry, should_drop)?
                 }
                 CoreTypeConcrete::EcPoint(_) => {
                     let data = ptr.cast::<[[u8; 32]; 2]>().as_mut();
@@ -769,18 +763,12 @@ impl Value {
                     if inner_ptr.is_null() {
                         Self::Null
                     } else {
-                        let value = Self::from_ptr(
+                        Self::from_ptr(
                             NonNull::new_unchecked(inner_ptr).cast(),
                             &info.ty,
                             registry,
                             should_drop,
-                        )?;
-
-                        if should_drop {
-                            libc_free(inner_ptr.cast());
-                        }
-
-                        value
+                        )?
                     }
                 }
                 CoreTypeConcrete::Uninitialized(_) => {
