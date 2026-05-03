@@ -554,11 +554,11 @@ fn parse_result(
             None => Ok(Value::Sint32(ret_registers[0] as i32)),
         },
         CoreTypeConcrete::Sint64(_) => match return_ptr {
-            Some(return_ptr) => Ok(Value::Uint64(unsafe { *return_ptr.cast().as_ref() })),
+            Some(return_ptr) => Ok(Value::Sint64(unsafe { *return_ptr.cast().as_ref() })),
             None => Ok(Value::Sint64(ret_registers[0] as i64)),
         },
         CoreTypeConcrete::Sint128(_) => match return_ptr {
-            Some(return_ptr) => Ok(Value::Uint128(unsafe { *return_ptr.cast().as_ref() })),
+            Some(return_ptr) => Ok(Value::Sint128(unsafe { *return_ptr.cast().as_ref() })),
             None => Ok(Value::Sint128(
                 ((ret_registers[1] as i128) << 64) | ret_registers[0] as i128,
             )),
