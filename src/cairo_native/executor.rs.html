@@ -554,11 +554,11 @@
 <a href=#554 id=554 data-nosnippet>554</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(Value::Sint32(ret_registers[<span class="number">0</span>] <span class="kw">as </span>i32)),
 <a href=#555 id=555 data-nosnippet>555</a>        },
 <a href=#556 id=556 data-nosnippet>556</a>        CoreTypeConcrete::Sint64(<span class="kw">_</span>) =&gt; <span class="kw">match </span>return_ptr {
-<a href=#557 id=557 data-nosnippet>557</a>            <span class="prelude-val">Some</span>(return_ptr) =&gt; <span class="prelude-val">Ok</span>(Value::Uint64(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>return_ptr.cast().as_ref() })),
+<a href=#557 id=557 data-nosnippet>557</a>            <span class="prelude-val">Some</span>(return_ptr) =&gt; <span class="prelude-val">Ok</span>(Value::Sint64(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>return_ptr.cast().as_ref() })),
 <a href=#558 id=558 data-nosnippet>558</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(Value::Sint64(ret_registers[<span class="number">0</span>] <span class="kw">as </span>i64)),
 <a href=#559 id=559 data-nosnippet>559</a>        },
 <a href=#560 id=560 data-nosnippet>560</a>        CoreTypeConcrete::Sint128(<span class="kw">_</span>) =&gt; <span class="kw">match </span>return_ptr {
-<a href=#561 id=561 data-nosnippet>561</a>            <span class="prelude-val">Some</span>(return_ptr) =&gt; <span class="prelude-val">Ok</span>(Value::Uint128(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>return_ptr.cast().as_ref() })),
+<a href=#561 id=561 data-nosnippet>561</a>            <span class="prelude-val">Some</span>(return_ptr) =&gt; <span class="prelude-val">Ok</span>(Value::Sint128(<span class="kw">unsafe </span>{ <span class="kw-2">*</span>return_ptr.cast().as_ref() })),
 <a href=#562 id=562 data-nosnippet>562</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(Value::Sint128(
 <a href=#563 id=563 data-nosnippet>563</a>                ((ret_registers[<span class="number">1</span>] <span class="kw">as </span>i128) &lt;&lt; <span class="number">64</span>) | ret_registers[<span class="number">0</span>] <span class="kw">as </span>i128,
 <a href=#564 id=564 data-nosnippet>564</a>            )),
