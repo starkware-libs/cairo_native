@@ -39,6 +39,7 @@ use test_case::test_case;
 #[test_case("test_data_artifacts/programs/cases/enums/enum_match")]
 #[test_case("test_data_artifacts/programs/cases/enums/enum_snapshot_match_a")]
 #[test_case("test_data_artifacts/programs/cases/enums/enum_snapshot_match_b")]
+#[test_case("test_data_artifacts/programs/cases/enums/enum_large_variants")]
 // returns
 #[test_case("test_data_artifacts/programs/cases/returns/enums")]
 #[test_case("test_data_artifacts/programs/cases/returns/simple")]
