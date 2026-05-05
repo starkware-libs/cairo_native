@@ -938,11 +938,11 @@ impl Value {
                         Sign::Plus,
                         BigUint::from_bytes_le(slice::from_raw_parts(
                             ptr.cast::<u8>().as_ptr(),
-                            (info.range.offset_bit_width().next_multiple_of(8) >> 3) as usize,
+                            (info.range.repr_bit_width().next_multiple_of(8) >> 3) as usize,
                         )),
                     );
 
-                    data &= (BigInt::one() << info.range.offset_bit_width()) - BigInt::one();
+                    data &= (BigInt::one() << info.range.repr_bit_width()) - BigInt::one();
                     data += &info.range.lower;
 
                     Self::BoundedInt {

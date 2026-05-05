@@ -504,13 +504,13 @@ fn parse_result(
         CoreTypeConcrete::BoundedInt(info) => match return_ptr {
             Some(return_ptr) => Ok(Value::from_ptr(return_ptr, type_id, registry, true)?),
             None => {
-                let mut data = if info.range.offset_bit_width() <= 64 {
+                let mut data = if info.range.repr_bit_width() <= 64 {
                     BigInt::from(ret_registers[0])
                 } else {
                     BigInt::from(((ret_registers[1] as u128) << 64) | ret_registers[0] as u128)
                 };
 
-                data &= (BigInt::one() << info.range.offset_bit_width()) - BigInt::one();
+                data &= (BigInt::one() << info.range.repr_bit_width()) - BigInt::one();
                 data += &info.range.lower;
 
                 Ok(Value::BoundedInt {

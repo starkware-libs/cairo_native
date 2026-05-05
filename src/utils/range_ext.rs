@@ -6,7 +6,7 @@ pub trait RangeExt {
     /// Width in bits when the offset is zero (aka. the natural representation).
     fn zero_based_bit_width(&self) -> u32;
     /// Width in bits when the offset is not necessarily zero (aka. the compact representation).
-    fn offset_bit_width(&self) -> u32;
+    fn repr_bit_width(&self) -> u32;
 }
 
 impl RangeExt for Range {
@@ -40,7 +40,7 @@ impl RangeExt for Range {
         width.max(1)
     }
 
-    fn offset_bit_width(&self) -> u32 {
+    fn repr_bit_width(&self) -> u32 {
         // FIXME: Workaround for segfault in canonicalization (including LLVM 19).
         ((self.size() - BigInt::one()).bits() as u32).max(1)
     }
