@@ -787,12 +787,9 @@ impl Value {
                     native_panic!("todo: implement uninit from_ptr or ignore the return value")
                 }
                 CoreTypeConcrete::Enum(info) => {
-                    let tag_layout = crate::utils::get_integer_layout(match info.variants.len() {
-                        0 | 1 => 0,
-                        num_variants => (num_variants.next_power_of_two().next_multiple_of(8) >> 3)
-                            .try_into()
-                            .map_err(|_| Error::IntegerConversion)?,
-                    });
+                    let (_, tag_layout, variant_layouts) =
+                        crate::types::r#enum::get_layout_for_variants(registry, &info.variants)?;
+
                     let tag_value = match info.variants.len() {
                         0 => {
                             // An enum without variants is basically the `!` (never) type in Rust.
@@ -808,17 +805,14 @@ impl Value {
                         },
                     };
 
-                    // Filter out bits that are not part of the enum's tag.
-                    let tag_value = tag_value
-                        & 1usize
-                            .wrapping_shl(info.variants.len().next_power_of_two().trailing_zeros())
-                            .wrapping_sub(1);
-
-                    let payload_ty = registry.get_type(&info.variants[tag_value])?;
-                    let payload_layout = payload_ty.layout(registry)?;
+                    // The tag occupies `ceil(log2(variants.len()))` bits but is stored in a
+                    // power-of-two-byte slot (u8/u16/u32/u64). Whenever those don't match,
+                    // the high bits of the slot are not part of the tag — mask them off.
+                    let tag_value = tag_value & (info.variants.len().next_power_of_two() - 1);
 
                     let payload_ptr = NonNull::new(
-                        ptr.as_ptr().byte_add(tag_layout.extend(payload_layout)?.1),
+                        ptr.as_ptr()
+                            .byte_add(tag_layout.extend(variant_layouts[tag_value])?.1),
                     )
                     .to_native_assert_error("tried to make a non-null ptr out of a null one")?;
                     let payload = Self::from_ptr(
