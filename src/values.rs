@@ -433,12 +433,11 @@ impl Value {
                         // next key must be called before next_value
 
                         for (key, value) in map.iter() {
-                            let key = key.to_bytes_le();
                             let value =
                                 value.to_ptr(arena, registry, &info.ty, find_dict_drop_override)?;
 
                             let index = value_map.mappings.len();
-                            value_map.mappings.insert(key, index);
+                            value_map.mappings.insert(*key, index);
 
                             std::ptr::copy_nonoverlapping(
                                 value.cast::<u8>().as_ptr(),
@@ -851,10 +850,6 @@ impl Value {
 
                     let mut output_map = HashMap::with_capacity(dict.mappings.len());
                     for (&key, &index) in dict.mappings.iter() {
-                        let mut key = key;
-                        key[31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-
-                        let key = Felt::from_bytes_le(&key);
                         // The dictionary items are not being dropped here. They'll be dropped along
                         // with the dictionary (if requested using `should_drop`).
                         output_map.insert(
