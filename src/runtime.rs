@@ -12,7 +12,6 @@ use cairo_lang_sierra_gas::core_libfunc_cost::{
 use itertools::Itertools;
 use lambdaworks_math::field::fields::mersenne31::extensions::Degree4ExtensionField;
 use lazy_static::lazy_static;
-use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 use rand::Rng;
 use starknet_curve::curve_params::BETA;
@@ -30,7 +29,6 @@ use std::{
     fs::File,
     io::Write,
     mem::{forget, ManuallyDrop},
-    ops::Shl,
     os::fd::FromRawFd,
     ptr::{self, null_mut},
     rc::Rc,
@@ -191,7 +189,7 @@ pub unsafe extern "C" fn cairo_native__libfunc__blake_compress(
 /// Felt252 type used in cairo native runtime
 #[derive(Debug)]
 pub struct FeltDict {
-    pub mappings: HashMap<[u8; 32], usize>,
+    pub mappings: HashMap<Felt, usize>,
 
     pub layout: Layout,
     pub elements: *mut (),
@@ -308,7 +306,7 @@ pub unsafe extern "C" fn cairo_native__dict_get(
     let num_mappings = dict.mappings.len();
     let has_capacity = num_mappings != dict.mappings.capacity();
 
-    let (is_present, index) = match dict.mappings.entry(*key) {
+    let (is_present, index) = match dict.mappings.entry(Felt::from_bytes_le(key)) {
         Entry::Occupied(entry) => (true, *entry.get()),
         Entry::Vacant(entry) => {
             entry.insert(num_mappings);
@@ -364,24 +362,22 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
 
     // Allocate data separately (no inline prefix)
     let data_ptr = libc_malloc(tuple_stride * dict.mappings.len());
+    let mut work_ptr = data_ptr;
 
     // Get the stride for the inner types of the tuple
     let key_size = Layout::new::<Felt252Abi>().pad_to_align().size();
-    let generic_ty_size = dict.layout.pad_to_align().size();
+    let element_size = dict.layout.pad_to_align().size();
 
-    for (key, elem_index) in &dict.mappings {
-        // Move the ptr to the offset of the tuple we want to modify
-        let key_ptr = data_ptr.byte_add(tuple_stride * elem_index) as *mut [u8; 32];
+    for (key, elem_index) in dict.mappings.iter().sorted() {
+        let key_ptr = work_ptr as *mut [u8; 32];
+        let default_value_ptr = work_ptr.byte_add(key_size) as *mut u8;
+        let final_value_ptr = default_value_ptr.byte_add(element_size) as *mut u8;
+        work_ptr = work_ptr.byte_add(tuple_stride);
 
-        // Save the key and move to the offset of the 'first_value'
-        *key_ptr = *key;
-        let first_val_ptr = key_ptr.byte_add(key_size) as *mut u8;
-        first_val_ptr.write_bytes(0, generic_ty_size);
-
-        // Get the element, move to the offset of the 'last_value' and save the element in that address
-        let element = dict.elements.byte_add(generic_ty_size * elem_index) as *mut u8;
-        let last_val_ptr = first_val_ptr.byte_add(generic_ty_size);
-        std::ptr::copy_nonoverlapping(element, last_val_ptr, generic_ty_size);
+        *key_ptr = key.to_bytes_le();
+        default_value_ptr.write_bytes(0, element_size);
+        let value = dict.elements.byte_add(element_size * elem_index) as *mut u8;
+        final_value_ptr.copy_from_nonoverlapping(value, element_size);
     }
 
     // Allocate and initialize ArrayMetadata struct
@@ -444,7 +440,7 @@ pub unsafe extern "C" fn cairo_native__dict_squash(
     range_check_ptr: &mut u64,
     gas_ptr: &mut u64,
 ) {
-    let dict = Rc::from_raw(dict_ptr);
+    let dict = &*dict_ptr;
 
     *gas_ptr +=
         (dict.count.saturating_sub(dict.mappings.len() as u64)) * *DICT_GAS_REFUND_PER_ACCESS;
@@ -453,11 +449,8 @@ pub unsafe extern "C" fn cairo_native__dict_squash(
     // https://github.com/starkware-libs/cairo/blob/v2.12.0-dev.1/crates/cairo-lang-sierra-to-casm/src/invocations/felt252_dict.rs?plain=1#L131-L136
     *range_check_ptr += 2;
 
-    let no_big_keys = dict
-        .mappings
-        .keys()
-        .map(Felt::from_bytes_le)
-        .all(|key| key < Felt::from(BigInt::from(1).shl(128)));
+    let u128_max = Felt::from(u128::MAX);
+    let no_big_keys = dict.mappings.keys().all(|key| *key <= u128_max);
     let number_of_keys = dict.mappings.len() as u64;
 
     // How we update the range check depends on whether we have any big key or not.
@@ -498,8 +491,6 @@ pub unsafe extern "C" fn cairo_native__dict_squash(
     // For each non unique accessed key, we increase the range check an additional time.
     // https://github.com/starkware-libs/cairo/blob/v2.12.0-dev.1/crates/cairo-lang-sierra-to-casm/src/invocations/felt252_dict.rs?plain=1#L602
     *range_check_ptr += dict.count.saturating_sub(dict.mappings.len() as u64);
-
-    forget(dict);
 }
 
 /// Compute `ec_point_from_x_nz(x)` and store it.
