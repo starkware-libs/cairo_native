@@ -1419,3 +1419,34 @@ fn get_class_hash_at() {
         },
     );
 }
+
+#[test]
+fn multi_sha256_flow() {
+    let program = load_program_and_runner("test_data_artifacts/programs/starknet/syscalls");
+    let result = run_native_program(
+        &program,
+        "multi_sha256_flow",
+        &[],
+        Some(u64::MAX),
+        Some(SyscallHandler::new()),
+    );
+
+    assert_eq_sorted!(
+        result.return_value,
+        Value::Enum {
+            tag: 0,
+            value: Box::new(Value::Struct {
+                fields: vec![Value::Enum {
+                    tag: 1,
+                    value: Box::new(Value::Struct {
+                        fields: vec![],
+                        debug_name: Some("Unit".to_string()),
+                    }),
+                    debug_name: Some("core::bool".to_string()),
+                }],
+                debug_name: None
+            }),
+            debug_name: None,
+        },
+    );
+}
