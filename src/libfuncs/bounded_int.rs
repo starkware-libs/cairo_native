@@ -16,7 +16,7 @@ use cairo_lang_sierra::{
             BoundedIntDivRemAlgorithm, BoundedIntDivRemConcreteLibfunc,
             BoundedIntTrimConcreteLibfunc,
         },
-        core::{CoreLibfunc, CoreType},
+        core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         lib_func::SignatureOnlyConcreteLibfunc,
         utils::Range,
         ConcreteLibfunc,
@@ -33,6 +33,7 @@ use melior::{
     Context,
 };
 use num_bigint::{BigInt, Sign};
+use num_traits::Zero;
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -72,6 +73,23 @@ pub fn build<'ctx, 'this>(
     }
 }
 
+/// The "raw representation offset" of a value: what bit-pattern 0 represents in the
+/// stored encoding. For `BoundedInt<L, U>` it is `L` (stored bits = value - L); for a
+/// regular `iN`/`uN` it is `0` (stored bits ARE the value, in two's-complement / natural
+/// form).
+fn raw_offset<'a>(
+    ty: &CoreTypeConcrete,
+    range: &'a Range,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+) -> Result<&'a BigInt> {
+    static ZERO: BigInt = BigInt::ZERO;
+    Ok(if ty.is_bounded_int(registry)? {
+        &range.lower
+    } else {
+        &ZERO
+    })
+}
+
 /// Generate MLIR operations for the `bounded_int_add` libfunc.
 ///
 /// # Cairo Signature
@@ -82,13 +100,14 @@ pub fn build<'ctx, 'this>(
 /// ) -> H::Result nopanic;
 /// ```
 ///
-/// A number X as a `BoundedInt` is internally represented as an offset Xd from the lower bound Xo.
-/// So X = Xo + Xd.
+/// A value `X` is stored as `Xd = X - Xo`, where `Xo` is the lower bound of the
+/// operand's `BoundedInt<Xo, _>`, or `0` for a plain `iN`/`uN`. The result type is
+/// always a `BoundedInt`, so we need `Cd = C - Co`.
 ///
-/// Since we want to get C = A + B, we can translate this to
-/// Co + Cd = Ao + Ad + Bo + Bd. Where Ao, Bo and Co represent the lower bound
-/// of the ranges in the `BoundedInt` and Ad, Bd and Cd represent the offsets. Since
-/// we also know that Co = Ao + Bo we can simplify the equation to Cd = Ad + Bd.
+/// Since `addi(Ad, Bd) = (A + B) - (Ao + Bo) = C - (Ao + Bo)`, recovering `Cd`
+/// requires adding the constant `adjustment = Ao + Bo - Co`. When the result is
+/// `BoundedInt<Ao + Bo, _>` (the bounded-int-only case enforced by the Sierra
+/// `AddHelper`).
 #[allow(clippy::too_many_arguments)]
 fn build_add<'ctx, 'this>(
     context: &'ctx Context,
@@ -125,8 +144,13 @@ fn build_add<'ctx, 'this>(
     };
     let dst_width = dst_range.offset_bit_width();
 
+    let lhs_raw_offset = raw_offset(lhs_ty, &lhs_range, registry)?;
+    let rhs_raw_offset = raw_offset(rhs_ty, &rhs_range, registry)?;
+    let adjustment = lhs_raw_offset + rhs_raw_offset - &dst_range.lower;
+    let adjustment_width = u32::try_from(adjustment.bits())?;
+
     // Get the compute type so we can do the addition without problems
-    let compute_width = lhs_width.max(rhs_width) + 1;
+    let compute_width = lhs_width.max(rhs_width).max(adjustment_width) + 1;
     let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Get the operands on the same number of bits so we can operate with them
@@ -151,6 +175,13 @@ fn build_add<'ctx, 'this>(
 
     // Addition and get the result value on the desired range
     let res_value = entry.addi(lhs_value, rhs_value, location)?;
+    let res_value = if adjustment.is_zero() {
+        res_value
+    } else {
+        let adjustment_const =
+            entry.const_int_from_type(context, location, adjustment, compute_ty)?;
+        entry.addi(res_value, adjustment_const, location)?
+    };
     let res_value = if compute_width > dst_width {
         entry.trunci(
             res_value,
@@ -179,12 +210,9 @@ fn build_add<'ctx, 'this>(
 /// ) -> H::Result nopanic;
 /// ```
 ///
-/// A number X as a `BoundedInt` is internally represented as an offset Xd from the lower bound Xo.
-/// So X = Xo + Xd.
-///
-/// Since we want to get C = A - B, we can translate this to
-/// Co + Cd = (Ao + Ad) - (Bo + Bd). Where Ao, Bo and Co represent the lower bound
-/// of the ranges in the `BoundedInt` and Ad, Bd and Cd represent the offsets.
+/// As in `build_add`, a value `X` is stored as `Xd = X - Xo` (with `Xo = 0` for
+/// plain `iN`/`uN`). Since `subi(Ad, Bd) = (A - B) - (Ao - Bo) = C - (Ao - Bo)`,
+/// recovering `Cd = C - Co` requires adding the constant `adjustment = Ao - Bo - Co`.
 #[allow(clippy::too_many_arguments)]
 fn build_sub<'ctx, 'this>(
     context: &'ctx Context,
@@ -221,11 +249,13 @@ fn build_sub<'ctx, 'this>(
     };
     let dst_width = dst_range.offset_bit_width();
 
-    // Get the compute type so we can do the subtraction without problems
-    let compile_time_val = lhs_range.lower.clone() - rhs_range.lower.clone() - dst_range.lower;
-    let compile_time_val_width = u32::try_from(compile_time_val.bits())?;
+    let lhs_raw_offset = raw_offset(lhs_ty, &lhs_range, registry)?;
+    let rhs_raw_offset = raw_offset(rhs_ty, &rhs_range, registry)?;
+    let adjustment = lhs_raw_offset - rhs_raw_offset - &dst_range.lower;
+    let adjustment_width = u32::try_from(adjustment.bits())?;
 
-    let compute_width = lhs_width.max(rhs_width).max(compile_time_val_width) + 1;
+    // Get the compute type so we can do the subtraction without problems
+    let compute_width = lhs_width.max(rhs_width).max(adjustment_width) + 1;
     let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Get the operands on the same number of bits so we can operate with them
@@ -248,12 +278,14 @@ fn build_sub<'ctx, 'this>(
         rhs_value
     };
 
-    let compile_time_val =
-        entry.const_int_from_type(context, location, compile_time_val, compute_ty)?;
-    // First we do -> intermediate_res = Ad - Bd
     let res_value = entry.subi(lhs_value, rhs_value, location)?;
-    // Then we do -> intermediate_res += (Ao - Bo - Co)
-    let res_value = entry.addi(res_value, compile_time_val, location)?;
+    let res_value = if adjustment.is_zero() {
+        res_value
+    } else {
+        let adjustment_const =
+            entry.const_int_from_type(context, location, adjustment, compute_ty)?;
+        entry.addi(res_value, adjustment_const, location)?
+    };
     // Get the result value on the desired range
     let res_value = if compute_width > dst_width {
         entry.trunci(
@@ -352,20 +384,22 @@ fn build_mul<'ctx, 'this>(
         rhs_value
     };
 
-    // Offset the operands so that they are compatible with the operation.
-    let lhs_value = if lhs_ty.is_bounded_int(registry)? && lhs_range.lower != BigInt::ZERO {
-        let lhs_offset =
-            entry.const_int_from_type(context, location, lhs_range.lower, compute_ty)?;
-        entry.addi(lhs_value, lhs_offset, location)?
-    } else {
+    // Convert each raw operand back to its actual value by adding the raw offset.
+    let lhs_offset = raw_offset(lhs_ty, &lhs_range, registry)?;
+    let lhs_value = if lhs_offset.is_zero() {
         lhs_value
-    };
-    let rhs_value = if rhs_ty.is_bounded_int(registry)? && rhs_range.lower != BigInt::ZERO {
-        let rhs_offset =
-            entry.const_int_from_type(context, location, rhs_range.lower, compute_ty)?;
-        entry.addi(rhs_value, rhs_offset, location)?
     } else {
+        let lhs_offset_const =
+            entry.const_int_from_type(context, location, lhs_offset, compute_ty)?;
+        entry.addi(lhs_value, lhs_offset_const, location)?
+    };
+    let rhs_offset = raw_offset(rhs_ty, &rhs_range, registry)?;
+    let rhs_value = if rhs_offset.is_zero() {
         rhs_value
+    } else {
+        let rhs_offset_const =
+            entry.const_int_from_type(context, location, rhs_offset, compute_ty)?;
+        entry.addi(rhs_value, rhs_offset_const, location)?
     };
 
     // Compute the operation.
@@ -373,11 +407,11 @@ fn build_mul<'ctx, 'this>(
 
     // Offset and truncate the result to the output type.
     let res_offset = dst_range.lower.clone();
-    let res_value = if res_offset != BigInt::ZERO {
+    let res_value = if res_offset.is_zero() {
+        res_value
+    } else {
         let res_offset = entry.const_int_from_type(context, location, res_offset, compute_ty)?;
         entry.append_op_result(arith::subi(res_value, res_offset, location))?
-    } else {
-        res_value
     };
 
     let res_value = if dst_range.offset_bit_width() < compute_range.zero_based_bit_width() {
@@ -484,20 +518,22 @@ fn build_div_rem<'ctx, 'this>(
         rhs_value
     };
 
-    // Offset the operands so that they are compatible with the operation.
-    let lhs_value = if lhs_ty.is_bounded_int(registry)? && lhs_range.lower != BigInt::ZERO {
-        let lhs_offset =
-            entry.const_int_from_type(context, location, lhs_range.lower, compute_ty)?;
-        entry.addi(lhs_value, lhs_offset, location)?
-    } else {
+    // Convert each raw operand back to its actual value by adding the raw offset.
+    let lhs_offset = raw_offset(lhs_ty, &lhs_range, registry)?;
+    let lhs_value = if lhs_offset.is_zero() {
         lhs_value
-    };
-    let rhs_value = if rhs_ty.is_bounded_int(registry)? && rhs_range.lower != BigInt::ZERO {
-        let rhs_offset =
-            entry.const_int_from_type(context, location, rhs_range.lower, compute_ty)?;
-        entry.addi(rhs_value, rhs_offset, location)?
     } else {
+        let lhs_offset_const =
+            entry.const_int_from_type(context, location, lhs_offset, compute_ty)?;
+        entry.addi(lhs_value, lhs_offset_const, location)?
+    };
+    let rhs_offset = raw_offset(rhs_ty, &rhs_range, registry)?;
+    let rhs_value = if rhs_offset.is_zero() {
         rhs_value
+    } else {
+        let rhs_offset_const =
+            entry.const_int_from_type(context, location, rhs_offset, compute_ty)?;
+        entry.addi(rhs_value, rhs_offset_const, location)?
     };
 
     // Compute the operation.
@@ -505,12 +541,12 @@ fn build_div_rem<'ctx, 'this>(
     let rem_value = entry.append_op_result(arith::remui(lhs_value, rhs_value, location))?;
 
     // Offset result to the output type.
-    let div_value = if div_range.lower.clone() != BigInt::ZERO {
+    let div_value = if div_range.lower.is_zero() {
+        div_value
+    } else {
         let div_offset =
             entry.const_int_from_type(context, location, div_range.lower.clone(), compute_ty)?;
         entry.append_op_result(arith::subi(div_value, div_offset, location))?
-    } else {
-        div_value
     };
 
     native_assert!(
@@ -596,16 +632,13 @@ fn build_constrain<'ctx, 'this>(
         .get_type(&info.branch_signatures()[1].vars[1].ty)?
         .integer_range(registry)?;
 
-    let boundary = if src_ty.is_bounded_int(registry)? {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.boundary.clone() - src_range.lower.clone(),
-            src_value.r#type(),
-        )?
-    } else {
-        entry.const_int_from_type(context, location, info.boundary.clone(), src_value.r#type())?
-    };
+    let src_raw_offset = raw_offset(src_ty, &src_range, registry)?;
+    let boundary = entry.const_int_from_type(
+        context,
+        location,
+        info.boundary.clone() - src_raw_offset,
+        src_value.r#type(),
+    )?;
 
     let cmpi_predicate =
         if src_ty.is_bounded_int(registry)? || src_range.lower.sign() != Sign::Minus {
@@ -627,59 +660,33 @@ fn build_constrain<'ctx, 'this>(
         location,
     ));
 
-    {
-        let res_value = if src_range.lower != lower_range.lower {
-            let lower_offset = &lower_range.lower - &src_range.lower;
-            let lower_offset = lower_block.const_int_from_type(
-                context,
-                location,
-                lower_offset,
-                src_value.r#type(),
-            )?;
-            lower_block.append_op_result(arith::subi(src_value, lower_offset, location))?
-        } else {
+    // The output is always a `BoundedInt`, whose raw offset is its lower bound. The bit
+    // adjustment needed is therefore `out_lower - src_raw_offset`.
+    let adjust_to_output = |block: &'this Block<'ctx>, out_range: &Range, branch: usize| {
+        let offset = &out_range.lower - src_raw_offset;
+        let res_value = if offset.is_zero() {
             src_value
+        } else {
+            let offset_const =
+                block.const_int_from_type(context, location, offset, src_value.r#type())?;
+            block.append_op_result(arith::subi(src_value, offset_const, location))?
         };
 
-        let res_value = if src_width > lower_range.offset_bit_width() {
-            lower_block.trunci(
+        let res_value = if src_width > out_range.offset_bit_width() {
+            block.trunci(
                 res_value,
-                IntegerType::new(context, lower_range.offset_bit_width()).into(),
+                IntegerType::new(context, out_range.offset_bit_width()).into(),
                 location,
             )?
         } else {
             res_value
         };
 
-        helper.br(lower_block, 0, &[range_check, res_value], location)?;
-    }
+        helper.br(block, branch, &[range_check, res_value], location)
+    };
 
-    {
-        let res_value = if src_range.lower != upper_range.lower {
-            let upper_offset = &upper_range.lower - &src_range.lower;
-            let upper_offset = upper_block.const_int_from_type(
-                context,
-                location,
-                upper_offset,
-                src_value.r#type(),
-            )?;
-            upper_block.append_op_result(arith::subi(src_value, upper_offset, location))?
-        } else {
-            src_value
-        };
-
-        let res_value = if src_width > upper_range.offset_bit_width() {
-            upper_block.trunci(
-                res_value,
-                IntegerType::new(context, upper_range.offset_bit_width()).into(),
-                location,
-            )?
-        } else {
-            res_value
-        };
-
-        helper.br(upper_block, 1, &[range_check, res_value], location)?;
-    }
+    adjust_to_output(lower_block, &lower_range, 0)?;
+    adjust_to_output(upper_block, &upper_range, 1)?;
 
     Ok(())
 }
@@ -707,28 +714,17 @@ fn build_trim<'ctx, 'this>(
     let src_ty = registry.get_type(&info.param_signatures()[0].ty)?;
     let dst_ty = registry.get_type(&info.branch_signatures()[1].vars[0].ty)?;
 
-    let trimmed_value = if src_ty.is_bounded_int(registry)? {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.trimmed_value.clone() - src_ty.integer_range(registry)?.lower,
-            value.r#type(),
-        )?
-    } else {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.trimmed_value.clone(),
-            value.r#type(),
-        )?
-    };
+    let src_range = src_ty.integer_range(registry)?;
+    let src_raw_offset = raw_offset(src_ty, &src_range, registry)?;
+    let trimmed_value = entry.const_int_from_type(
+        context,
+        location,
+        info.trimmed_value.clone() - src_raw_offset,
+        value.r#type(),
+    )?;
     let is_invalid = entry.cmpi(context, CmpiPredicate::Eq, value, trimmed_value, location)?;
 
-    let offset = if src_ty.is_bounded_int(registry)? {
-        dst_ty.integer_range(registry)?.lower - src_ty.integer_range(registry)?.lower
-    } else {
-        dst_ty.integer_range(registry)?.lower
-    };
+    let offset = dst_ty.integer_range(registry)?.lower - src_raw_offset;
     let value = entry.append_op_result(arith::subi(
         value,
         entry.const_int_from_type(context, location, offset, value.r#type())?,
@@ -776,13 +772,10 @@ fn build_is_zero<'ctx, 'this>(
         "value can never be zero"
     );
 
-    let k0 = if src_ty.is_bounded_int(registry)? {
-        // We can do the substraction since the lower bound of the bounded int will
-        // always be less or equal than 0.
-        entry.const_int_from_type(context, location, 0 - src_range.lower, src_value.r#type())?
-    } else {
-        entry.const_int_from_type(context, location, 0, src_value.r#type())?
-    };
+    // `src_range.lower <= 0` (asserted above), so `-src_raw_offset` is non-negative
+    // and fits in the operand's storage type.
+    let src_raw_offset = raw_offset(src_ty, &src_range, registry)?;
+    let k0 = entry.const_int_from_type(context, location, -src_raw_offset, src_value.r#type())?;
     let src_is_zero = entry.cmpi(context, CmpiPredicate::Eq, src_value, k0, location)?;
 
     helper.cond_br(
