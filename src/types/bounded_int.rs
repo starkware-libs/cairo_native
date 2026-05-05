@@ -31,6 +31,6 @@ pub fn build<'ctx>(
     _metadata: &mut MetadataStorage,
     info: WithSelf<BoundedIntConcreteType>,
 ) -> Result<Type<'ctx>> {
-    let n_bits = info.range.offset_bit_width();
+    let n_bits = info.range.repr_bit_width();
     Ok(IntegerType::new(context, n_bits).into())
 }

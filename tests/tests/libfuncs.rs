@@ -1,6 +1,9 @@
-use crate::common::{compare_outputs, run_native_program, run_vm_program};
+use crate::common::{compare_outputs, load_cairo, run_native_program, run_vm_program};
+use cairo_lang_runner::Arg;
 use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::testing::load_program_and_runner;
+use cairo_native::Value;
+use starknet_types_core::felt::Felt;
 
 #[test]
 fn enum_init() {

@@ -111,16 +111,8 @@ pub fn build_downcast<'ctx, 'this>(
         );
     }
 
-    let src_width = if src_ty.is_bounded_int(registry)? {
-        src_range.offset_bit_width()
-    } else {
-        src_ty.integer_range(registry)?.zero_based_bit_width()
-    };
-    let dst_width = if dst_ty.is_bounded_int(registry)? {
-        dst_range.offset_bit_width()
-    } else {
-        dst_range.zero_based_bit_width()
-    };
+    let src_width = src_range.repr_bit_width();
+    let dst_width = dst_range.repr_bit_width();
 
     let compute_width = src_range
         .zero_based_bit_width()
@@ -416,16 +408,8 @@ pub fn build_upcast<'ctx, 'this>(
         );
     }
 
-    let src_width = if src_ty.is_bounded_int(registry)? {
-        src_range.offset_bit_width()
-    } else {
-        src_range.zero_based_bit_width()
-    };
-    let dst_width = if dst_ty.is_bounded_int(registry)? {
-        dst_range.offset_bit_width()
-    } else {
-        dst_range.zero_based_bit_width()
-    };
+    let src_width = src_range.repr_bit_width();
+    let dst_width = dst_range.repr_bit_width();
 
     // Extend value to target bit width.
     let dst_value = if dst_width > src_width {
