@@ -711,7 +711,7 @@ pub mod trace_dump_runtime {
                 let data = value
                     .mappings
                     .iter()
-                    .map(|(k, &i)| {
+                    .map(|(&k, &i)| {
                         let p = value
                             .elements
                             .byte_offset((value.layout.size() * i) as isize);
@@ -721,7 +721,6 @@ pub mod trace_dump_runtime {
                                 ty: info.ty.clone(),
                             },
                         };
-                        let k = Felt::from_bytes_le(k);
                         (k, v)
                     })
                     .collect::<HashMap<Felt, Value>>();
@@ -739,7 +738,7 @@ pub mod trace_dump_runtime {
                     .dict
                     .mappings
                     .iter()
-                    .map(|(k, &i)| {
+                    .map(|(&k, &i)| {
                         let p = value
                             .dict
                             .elements
@@ -750,17 +749,15 @@ pub mod trace_dump_runtime {
                                 ty: info.ty.clone(),
                             },
                         };
-                        let k = Felt::from_bytes_le(k);
                         (k, v)
                     })
                     .collect::<HashMap<Felt, Value>>();
-                let key = Felt::from_bytes_le(value.key);
 
                 Value::FeltDictEntry {
                     ty: info.ty.clone(),
                     data,
                     count: value.dict.count,
-                    key,
+                    key: *value.key,
                 }
             }
             CoreTypeConcrete::Span(_) => todo!("CoreTypeConcrete::Span"),
@@ -920,7 +917,7 @@ pub mod trace_dump_runtime {
     #[derive(Debug)]
     struct FeltDictEntry<'a> {
         dict: &'a FeltDict,
-        key: &'a [u8; 32],
+        key: &'a Felt,
     }
 
     #[repr(C, align(16))]
