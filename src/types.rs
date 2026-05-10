@@ -569,7 +569,7 @@ impl TypeBuilder for CoreTypeConcrete {
 
             CoreTypeConcrete::BoundedInt(_info) => {
                 #[cfg(target_arch = "x86_64")]
-                let value = _info.range.offset_bit_width() > 128;
+                let value = _info.range.repr_bit_width() > 128;
 
                 #[cfg(target_arch = "aarch64")]
                 let value = false;
@@ -771,7 +771,7 @@ impl TypeBuilder for CoreTypeConcrete {
             CoreTypeConcrete::Sint64(_) => get_integer_layout(64),
             CoreTypeConcrete::Sint128(_) => get_integer_layout(128),
             CoreTypeConcrete::Bytes31(_) => get_integer_layout(248),
-            CoreTypeConcrete::BoundedInt(info) => get_integer_layout(info.range.offset_bit_width()),
+            CoreTypeConcrete::BoundedInt(info) => get_integer_layout(info.range.repr_bit_width()),
             CoreTypeConcrete::QM31(_info) => layout_repeat(&get_integer_layout(31), 4)?.0,
             CoreTypeConcrete::GasReserve(_info) => get_integer_layout(128),
 

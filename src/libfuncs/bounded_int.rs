@@ -16,11 +16,12 @@ use cairo_lang_sierra::{
             BoundedIntDivRemAlgorithm, BoundedIntDivRemConcreteLibfunc,
             BoundedIntTrimConcreteLibfunc,
         },
-        core::{CoreLibfunc, CoreType},
+        core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         lib_func::SignatureOnlyConcreteLibfunc,
         utils::Range,
         ConcreteLibfunc,
     },
+    ids::ConcreteTypeId,
     program_registry::ProgramRegistry,
 };
 use melior::{
@@ -29,10 +30,12 @@ use melior::{
         cf,
     },
     helpers::{ArithBlockExt, BuiltinBlockExt},
-    ir::{r#type::IntegerType, Block, BlockLike, Location, Value, ValueLike},
+    ir::{r#type::IntegerType, Block, BlockLike, Location, Type, Value, ValueLike},
     Context,
 };
 use num_bigint::{BigInt, Sign};
+use num_traits::Zero;
+use std::cmp::Ordering;
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -72,6 +75,108 @@ pub fn build<'ctx, 'this>(
     }
 }
 
+/// Re-bias `value` by subtracting `adjustment` (typically `dst_repr_bias - src_repr_bias`,
+/// where the representation bias is what bit-pattern 0 represents in the encoding).
+///
+/// Internally uses `addi`/`subi` so the encoded constant is always non-negative and fits the
+/// signless bit width.
+fn adjust<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    value: Value<'ctx, 'this>,
+    adjustment: &BigInt,
+) -> Result<Value<'ctx, 'this>> {
+    Ok(match adjustment.sign() {
+        Sign::NoSign => value,
+        Sign::Plus => {
+            let const_val =
+                block.const_int_from_type(context, location, adjustment, value.r#type())?;
+            block.append_op_result(arith::subi(value, const_val, location))?
+        }
+        Sign::Minus => {
+            let const_val =
+                block.const_int_from_type(context, location, -adjustment, value.r#type())?;
+            block.addi(value, const_val, location)?
+        }
+    })
+}
+
+/// Resize `value` from `src_width` to `dst_width` bits via `trunci` (shrink), `extui`
+/// (grow), or no-op (equal widths).
+fn resize<'ctx, 'this>(
+    context: &'ctx Context,
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    value: Value<'ctx, 'this>,
+    src_width: u32,
+    dst_width: u32,
+) -> Result<Value<'ctx, 'this>> {
+    let dst_ty = IntegerType::new(context, dst_width).into();
+    Ok(match src_width.cmp(&dst_width) {
+        Ordering::Equal => value,
+        Ordering::Greater => block.trunci(value, dst_ty, location)?,
+        Ordering::Less => block.extui(value, dst_ty, location)?,
+    })
+}
+
+/// The "raw representation bias" of a value: what bit-pattern 0 represents in the
+/// stored encoding. For `BoundedInt<L, U>` it is `L` (stored bits = value - L); for a
+/// regular `iN`/`uN` it is `0` (stored bits ARE the value, in two's-complement / natural
+/// form).
+fn repr_bias<'a>(
+    ty: &CoreTypeConcrete,
+    range: &'a Range,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+) -> Result<&'a BigInt> {
+    static ZERO: BigInt = BigInt::ZERO;
+    Ok(if ty.is_bounded_int(registry)? {
+        &range.lower
+    } else {
+        &ZERO
+    })
+}
+
+/// Sierra integer operand: concrete type and semantic range (for widen / compare lowering).
+struct IntegerOperand<'a> {
+    ty: &'a CoreTypeConcrete,
+    range: Range,
+}
+
+impl<'a> IntegerOperand<'a> {
+    fn new(
+        registry: &'a ProgramRegistry<CoreType, CoreLibfunc>,
+        ty_id: &ConcreteTypeId,
+    ) -> Result<Self> {
+        let ty = registry.get_type(ty_id)?;
+        let range = ty.integer_range(registry)?;
+        Ok(Self { ty, range })
+    }
+}
+
+/// Zero- or sign-extend `value` into `compute_ty`.
+///
+/// Callers only invoke this when `compute_ty` is at least as wide as the operand's stored
+/// representation; when widths match, the extend is a no-op. Bounded-int operands use
+/// zero extension (stored offset is non-negative); plain signed integers (`lower < 0`) use
+/// sign extension.
+fn widen_operand_to_compute<'ctx, 'this>(
+    block: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    value: Value<'ctx, 'this>,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    operand: &IntegerOperand<'_>,
+    compute_ty: Type<'ctx>,
+) -> Result<Value<'ctx, 'this>> {
+    Ok(
+        if operand.range.lower.sign() != Sign::Minus || operand.ty.is_bounded_int(registry)? {
+            block.extui(value, compute_ty, location)?
+        } else {
+            block.extsi(value, compute_ty, location)?
+        },
+    )
+}
+
 /// Generate MLIR operations for the `bounded_int_add` libfunc.
 ///
 /// # Cairo Signature
@@ -82,13 +187,14 @@ pub fn build<'ctx, 'this>(
 /// ) -> H::Result nopanic;
 /// ```
 ///
-/// A number X as a `BoundedInt` is internally represented as an offset Xd from the lower bound Xo.
-/// So X = Xo + Xd.
+/// A value `X` is stored as `Xd = X - Xo`, where `Xo` is the lower bound of the
+/// operand's `BoundedInt<Xo, _>`, or `0` for a plain `iN`/`uN`. The result type is
+/// always a `BoundedInt`, so we need `Cd = C - Co`.
 ///
-/// Since we want to get C = A + B, we can translate this to
-/// Co + Cd = Ao + Ad + Bo + Bd. Where Ao, Bo and Co represent the lower bound
-/// of the ranges in the `BoundedInt` and Ad, Bd and Cd represent the offsets. Since
-/// we also know that Co = Ao + Bo we can simplify the equation to Cd = Ad + Bd.
+/// `addi(Ad, Bd)` produces a value whose representation bias is `Ao + Bo`; we then convert
+/// to the result's representation bias (`Co`) via `adjust` and `resize`. When
+/// the result is `BoundedInt<Ao + Bo, _>` (the bounded-int-only case enforced by
+/// the Sierra `AddHelper`), the conversion is a no-op.
 #[allow(clippy::too_many_arguments)]
 fn build_add<'ctx, 'this>(
     context: &'ctx Context,
@@ -102,70 +208,40 @@ fn build_add<'ctx, 'this>(
     let lhs_value = entry.arg(0)?;
     let rhs_value = entry.arg(1)?;
 
-    // Extract the ranges for the operands.
-    let lhs_ty = registry.get_type(&info.signature.param_signatures[0].ty)?;
-    let rhs_ty = registry.get_type(&info.signature.param_signatures[1].ty)?;
+    let lhs = IntegerOperand::new(registry, &info.signature.param_signatures[0].ty)?;
+    let rhs = IntegerOperand::new(registry, &info.signature.param_signatures[1].ty)?;
+    let dst = IntegerOperand::new(registry, &info.signature.branch_signatures[0].vars[0].ty)?;
 
-    let lhs_range = lhs_ty.integer_range(registry)?;
-    let rhs_range = rhs_ty.integer_range(registry)?;
-    let dst_range = registry
-        .get_type(&info.signature.branch_signatures[0].vars[0].ty)?
-        .integer_range(registry)?;
+    let lhs_width = lhs.range.repr_bit_width();
+    let rhs_width = rhs.range.repr_bit_width();
+    let dst_width = dst.range.repr_bit_width();
 
-    // Extract the bit width.
-    let lhs_width = if lhs_ty.is_bounded_int(registry)? {
-        lhs_range.offset_bit_width()
-    } else {
-        lhs_range.zero_based_bit_width()
-    };
-    let rhs_width = if rhs_ty.is_bounded_int(registry)? {
-        rhs_range.offset_bit_width()
-    } else {
-        rhs_range.zero_based_bit_width()
-    };
-    let dst_width = dst_range.offset_bit_width();
+    let src_repr_bias =
+        repr_bias(lhs.ty, &lhs.range, registry)? + repr_bias(rhs.ty, &rhs.range, registry)?;
+    let dst_repr_bias = repr_bias(dst.ty, &dst.range, registry)?;
+    let adjustment = dst_repr_bias - &src_repr_bias;
+    let adjustment_width = u32::try_from(adjustment.bits())?;
 
     // Get the compute type so we can do the addition without problems
-    let compute_width = lhs_width.max(rhs_width) + 1;
+    let compute_width = lhs_width.max(rhs_width).max(adjustment_width) + 1;
     let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Get the operands on the same number of bits so we can operate with them
-    let lhs_value = if compute_width > lhs_width {
-        if lhs_range.lower.sign() != Sign::Minus || lhs_ty.is_bounded_int(registry)? {
-            entry.extui(lhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(lhs_value, compute_ty, location)?
-        }
-    } else {
-        lhs_value
-    };
-    let rhs_value = if compute_width > rhs_width {
-        if rhs_range.lower.sign() != Sign::Minus || rhs_ty.is_bounded_int(registry)? {
-            entry.extui(rhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(rhs_value, compute_ty, location)?
-        }
-    } else {
-        rhs_value
-    };
+    let lhs_value =
+        widen_operand_to_compute(entry, location, lhs_value, registry, &lhs, compute_ty)?;
+    let rhs_value =
+        widen_operand_to_compute(entry, location, rhs_value, registry, &rhs, compute_ty)?;
 
-    // Addition and get the result value on the desired range
     let res_value = entry.addi(lhs_value, rhs_value, location)?;
-    let res_value = if compute_width > dst_width {
-        entry.trunci(
-            res_value,
-            IntegerType::new(context, dst_width).into(),
-            location,
-        )?
-    } else if compute_width < dst_width {
-        entry.extui(
-            res_value,
-            IntegerType::new(context, dst_width).into(),
-            location,
-        )?
-    } else {
-        res_value
-    };
+    let res_value = adjust(context, entry, location, res_value, &adjustment)?;
+    let res_value = resize(
+        context,
+        entry,
+        location,
+        res_value,
+        compute_width,
+        dst_width,
+    )?;
 
     helper.br(entry, 0, &[res_value], location)
 }
@@ -179,12 +255,9 @@ fn build_add<'ctx, 'this>(
 /// ) -> H::Result nopanic;
 /// ```
 ///
-/// A number X as a `BoundedInt` is internally represented as an offset Xd from the lower bound Xo.
-/// So X = Xo + Xd.
-///
-/// Since we want to get C = A - B, we can translate this to
-/// Co + Cd = (Ao + Ad) - (Bo + Bd). Where Ao, Bo and Co represent the lower bound
-/// of the ranges in the `BoundedInt` and Ad, Bd and Cd represent the offsets.
+/// As in `build_add`, a value `X` is stored as `Xd = X - Xo` (with `Xo = 0` for
+/// plain `iN`/`uN`). `subi(Ad, Bd)` produces a value whose representation bias is `Ao - Bo`;
+/// `adjust` and `resize` convert to the result's representation bias (`Co`).
 #[allow(clippy::too_many_arguments)]
 fn build_sub<'ctx, 'this>(
     context: &'ctx Context,
@@ -198,78 +271,40 @@ fn build_sub<'ctx, 'this>(
     let lhs_value = entry.arg(0)?;
     let rhs_value = entry.arg(1)?;
 
-    // Extract the ranges for the operands.
-    let lhs_ty = registry.get_type(&info.signature.param_signatures[0].ty)?;
-    let rhs_ty = registry.get_type(&info.signature.param_signatures[1].ty)?;
+    let lhs = IntegerOperand::new(registry, &info.signature.param_signatures[0].ty)?;
+    let rhs = IntegerOperand::new(registry, &info.signature.param_signatures[1].ty)?;
+    let dst = IntegerOperand::new(registry, &info.signature.branch_signatures[0].vars[0].ty)?;
 
-    let lhs_range = lhs_ty.integer_range(registry)?;
-    let rhs_range = rhs_ty.integer_range(registry)?;
-    let dst_range = registry
-        .get_type(&info.signature.branch_signatures[0].vars[0].ty)?
-        .integer_range(registry)?;
+    let lhs_width = lhs.range.repr_bit_width();
+    let rhs_width = rhs.range.repr_bit_width();
+    let dst_width = dst.range.repr_bit_width();
 
-    // Extract the bit width.
-    let lhs_width = if lhs_ty.is_bounded_int(registry)? {
-        lhs_range.offset_bit_width()
-    } else {
-        lhs_range.zero_based_bit_width()
-    };
-    let rhs_width = if rhs_ty.is_bounded_int(registry)? {
-        rhs_range.offset_bit_width()
-    } else {
-        rhs_range.zero_based_bit_width()
-    };
-    let dst_width = dst_range.offset_bit_width();
+    let src_repr_bias =
+        repr_bias(lhs.ty, &lhs.range, registry)? - repr_bias(rhs.ty, &rhs.range, registry)?;
+    let dst_repr_bias = repr_bias(dst.ty, &dst.range, registry)?;
+    let adjustment = dst_repr_bias - &src_repr_bias;
+    let adjustment_width = u32::try_from(adjustment.bits())?;
 
     // Get the compute type so we can do the subtraction without problems
-    let compile_time_val = lhs_range.lower.clone() - rhs_range.lower.clone() - dst_range.lower;
-    let compile_time_val_width = u32::try_from(compile_time_val.bits())?;
-
-    let compute_width = lhs_width.max(rhs_width).max(compile_time_val_width) + 1;
+    let compute_width = lhs_width.max(rhs_width).max(adjustment_width) + 1;
     let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Get the operands on the same number of bits so we can operate with them
-    let lhs_value = if compute_width > lhs_width {
-        if lhs_range.lower.sign() != Sign::Minus || lhs_ty.is_bounded_int(registry)? {
-            entry.extui(lhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(lhs_value, compute_ty, location)?
-        }
-    } else {
-        lhs_value
-    };
-    let rhs_value = if compute_width > rhs_width {
-        if rhs_range.lower.sign() != Sign::Minus || rhs_ty.is_bounded_int(registry)? {
-            entry.extui(rhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(rhs_value, compute_ty, location)?
-        }
-    } else {
-        rhs_value
-    };
+    let lhs_value =
+        widen_operand_to_compute(entry, location, lhs_value, registry, &lhs, compute_ty)?;
+    let rhs_value =
+        widen_operand_to_compute(entry, location, rhs_value, registry, &rhs, compute_ty)?;
 
-    let compile_time_val =
-        entry.const_int_from_type(context, location, compile_time_val, compute_ty)?;
-    // First we do -> intermediate_res = Ad - Bd
     let res_value = entry.subi(lhs_value, rhs_value, location)?;
-    // Then we do -> intermediate_res += (Ao - Bo - Co)
-    let res_value = entry.addi(res_value, compile_time_val, location)?;
-    // Get the result value on the desired range
-    let res_value = if compute_width > dst_width {
-        entry.trunci(
-            res_value,
-            IntegerType::new(context, dst_width).into(),
-            location,
-        )?
-    } else if compute_width < dst_width {
-        entry.extui(
-            res_value,
-            IntegerType::new(context, dst_width).into(),
-            location,
-        )?
-    } else {
-        res_value
-    };
+    let res_value = adjust(context, entry, location, res_value, &adjustment)?;
+    let res_value = resize(
+        context,
+        entry,
+        location,
+        res_value,
+        compute_width,
+        dst_width,
+    )?;
 
     helper.br(entry, 0, &[res_value], location)
 }
@@ -288,107 +323,75 @@ fn build_mul<'ctx, 'this>(
     let lhs_value = entry.arg(0)?;
     let rhs_value = entry.arg(1)?;
 
-    // Extract the ranges for the operands and the result type.
-    let lhs_ty = registry.get_type(&info.signature.param_signatures[0].ty)?;
-    let rhs_ty = registry.get_type(&info.signature.param_signatures[1].ty)?;
+    let lhs = IntegerOperand::new(registry, &info.signature.param_signatures[0].ty)?;
+    let rhs = IntegerOperand::new(registry, &info.signature.param_signatures[1].ty)?;
+    let dst = IntegerOperand::new(registry, &info.signature.branch_signatures[0].vars[0].ty)?;
 
-    let lhs_range = lhs_ty.integer_range(registry)?;
-    let rhs_range = rhs_ty.integer_range(registry)?;
-    let dst_range = registry
-        .get_type(&info.signature.branch_signatures[0].vars[0].ty)?
-        .integer_range(registry)?;
-
-    let lhs_width = if lhs_ty.is_bounded_int(registry)? {
-        lhs_range.offset_bit_width()
-    } else {
-        lhs_range.zero_based_bit_width()
-    };
-    let rhs_width = if rhs_ty.is_bounded_int(registry)? {
-        rhs_range.offset_bit_width()
-    } else {
-        rhs_range.zero_based_bit_width()
-    };
+    let lhs_width = lhs.range.repr_bit_width();
+    let rhs_width = rhs.range.repr_bit_width();
 
     // Calculate the computation range.
     let compute_range = Range {
-        lower: (&lhs_range.lower)
-            .min(&rhs_range.lower)
-            .min(&dst_range.lower)
+        lower: (&lhs.range.lower)
+            .min(&rhs.range.lower)
+            .min(&dst.range.lower)
             .min(&BigInt::ZERO)
             .clone(),
-        upper: (&lhs_range.upper)
-            .max(&rhs_range.upper)
-            .max(&dst_range.upper)
+        upper: (&lhs.range.upper)
+            .max(&rhs.range.upper)
+            .max(&dst.range.upper)
             .clone(),
     };
-    let compute_ty = IntegerType::new(context, compute_range.zero_based_bit_width()).into();
+    let compute_width = compute_range.zero_based_bit_width();
+    let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Zero-extend operands into the computation range.
     native_assert!(
-        compute_range.offset_bit_width() >= lhs_width,
+        compute_width >= lhs_width,
         "the lhs_range bit_width must be less or equal than the compute_range"
     );
     native_assert!(
-        compute_range.offset_bit_width() >= rhs_width,
+        compute_width >= rhs_width,
         "the rhs_range bit_width must be less or equal than the compute_range"
     );
 
-    let lhs_value = if compute_range.zero_based_bit_width() > lhs_width {
-        if lhs_range.lower.sign() != Sign::Minus || lhs_ty.is_bounded_int(registry)? {
-            entry.extui(lhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(lhs_value, compute_ty, location)?
-        }
-    } else {
-        lhs_value
-    };
-    let rhs_value = if compute_range.zero_based_bit_width() > rhs_width {
-        if rhs_range.lower.sign() != Sign::Minus || rhs_ty.is_bounded_int(registry)? {
-            entry.extui(rhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(rhs_value, compute_ty, location)?
-        }
-    } else {
-        rhs_value
-    };
+    let lhs_value =
+        widen_operand_to_compute(entry, location, lhs_value, registry, &lhs, compute_ty)?;
+    let rhs_value =
+        widen_operand_to_compute(entry, location, rhs_value, registry, &rhs, compute_ty)?;
 
-    // Offset the operands so that they are compatible with the operation.
-    let lhs_value = if lhs_ty.is_bounded_int(registry)? && lhs_range.lower != BigInt::ZERO {
-        let lhs_offset =
-            entry.const_int_from_type(context, location, lhs_range.lower, compute_ty)?;
-        entry.addi(lhs_value, lhs_offset, location)?
-    } else {
-        lhs_value
-    };
-    let rhs_value = if rhs_ty.is_bounded_int(registry)? && rhs_range.lower != BigInt::ZERO {
-        let rhs_offset =
-            entry.const_int_from_type(context, location, rhs_range.lower, compute_ty)?;
-        entry.addi(rhs_value, rhs_offset, location)?
-    } else {
-        rhs_value
-    };
+    // Convert each operand back to its actual value by adding the representation bias.
+    let lhs_value = adjust(
+        context,
+        entry,
+        location,
+        lhs_value,
+        &-repr_bias(lhs.ty, &lhs.range, registry)?.clone(),
+    )?;
+    let rhs_value = adjust(
+        context,
+        entry,
+        location,
+        rhs_value,
+        &-repr_bias(rhs.ty, &rhs.range, registry)?.clone(),
+    )?;
 
-    // Compute the operation.
     let res_value = entry.muli(lhs_value, rhs_value, location)?;
-
-    // Offset and truncate the result to the output type.
-    let res_offset = dst_range.lower.clone();
-    let res_value = if res_offset != BigInt::ZERO {
-        let res_offset = entry.const_int_from_type(context, location, res_offset, compute_ty)?;
-        entry.append_op_result(arith::subi(res_value, res_offset, location))?
-    } else {
-        res_value
-    };
-
-    let res_value = if dst_range.offset_bit_width() < compute_range.zero_based_bit_width() {
-        entry.trunci(
-            res_value,
-            IntegerType::new(context, dst_range.offset_bit_width()).into(),
-            location,
-        )?
-    } else {
-        res_value
-    };
+    let res_value = adjust(
+        context,
+        entry,
+        location,
+        res_value,
+        repr_bias(dst.ty, &dst.range, registry)?,
+    )?;
+    let res_value = resize(
+        context,
+        entry,
+        location,
+        res_value,
+        compute_width,
+        dst.range.repr_bit_width(),
+    )?;
 
     helper.br(entry, 0, &[res_value], location)
 }
@@ -418,125 +421,96 @@ fn build_div_rem<'ctx, 'this>(
     let lhs_value = entry.arg(1)?;
     let rhs_value = entry.arg(2)?;
 
-    // Extract the ranges for the operands and the result type.
-    let lhs_ty = registry.get_type(&info.param_signatures()[1].ty)?;
-    let rhs_ty = registry.get_type(&info.param_signatures()[2].ty)?;
+    let lhs = IntegerOperand::new(registry, &info.param_signatures()[1].ty)?;
+    let rhs = IntegerOperand::new(registry, &info.param_signatures()[2].ty)?;
+    let div = IntegerOperand::new(registry, &info.branch_signatures()[0].vars[1].ty)?;
+    let rem = IntegerOperand::new(registry, &info.branch_signatures()[0].vars[2].ty)?;
 
-    let lhs_range = lhs_ty.integer_range(registry)?;
-    let rhs_range = rhs_ty.integer_range(registry)?;
-    let div_range = registry
-        .get_type(&info.branch_signatures()[0].vars[1].ty)?
-        .integer_range(registry)?;
-    let rem_range = registry
-        .get_type(&info.branch_signatures()[0].vars[2].ty)?
-        .integer_range(registry)?;
+    let lhs_width = lhs.range.repr_bit_width();
+    let rhs_width = rhs.range.repr_bit_width();
 
-    let lhs_width = if lhs_ty.is_bounded_int(registry)? {
-        lhs_range.offset_bit_width()
-    } else {
-        lhs_range.zero_based_bit_width()
-    };
-    let rhs_width = if rhs_ty.is_bounded_int(registry)? {
-        rhs_range.offset_bit_width()
-    } else {
-        rhs_range.zero_based_bit_width()
-    };
-
-    let div_rem_algorithm = BoundedIntDivRemAlgorithm::try_new(&lhs_range, &rhs_range)
+    let div_rem_algorithm = BoundedIntDivRemAlgorithm::try_new(&lhs.range, &rhs.range)
         .to_native_assert_error(&format!(
             "div_rem of ranges: lhs = {:#?} and rhs= {:#?} is not supported yet",
-            &lhs_range, &rhs_range
+            &lhs.range, &rhs.range
         ))?;
 
     // Calculate the computation range.
     let compute_range = Range {
         lower: BigInt::ZERO,
-        upper: (&lhs_range.upper).max(&rhs_range.upper).clone(),
+        upper: (&lhs.range.upper).max(&rhs.range.upper).clone(),
     };
-    let compute_ty = IntegerType::new(context, compute_range.zero_based_bit_width()).into();
+    let compute_width = compute_range.zero_based_bit_width();
+    let compute_ty = IntegerType::new(context, compute_width).into();
 
     // Zero-extend operands into the computation range.
     native_assert!(
-        compute_range.offset_bit_width() >= lhs_width,
+        compute_width >= lhs_width,
         "the lhs_range bit_width must be less or equal than the compute_range"
     );
     native_assert!(
-        compute_range.offset_bit_width() >= rhs_width,
+        compute_width >= rhs_width,
         "the rhs_range bit_width must be less or equal than the compute_range"
     );
 
-    let lhs_value = if compute_range.zero_based_bit_width() > lhs_width {
-        if lhs_range.lower.sign() != Sign::Minus || lhs_ty.is_bounded_int(registry)? {
-            entry.extui(lhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(lhs_value, compute_ty, location)?
-        }
-    } else {
-        lhs_value
-    };
-    let rhs_value = if compute_range.zero_based_bit_width() > rhs_width {
-        if rhs_range.lower.sign() != Sign::Minus || rhs_ty.is_bounded_int(registry)? {
-            entry.extui(rhs_value, compute_ty, location)?
-        } else {
-            entry.extsi(rhs_value, compute_ty, location)?
-        }
-    } else {
-        rhs_value
-    };
+    let lhs_value =
+        widen_operand_to_compute(entry, location, lhs_value, registry, &lhs, compute_ty)?;
+    let rhs_value =
+        widen_operand_to_compute(entry, location, rhs_value, registry, &rhs, compute_ty)?;
 
-    // Offset the operands so that they are compatible with the operation.
-    let lhs_value = if lhs_ty.is_bounded_int(registry)? && lhs_range.lower != BigInt::ZERO {
-        let lhs_offset =
-            entry.const_int_from_type(context, location, lhs_range.lower, compute_ty)?;
-        entry.addi(lhs_value, lhs_offset, location)?
-    } else {
-        lhs_value
-    };
-    let rhs_value = if rhs_ty.is_bounded_int(registry)? && rhs_range.lower != BigInt::ZERO {
-        let rhs_offset =
-            entry.const_int_from_type(context, location, rhs_range.lower, compute_ty)?;
-        entry.addi(rhs_value, rhs_offset, location)?
-    } else {
-        rhs_value
-    };
+    // Convert each raw operand back to its actual value by adding the raw offset.
+    let lhs_value = adjust(
+        context,
+        entry,
+        location,
+        lhs_value,
+        &-repr_bias(lhs.ty, &lhs.range, registry)?.clone(),
+    )?;
+    let rhs_value = adjust(
+        context,
+        entry,
+        location,
+        rhs_value,
+        &-repr_bias(rhs.ty, &rhs.range, registry)?.clone(),
+    )?;
 
-    // Compute the operation.
     let div_value = entry.append_op_result(arith::divui(lhs_value, rhs_value, location))?;
     let rem_value = entry.append_op_result(arith::remui(lhs_value, rhs_value, location))?;
 
-    // Offset result to the output type.
-    let div_value = if div_range.lower.clone() != BigInt::ZERO {
-        let div_offset =
-            entry.const_int_from_type(context, location, div_range.lower.clone(), compute_ty)?;
-        entry.append_op_result(arith::subi(div_value, div_offset, location))?
-    } else {
-        div_value
-    };
-
+    let div_value = adjust(
+        context,
+        entry,
+        location,
+        div_value,
+        repr_bias(div.ty, &div.range, registry)?,
+    )?;
+    let div_value = resize(
+        context,
+        entry,
+        location,
+        div_value,
+        compute_width,
+        div.range.repr_bit_width(),
+    )?;
     native_assert!(
-        rem_range.lower == BigInt::ZERO,
+        rem.range.lower.is_zero(),
         "The remainder range lower bound should be zero"
     );
-
-    // Truncate to the output type
-    let div_value = if div_range.offset_bit_width() < compute_range.zero_based_bit_width() {
-        entry.trunci(
-            div_value,
-            IntegerType::new(context, div_range.offset_bit_width()).into(),
-            location,
-        )?
-    } else {
-        div_value
-    };
-    let rem_value = if rem_range.offset_bit_width() < compute_range.zero_based_bit_width() {
-        entry.trunci(
-            rem_value,
-            IntegerType::new(context, rem_range.offset_bit_width()).into(),
-            location,
-        )?
-    } else {
-        rem_value
-    };
+    let rem_value = adjust(
+        context,
+        entry,
+        location,
+        rem_value,
+        repr_bias(rem.ty, &rem.range, registry)?,
+    )?;
+    let rem_value = resize(
+        context,
+        entry,
+        location,
+        rem_value,
+        compute_width,
+        rem.range.repr_bit_width(),
+    )?;
 
     // Increase range check builtin by 3, regardless of `div_rem_algorithm`:
     // https://github.com/starkware-libs/cairo/blob/v2.12.0-dev.1/crates/cairo-lang-sierra-to-casm/src/invocations/int/bounded.rs#L100
@@ -580,35 +554,21 @@ fn build_constrain<'ctx, 'this>(
     let range_check = super::increment_builtin_counter(context, entry, location, entry.arg(0)?)?;
     let src_value: Value = entry.arg(1)?;
 
-    let src_ty = registry.get_type(&info.param_signatures()[1].ty)?;
-    let src_range = src_ty.integer_range(registry)?;
+    let src = IntegerOperand::new(registry, &info.param_signatures()[1].ty)?;
+    let lower = IntegerOperand::new(registry, &info.branch_signatures()[0].vars[1].ty)?;
+    let upper = IntegerOperand::new(registry, &info.branch_signatures()[1].vars[1].ty)?;
 
-    let src_width = if src_ty.is_bounded_int(registry)? {
-        src_range.offset_bit_width()
-    } else {
-        src_range.zero_based_bit_width()
-    };
-
-    let lower_range = registry
-        .get_type(&info.branch_signatures()[0].vars[1].ty)?
-        .integer_range(registry)?;
-    let upper_range = registry
-        .get_type(&info.branch_signatures()[1].vars[1].ty)?
-        .integer_range(registry)?;
-
-    let boundary = if src_ty.is_bounded_int(registry)? {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.boundary.clone() - src_range.lower.clone(),
-            src_value.r#type(),
-        )?
-    } else {
-        entry.const_int_from_type(context, location, info.boundary.clone(), src_value.r#type())?
-    };
+    let src_width = src.range.repr_bit_width();
+    let src_repr_bias = repr_bias(src.ty, &src.range, registry)?;
+    let boundary = entry.const_int_from_type(
+        context,
+        location,
+        info.boundary.clone() - src_repr_bias,
+        src_value.r#type(),
+    )?;
 
     let cmpi_predicate =
-        if src_ty.is_bounded_int(registry)? || src_range.lower.sign() != Sign::Minus {
+        if src.ty.is_bounded_int(registry)? || src.range.lower.sign() != Sign::Minus {
             CmpiPredicate::Ult
         } else {
             CmpiPredicate::Slt
@@ -627,59 +587,28 @@ fn build_constrain<'ctx, 'this>(
         location,
     ));
 
-    {
-        let res_value = if src_range.lower != lower_range.lower {
-            let lower_offset = &lower_range.lower - &src_range.lower;
-            let lower_offset = lower_block.const_int_from_type(
-                context,
-                location,
-                lower_offset,
-                src_value.r#type(),
-            )?;
-            lower_block.append_op_result(arith::subi(src_value, lower_offset, location))?
-        } else {
-            src_value
-        };
+    let adjust_to_output = |block: &'this Block<'ctx>, out: &IntegerOperand<'_>, branch: usize| {
+        let out_repr_bias = repr_bias(out.ty, &out.range, registry)?;
+        let res_value = adjust(
+            context,
+            block,
+            location,
+            src_value,
+            &(out_repr_bias - src_repr_bias),
+        )?;
+        let res_value = resize(
+            context,
+            block,
+            location,
+            res_value,
+            src_width,
+            out.range.repr_bit_width(),
+        )?;
+        helper.br(block, branch, &[range_check, res_value], location)
+    };
 
-        let res_value = if src_width > lower_range.offset_bit_width() {
-            lower_block.trunci(
-                res_value,
-                IntegerType::new(context, lower_range.offset_bit_width()).into(),
-                location,
-            )?
-        } else {
-            res_value
-        };
-
-        helper.br(lower_block, 0, &[range_check, res_value], location)?;
-    }
-
-    {
-        let res_value = if src_range.lower != upper_range.lower {
-            let upper_offset = &upper_range.lower - &src_range.lower;
-            let upper_offset = upper_block.const_int_from_type(
-                context,
-                location,
-                upper_offset,
-                src_value.r#type(),
-            )?;
-            upper_block.append_op_result(arith::subi(src_value, upper_offset, location))?
-        } else {
-            src_value
-        };
-
-        let res_value = if src_width > upper_range.offset_bit_width() {
-            upper_block.trunci(
-                res_value,
-                IntegerType::new(context, upper_range.offset_bit_width()).into(),
-                location,
-            )?
-        } else {
-            res_value
-        };
-
-        helper.br(upper_block, 1, &[range_check, res_value], location)?;
-    }
+    adjust_to_output(lower_block, &lower, 0)?;
+    adjust_to_output(upper_block, &upper, 1)?;
 
     Ok(())
 }
@@ -699,51 +628,39 @@ fn build_trim<'ctx, 'this>(
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
+    _metadata: &mut MetadataStorage,
     info: &BoundedIntTrimConcreteLibfunc,
 ) -> Result<()> {
     let value: Value = entry.arg(0)?;
 
-    let src_ty = registry.get_type(&info.param_signatures()[0].ty)?;
-    let dst_ty = registry.get_type(&info.branch_signatures()[1].vars[0].ty)?;
+    let src = IntegerOperand::new(registry, &info.param_signatures()[0].ty)?;
+    let dst = IntegerOperand::new(registry, &info.branch_signatures()[1].vars[0].ty)?;
 
-    let trimmed_value = if src_ty.is_bounded_int(registry)? {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.trimmed_value.clone() - src_ty.integer_range(registry)?.lower,
-            value.r#type(),
-        )?
-    } else {
-        entry.const_int_from_type(
-            context,
-            location,
-            info.trimmed_value.clone(),
-            value.r#type(),
-        )?
-    };
+    let src_repr_bias = repr_bias(src.ty, &src.range, registry)?;
+    let trimmed_value = entry.const_int_from_type(
+        context,
+        location,
+        info.trimmed_value.clone() - src_repr_bias,
+        value.r#type(),
+    )?;
     let is_invalid = entry.cmpi(context, CmpiPredicate::Eq, value, trimmed_value, location)?;
 
-    let offset = if src_ty.is_bounded_int(registry)? {
-        dst_ty.integer_range(registry)?.lower - src_ty.integer_range(registry)?.lower
-    } else {
-        dst_ty.integer_range(registry)?.lower
-    };
-    let value = entry.append_op_result(arith::subi(
-        value,
-        entry.const_int_from_type(context, location, offset, value.r#type())?,
+    let src_width = src.range.repr_bit_width();
+    let dst_repr_bias = repr_bias(dst.ty, &dst.range, registry)?;
+    let value = adjust(
+        context,
+        entry,
         location,
-    ))?;
-    let value = entry.trunci(
         value,
-        dst_ty.build(
-            context,
-            helper,
-            registry,
-            metadata,
-            &info.branch_signatures()[1].vars[0].ty,
-        )?,
+        &(dst_repr_bias - src_repr_bias),
+    )?;
+    let value = resize(
+        context,
+        entry,
         location,
+        value,
+        src_width,
+        dst.range.repr_bit_width(),
     )?;
 
     helper.cond_br(
@@ -768,21 +685,17 @@ fn build_is_zero<'ctx, 'this>(
 ) -> Result<()> {
     let src_value: Value = entry.arg(0)?;
 
-    let src_ty = registry.get_type(&info.signature.param_signatures[0].ty)?;
-    let src_range = src_ty.integer_range(registry)?;
+    let src = IntegerOperand::new(registry, &info.signature.param_signatures[0].ty)?;
 
     native_assert!(
-        src_range.lower <= BigInt::ZERO && BigInt::ZERO < src_range.upper,
+        src.range.lower <= BigInt::ZERO && BigInt::ZERO < src.range.upper,
         "value can never be zero"
     );
 
-    let k0 = if src_ty.is_bounded_int(registry)? {
-        // We can do the substraction since the lower bound of the bounded int will
-        // always be less or equal than 0.
-        entry.const_int_from_type(context, location, 0 - src_range.lower, src_value.r#type())?
-    } else {
-        entry.const_int_from_type(context, location, 0, src_value.r#type())?
-    };
+    // `src.range.lower <= 0` (asserted above), so `-src_repr_bias` is non-negative
+    // and fits in the operand's storage type.
+    let src_repr_bias = repr_bias(src.ty, &src.range, registry)?;
+    let k0 = entry.const_int_from_type(context, location, -src_repr_bias, src_value.r#type())?;
     let src_is_zero = entry.cmpi(context, CmpiPredicate::Eq, src_value, k0, location)?;
 
     helper.cond_br(
