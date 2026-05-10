@@ -29,6 +29,7 @@ mod libfuncs;
 pub mod metadata;
 pub mod module;
 mod runtime;
+pub mod sierra_emu_bridge;
 pub mod starknet;
 pub mod starknet_stub;
 pub mod statistics;
