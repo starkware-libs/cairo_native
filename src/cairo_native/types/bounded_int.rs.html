@@ -31,6 +31,6 @@
 <a href=#31 id=31 data-nosnippet>31</a>    _metadata: <span class="kw-2">&amp;mut </span>MetadataStorage,
 <a href=#32 id=32 data-nosnippet>32</a>    info: WithSelf&lt;BoundedIntConcreteType&gt;,
 <a href=#33 id=33 data-nosnippet>33</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Type&lt;<span class="lifetime">'ctx</span>&gt;&gt; {
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>n_bits = info.range.offset_bit_width();
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>n_bits = info.range.repr_bit_width();
 <a href=#35 id=35 data-nosnippet>35</a>    <span class="prelude-val">Ok</span>(IntegerType::new(context, n_bits).into())
 <a href=#36 id=36 data-nosnippet>36</a>}</code></pre></div></section></main></body></html>

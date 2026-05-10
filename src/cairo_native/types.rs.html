@@ -569,7 +569,7 @@
 <a href=#569 id=569 data-nosnippet>569</a>
 <a href=#570 id=570 data-nosnippet>570</a>            CoreTypeConcrete::BoundedInt(_info) =&gt; {
 <a href=#571 id=571 data-nosnippet>571</a>                <span class="attr">#[cfg(target_arch = <span class="string">"x86_64"</span>)]
-<a href=#572 id=572 data-nosnippet>572</a>                </span><span class="kw">let </span>value = _info.range.offset_bit_width() &gt; <span class="number">128</span>;
+<a href=#572 id=572 data-nosnippet>572</a>                </span><span class="kw">let </span>value = _info.range.repr_bit_width() &gt; <span class="number">128</span>;
 <a href=#573 id=573 data-nosnippet>573</a>
 <a href=#574 id=574 data-nosnippet>574</a>                <span class="attr">#[cfg(target_arch = <span class="string">"aarch64"</span>)]
 <a href=#575 id=575 data-nosnippet>575</a>                </span><span class="kw">let </span>value = <span class="bool-val">false</span>;
@@ -771,7 +771,7 @@
 <a href=#771 id=771 data-nosnippet>771</a>            CoreTypeConcrete::Sint64(<span class="kw">_</span>) =&gt; get_integer_layout(<span class="number">64</span>),
 <a href=#772 id=772 data-nosnippet>772</a>            CoreTypeConcrete::Sint128(<span class="kw">_</span>) =&gt; get_integer_layout(<span class="number">128</span>),
 <a href=#773 id=773 data-nosnippet>773</a>            CoreTypeConcrete::Bytes31(<span class="kw">_</span>) =&gt; get_integer_layout(<span class="number">248</span>),
-<a href=#774 id=774 data-nosnippet>774</a>            CoreTypeConcrete::BoundedInt(info) =&gt; get_integer_layout(info.range.offset_bit_width()),
+<a href=#774 id=774 data-nosnippet>774</a>            CoreTypeConcrete::BoundedInt(info) =&gt; get_integer_layout(info.range.repr_bit_width()),
 <a href=#775 id=775 data-nosnippet>775</a>            CoreTypeConcrete::QM31(_info) =&gt; layout_repeat(<span class="kw-2">&amp;</span>get_integer_layout(<span class="number">31</span>), <span class="number">4</span>)<span class="question-mark">?</span>.<span class="number">0</span>,
 <a href=#776 id=776 data-nosnippet>776</a>            CoreTypeConcrete::GasReserve(_info) =&gt; get_integer_layout(<span class="number">128</span>),
 <a href=#777 id=777 data-nosnippet>777</a>

@@ -938,11 +938,11 @@
 <a href=#938 id=938 data-nosnippet>938</a>                        Sign::Plus,
 <a href=#939 id=939 data-nosnippet>939</a>                        BigUint::from_bytes_le(slice::from_raw_parts(
 <a href=#940 id=940 data-nosnippet>940</a>                            ptr.cast::&lt;u8&gt;().as_ptr(),
-<a href=#941 id=941 data-nosnippet>941</a>                            (info.range.offset_bit_width().next_multiple_of(<span class="number">8</span>) &gt;&gt; <span class="number">3</span>) <span class="kw">as </span>usize,
+<a href=#941 id=941 data-nosnippet>941</a>                            (info.range.repr_bit_width().next_multiple_of(<span class="number">8</span>) &gt;&gt; <span class="number">3</span>) <span class="kw">as </span>usize,
 <a href=#942 id=942 data-nosnippet>942</a>                        )),
 <a href=#943 id=943 data-nosnippet>943</a>                    );
 <a href=#944 id=944 data-nosnippet>944</a>
-<a href=#945 id=945 data-nosnippet>945</a>                    data &amp;= (BigInt::one() &lt;&lt; info.range.offset_bit_width()) - BigInt::one();
+<a href=#945 id=945 data-nosnippet>945</a>                    data &amp;= (BigInt::one() &lt;&lt; info.range.repr_bit_width()) - BigInt::one();
 <a href=#946 id=946 data-nosnippet>946</a>                    data += <span class="kw-2">&amp;</span>info.range.lower;
 <a href=#947 id=947 data-nosnippet>947</a>
 <a href=#948 id=948 data-nosnippet>948</a>                    <span class="self">Self</span>::BoundedInt {

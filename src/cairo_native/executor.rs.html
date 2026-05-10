@@ -504,13 +504,13 @@
 <a href=#504 id=504 data-nosnippet>504</a>        CoreTypeConcrete::BoundedInt(info) =&gt; <span class="kw">match </span>return_ptr {
 <a href=#505 id=505 data-nosnippet>505</a>            <span class="prelude-val">Some</span>(return_ptr) =&gt; <span class="prelude-val">Ok</span>(Value::from_ptr(return_ptr, type_id, registry, <span class="bool-val">true</span>)<span class="question-mark">?</span>),
 <a href=#506 id=506 data-nosnippet>506</a>            <span class="prelude-val">None </span>=&gt; {
-<a href=#507 id=507 data-nosnippet>507</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = <span class="kw">if </span>info.range.offset_bit_width() &lt;= <span class="number">64 </span>{
+<a href=#507 id=507 data-nosnippet>507</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = <span class="kw">if </span>info.range.repr_bit_width() &lt;= <span class="number">64 </span>{
 <a href=#508 id=508 data-nosnippet>508</a>                    BigInt::from(ret_registers[<span class="number">0</span>])
 <a href=#509 id=509 data-nosnippet>509</a>                } <span class="kw">else </span>{
 <a href=#510 id=510 data-nosnippet>510</a>                    BigInt::from(((ret_registers[<span class="number">1</span>] <span class="kw">as </span>u128) &lt;&lt; <span class="number">64</span>) | ret_registers[<span class="number">0</span>] <span class="kw">as </span>u128)
 <a href=#511 id=511 data-nosnippet>511</a>                };
 <a href=#512 id=512 data-nosnippet>512</a>
-<a href=#513 id=513 data-nosnippet>513</a>                data &amp;= (BigInt::one() &lt;&lt; info.range.offset_bit_width()) - BigInt::one();
+<a href=#513 id=513 data-nosnippet>513</a>                data &amp;= (BigInt::one() &lt;&lt; info.range.repr_bit_width()) - BigInt::one();
 <a href=#514 id=514 data-nosnippet>514</a>                data += <span class="kw-2">&amp;</span>info.range.lower;
 <a href=#515 id=515 data-nosnippet>515</a>
 <a href=#516 id=516 data-nosnippet>516</a>                <span class="prelude-val">Ok</span>(Value::BoundedInt {
