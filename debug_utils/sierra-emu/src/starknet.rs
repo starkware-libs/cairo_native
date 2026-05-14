@@ -3,11 +3,9 @@ use std::{
     iter::once,
 };
 
-pub use self::{
-    block_info::BlockInfo, execution_info::ExecutionInfo, execution_info_v2::ExecutionInfoV2,
-    execution_info_v3::ExecutionInfoV3, resource_bounds::ResourceBounds,
-    secp256k1_point::Secp256k1Point, secp256r1_point::Secp256r1Point, tx_info::TxInfo,
-    tx_v2_info::TxV2Info, tx_v3_info::TxV3Info, u256::U256,
+pub use cairo_starknet_syscalls::{
+    BlockInfo, ExecutionInfo, ExecutionInfoV2, ExecutionInfoV3, ResourceBounds, Secp256k1Point,
+    Secp256r1Point, StarknetSyscallHandler, SyscallResult, TxInfo, TxV2Info, TxV3Info, U256,
 };
 use k256::elliptic_curve::{
     generic_array::GenericArray,
@@ -17,191 +15,7 @@ use sec1::point::Coordinates;
 use serde::Serialize;
 use starknet_types_core::felt::Felt;
 
-mod block_info;
-mod execution_info;
-mod execution_info_v2;
-mod execution_info_v3;
-mod resource_bounds;
-mod secp256k1_point;
-mod secp256r1_point;
-mod tx_info;
-mod tx_v2_info;
-mod tx_v3_info;
-mod u256;
-
-pub type SyscallResult<T> = Result<T, Vec<Felt>>;
-
-pub trait StarknetSyscallHandler {
-    fn get_block_hash(&mut self, block_number: u64, remaining_gas: &mut u64)
-        -> SyscallResult<Felt>;
-
-    fn get_execution_info(&mut self, remaining_gas: &mut u64) -> SyscallResult<ExecutionInfo>;
-
-    fn get_execution_info_v2(&mut self, remaining_gas: &mut u64) -> SyscallResult<ExecutionInfoV2>;
-
-    fn get_execution_info_v3(
-        &mut self,
-        _remaining_gas: &mut u64,
-    ) -> SyscallResult<ExecutionInfoV3> {
-        unimplemented!()
-    }
-
-    fn deploy(
-        &mut self,
-        class_hash: Felt,
-        contract_address_salt: Felt,
-        calldata: &[Felt],
-        deploy_from_zero: bool,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<(Felt, Vec<Felt>)>;
-
-    fn replace_class(&mut self, class_hash: Felt, remaining_gas: &mut u64) -> SyscallResult<()>;
-
-    fn library_call(
-        &mut self,
-        class_hash: Felt,
-        function_selector: Felt,
-        calldata: &[Felt],
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Vec<Felt>>;
-
-    fn call_contract(
-        &mut self,
-        address: Felt,
-        entry_point_selector: Felt,
-        calldata: &[Felt],
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Vec<Felt>>;
-
-    fn storage_read(
-        &mut self,
-        address_domain: u32,
-        address: Felt,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Felt>;
-
-    fn storage_write(
-        &mut self,
-        address_domain: u32,
-        address: Felt,
-        value: Felt,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<()>;
-
-    fn emit_event(
-        &mut self,
-        keys: &[Felt],
-        data: &[Felt],
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<()>;
-
-    fn send_message_to_l1(
-        &mut self,
-        to_address: Felt,
-        payload: &[Felt],
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<()>;
-
-    fn keccak(&mut self, input: &[u64], remaining_gas: &mut u64) -> SyscallResult<U256>;
-
-    fn secp256k1_new(
-        &mut self,
-        x: U256,
-        y: U256,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Option<Secp256k1Point>>;
-
-    fn secp256k1_add(
-        &mut self,
-        p0: Secp256k1Point,
-        p1: Secp256k1Point,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Secp256k1Point>;
-
-    fn secp256k1_mul(
-        &mut self,
-        p: Secp256k1Point,
-        m: U256,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Secp256k1Point>;
-
-    fn secp256k1_get_point_from_x(
-        &mut self,
-        x: U256,
-        y_parity: bool,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Option<Secp256k1Point>>;
-
-    fn secp256k1_get_xy(
-        &mut self,
-        p: Secp256k1Point,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<(U256, U256)>;
-
-    fn secp256r1_new(
-        &mut self,
-        x: U256,
-        y: U256,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Option<Secp256r1Point>>;
-
-    fn secp256r1_add(
-        &mut self,
-        p0: Secp256r1Point,
-        p1: Secp256r1Point,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Secp256r1Point>;
-
-    fn secp256r1_mul(
-        &mut self,
-        p: Secp256r1Point,
-        m: U256,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Secp256r1Point>;
-
-    fn secp256r1_get_point_from_x(
-        &mut self,
-        x: U256,
-        y_parity: bool,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<Option<Secp256r1Point>>;
-
-    fn secp256r1_get_xy(
-        &mut self,
-        p: Secp256r1Point,
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<(U256, U256)>;
-
-    fn sha256_process_block(
-        &mut self,
-        prev_state: &mut [u32; 8],
-        current_block: &[u32; 16],
-        remaining_gas: &mut u64,
-    ) -> SyscallResult<()>;
-
-    fn meta_tx_v0(
-        &mut self,
-        _address: Felt,
-        _entry_point_selector: Felt,
-        _calldata: &[Felt],
-        _signature: &[Felt],
-        _remaining_gas: &mut u64,
-    ) -> SyscallResult<Vec<Felt>> {
-        unimplemented!();
-    }
-
-    fn get_class_hash_at(
-        &mut self,
-        _contract_address: Felt,
-        _remaining_gas: &mut u64,
-    ) -> SyscallResult<Felt> {
-        unimplemented!()
-    }
-
-    fn cheatcode(&mut self, _selector: Felt, _input: &[Felt]) -> Vec<Felt> {
-        unimplemented!()
-    }
-}
+pub mod value_conv;
 
 /// A (somewhat) usable implementation of the starknet syscall handler trait.
 ///
@@ -296,6 +110,36 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         _remaining_gas: &mut u64,
     ) -> SyscallResult<ExecutionInfoV2> {
         Ok(self.execution_info.clone())
+    }
+
+    fn get_execution_info_v3(
+        &mut self,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<ExecutionInfoV3> {
+        // The stub holds an `ExecutionInfoV2`; v3 adds proof_facts which we don't model.
+        // Mirrors the VM-side soft-fail in eval_get_execution_info_v3.
+        unimplemented!()
+    }
+
+    fn get_class_hash_at(
+        &mut self,
+        _contract_address: Felt,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Felt> {
+        // No class-registry lookup -- the stub doesn't track contract classes.
+        unimplemented!()
+    }
+
+    fn meta_tx_v0(
+        &mut self,
+        _address: Felt,
+        _entry_point_selector: Felt,
+        _calldata: &[Felt],
+        _signature: &[Felt],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Vec<Felt>> {
+        // Meta-tx routing re-enters `call_contract`, which the stub doesn't model.
+        unimplemented!()
     }
 
     fn deploy(

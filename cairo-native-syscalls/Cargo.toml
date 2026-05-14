@@ -1,0 +1,11 @@
+[package]
+name = "cairo-starknet-syscalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shared StarknetSyscallHandler trait and supporting types for cairo-native and sierra-emu"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+starknet-types-core = { workspace = true, features = ["std", "serde", "num-traits"] }
