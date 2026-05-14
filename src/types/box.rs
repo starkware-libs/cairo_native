@@ -106,7 +106,7 @@ fn build_dup<'ctx>(
     let src_value = entry.arg(0)?;
     // build_dup is only registered when the inner type has a dup override.
     let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-    let dst_value = rtb.box_alloc(context, module, &entry, location, size_val, align_val)?;
+    let dst_value = rtb.arena_alloc(context, module, &entry, location, size_val, align_val)?;
 
     let value = entry.load(context, location, src_value, inner_ty)?;
     let values = DupOverridesMeta::invoke_override(

@@ -3,7 +3,7 @@
 use crate::{
     starknet::{ArrayAbi, Felt252Abi},
     types::array::ArrayMetadata,
-    utils::{blake_utils, libc_malloc, BuiltinCosts},
+    utils::{blake_utils, BuiltinCosts},
 };
 use bumpalo::Bump;
 use cairo_lang_sierra_gas::core_libfunc_cost::{
@@ -35,16 +35,16 @@ use std::{
 };
 use std::{ops::Mul, vec::IntoIter};
 
-// Thread-local handle to the box arena currently active for this invocation.
+// Thread-local handle to the per-invocation arena (boxes, nullables, arrays).
 thread_local! {
-    pub(crate) static BOX_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
+    pub(crate) static INVOCATION_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
 }
 
-/// Allocate `size` bytes with `align` alignment from the per-invocation box arena.
-pub unsafe extern "C" fn cairo_native__box_alloc(size: u64, align: u64) -> *mut u8 {
-    BOX_ARENA.with(|arena| {
+/// Allocate `size` bytes with `align` alignment from the per-invocation arena.
+pub unsafe extern "C" fn cairo_native__arena_alloc(size: u64, align: u64) -> *mut u8 {
+    INVOCATION_ARENA.with(|arena| {
         let layout = Layout::from_size_align(size as usize, align as usize)
-            .expect("cairo_native__box_alloc: invalid layout");
+            .expect("cairo_native__arena_alloc: invalid layout");
         arena.borrow_mut().alloc_layout(layout).as_ptr()
     })
 }
@@ -360,8 +360,11 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
         .0;
     let tuple_stride = tuple_layout.pad_to_align().size();
 
-    // Allocate data separately (no inline prefix)
-    let data_ptr = libc_malloc(tuple_stride * dict.mappings.len());
+    // Allocate data from the arena (no inline prefix)
+    let data_ptr = cairo_native__arena_alloc(
+        (tuple_stride * dict.mappings.len()) as u64,
+        tuple_layout.align() as u64,
+    );
     let mut work_ptr = data_ptr;
 
     // Get the stride for the inner types of the tuple
@@ -370,7 +373,7 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
 
     for (key, elem_index) in dict.mappings.iter().sorted() {
         let key_ptr = work_ptr as *mut [u8; 32];
-        let default_value_ptr = work_ptr.byte_add(key_size) as *mut u8;
+        let default_value_ptr = work_ptr.byte_add(key_size);
         let final_value_ptr = default_value_ptr.byte_add(element_size);
         work_ptr = work_ptr.byte_add(tuple_stride);
 
@@ -380,10 +383,12 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
         final_value_ptr.copy_from_nonoverlapping(value, element_size);
     }
 
-    // Allocate and initialize ArrayMetadata struct
-    let metadata_ptr = libc_malloc(size_of::<ArrayMetadata>()) as *mut ArrayMetadata;
+    // Allocate and initialize ArrayMetadata struct from the arena
+    let metadata_ptr = cairo_native__arena_alloc(
+        size_of::<ArrayMetadata>() as u64,
+        align_of::<ArrayMetadata>() as u64,
+    ) as *mut ArrayMetadata;
     metadata_ptr.write(ArrayMetadata {
-        refcount: 1,
         max_len: len as u32,
         data_ptr: data_ptr.cast::<u8>(),
     });

@@ -14,7 +14,7 @@ use crate::{
         SEGMENT_ARENA_BUILTIN_SIZE,
     },
     native_panic,
-    runtime::{BLAKE_CALL_COUNT, BOX_ARENA, BUILTIN_COSTS},
+    runtime::{BLAKE_CALL_COUNT, BUILTIN_COSTS, INVOCATION_ARENA},
     starknet::{handler::StarknetSyscallHandlerCallbacks, StarknetSyscallHandler},
     types::TypeBuilder,
     utils::{BuiltinCosts, RangeExt},
@@ -364,7 +364,7 @@ fn invoke_dynamic(
 pub(crate) struct InvocationGuard {
     builtin_costs: BuiltinCosts,
     blake_call_count: u64,
-    box_arena: Bump,
+    invocation_arena: Bump,
     #[cfg(feature = "with-cheatcode")]
     syscall_handler: Option<*mut ()>,
 }
@@ -379,7 +379,8 @@ impl InvocationGuard {
         Self {
             builtin_costs: BUILTIN_COSTS.replace(builtin_costs),
             blake_call_count: BLAKE_CALL_COUNT.with(|c| c.replace(0)),
-            box_arena: BOX_ARENA.with(|c| std::mem::replace(&mut *c.borrow_mut(), Bump::new())),
+            invocation_arena: INVOCATION_ARENA
+                .with(|c| std::mem::replace(&mut *c.borrow_mut(), Bump::new())),
             #[cfg(feature = "with-cheatcode")]
             syscall_handler: syscall_handler.map(|ptr| {
                 let previous_value = crate::starknet::SYSCALL_HANDLER_VTABLE.get();
@@ -394,7 +395,7 @@ impl Drop for InvocationGuard {
     fn drop(&mut self) {
         BUILTIN_COSTS.set(self.builtin_costs);
         BLAKE_CALL_COUNT.with(|c| c.set(self.blake_call_count));
-        BOX_ARENA.with(|c| std::mem::swap(&mut *c.borrow_mut(), &mut self.box_arena));
+        INVOCATION_ARENA.with(|c| std::mem::swap(&mut *c.borrow_mut(), &mut self.invocation_arena));
         #[cfg(feature = "with-cheatcode")]
         if let Some(previous_value) = self.syscall_handler {
             crate::starknet::SYSCALL_HANDLER_VTABLE.set(previous_value);

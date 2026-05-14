@@ -2,7 +2,7 @@
 //!
 //! A heap allocated value, which is internally a pointer that can't be null.
 //!
-//! Allocations are made from the per-invocation arena (`cairo_native__box_alloc` runtime
+//! Allocations are made from the per-invocation arena (`cairo_native__arena_alloc` runtime
 //! function) and are freed all at once when the program invocation completes. Individual
 //! boxes are therefore never freed on unbox.
 
@@ -89,7 +89,6 @@ pub fn build_into_box<'ctx, 'this>(
 }
 
 /// Receives a value and inserts it into a box
-/// Allocate an arena slot and store `inner_val` into it, returning a pointer.
 pub fn into_box<'ctx, 'this>(
     context: &'ctx Context,
     module: &Module<'ctx>,
@@ -103,7 +102,7 @@ pub fn into_box<'ctx, 'this>(
     let align = entry.const_int(context, location, inner_layout.align(), 64)?;
 
     let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-    let ptr = rtb.box_alloc(context, module, entry, location, size, align)?;
+    let ptr = rtb.arena_alloc(context, module, entry, location, size, align)?;
 
     entry.append_operation(llvm::store(
         context,
