@@ -655,8 +655,7 @@ fn eval_call_contract(
         }
     };
 
-    let result =
-        syscall_handler.call_contract(address, entry_point_selector, &calldata, &mut gas);
+    let result = syscall_handler.call_contract(address, entry_point_selector, &calldata, &mut gas);
 
     match result {
         Ok(return_values) => EvalAction::NormalBranch(
