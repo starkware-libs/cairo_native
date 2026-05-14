@@ -39,7 +39,10 @@ pub trait StarknetSyscallHandler {
 
     fn get_execution_info_v2(&mut self, remaining_gas: &mut u64) -> SyscallResult<ExecutionInfoV2>;
 
-    fn get_execution_info_v3(&mut self, _remaining_gas: &mut u64) -> SyscallResult<ExecutionInfoV3> {
+    fn get_execution_info_v3(
+        &mut self,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<ExecutionInfoV3> {
         unimplemented!()
     }
 
@@ -500,9 +503,17 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // P + (-P) yields the identity. Return the canonical (0, 0) +
+                // is_infinity encoding (see Secp256k1Point::into_value).
+                return Ok(Secp256k1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -565,9 +576,16 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // m * P can be the identity (e.g. m = ord(P)).
+                return Ok(Secp256k1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -737,9 +755,17 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // P + (-P) yields the identity. Return the canonical (0, 0) +
+                // is_infinity encoding (see Secp256r1Point::into_value).
+                return Ok(Secp256r1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -801,9 +827,16 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // m * P can be the identity (e.g. m = ord(P)).
+                return Ok(Secp256r1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
