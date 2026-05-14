@@ -15,6 +15,8 @@ use starknet_types_core::felt::Felt;
 #[cfg(feature = "sierra-emu")]
 use std::sync::Arc;
 
+#[cfg(feature = "sierra-emu")]
+use crate::error::Error;
 use crate::error::Result;
 use crate::execution_result::ContractExecutionResult;
 use crate::executor::AotContractExecutor;
@@ -89,9 +91,11 @@ impl ContractExecutor {
 
                 virtual_machine.call_contract(selector, gas, args.to_vec(), emu_builtin_costs);
 
-                let result = virtual_machine
-                    .run(&mut syscall_handler)
-                    .expect("sierra-emu VM run failed");
+                // `VirtualMachine::run` returns `None` when the VM never produced a
+                // final state — propagate as an error rather than aborting the host.
+                let result = virtual_machine.run(&mut syscall_handler).ok_or_else(|| {
+                    Error::UnexpectedValue("sierra-emu VM produced no final state".to_string())
+                })?;
 
                 Ok(ContractExecutionResult {
                     remaining_gas: result.remaining_gas,
