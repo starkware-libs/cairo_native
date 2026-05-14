@@ -365,7 +365,11 @@ pub trait StarknetSyscallHandler {
         remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>>;
 
+    /// Test-only Starknet syscall. Production handlers don't implement it; the default
+    /// returns a single error felt rather than panicking, so a malicious contract that
+    /// invokes `cheatcode` against a handler that didn't override the method can't crash
+    /// the host. Test handlers should override.
     fn cheatcode(&mut self, _selector: Felt, _input: &[Felt]) -> Vec<Felt> {
-        unimplemented!();
+        vec![Felt::from_bytes_be_slice(b"cheatcode unsupported")]
     }
 }
