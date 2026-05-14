@@ -1040,6 +1040,7 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
+ "cairo-native-syscalls",
  "criterion",
  "educe 0.5.11",
  "itertools 0.14.0",
@@ -1159,6 +1160,14 @@ dependencies = [
  "tempfile",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cairo-native-syscalls"
+version = "0.9.0-rc.6"
+dependencies = [
+ "serde",
+ "starknet-types-core",
 ]
 
 [[package]]
@@ -3574,6 +3583,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-lang-test-plugin",
  "cairo-lang-utils",
+ "cairo-native-syscalls",
  "clap",
  "generic-array",
  "k256",
