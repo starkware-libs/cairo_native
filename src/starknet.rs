@@ -60,7 +60,6 @@ impl From<&Felt252Abi> for Felt {
     }
 }
 
-
 pub struct DummySyscallHandler;
 
 impl StarknetSyscallHandler for DummySyscallHandler {
