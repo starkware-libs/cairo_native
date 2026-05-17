@@ -7,6 +7,13 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# Builds an instrumented compiler whose emitted `.so` carries the libfunc-profiling
+# symbols that `cairo_native::AotContractExecutor::run_with_libfunc_profile` looks up.
+# Install with `cargo install ... --features with-libfunc-profiling` to profile native
+# execution; a binary built without it produces `.so`s with no profiler symbol.
+with-libfunc-profiling = ["cairo-native/with-libfunc-profiling"]
+
 [dependencies]
 anyhow.workspace = true
 cairo-lang-sierra.workspace = true
