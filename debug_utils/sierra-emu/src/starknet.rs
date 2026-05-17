@@ -17,9 +17,14 @@ use starknet_types_core::felt::Felt;
 
 pub mod value_conv;
 
-/// A (somewhat) usable implementation of the starknet syscall handler trait.
+/// A minimal in-memory implementation of [`StarknetSyscallHandler`] for tests and
+/// debug-runner harnesses. Storage / events / execution info are modeled; syscalls
+/// that would require contract-class lookups, deployment, cross-call routing, or
+/// L1 message dispatch panic via `unimplemented!()`. Tests that need those should
+/// drive sierra-emu through a richer handler (e.g. blockifier's
+/// `NativeSyscallHandler`).
 ///
-/// Currently gas is not deducted.
+/// Gas is not deducted by this stub.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub struct StubSyscallHandler {
     pub storage: BTreeMap<(u32, Felt), Felt>,
@@ -150,10 +155,12 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         _deploy_from_zero: bool,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<(Felt, Vec<Felt>)> {
+        // Deployment requires constructor execution, which the stub doesn't model.
         unimplemented!()
     }
 
     fn replace_class(&mut self, _class_hash: Felt, _remaining_gas: &mut u64) -> SyscallResult<()> {
+        // Class replacement updates a registry the stub doesn't track.
         unimplemented!()
     }
 
@@ -164,6 +171,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         _calldata: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>> {
+        // Resolving the target function requires class-hash lookup the stub doesn't model.
         unimplemented!()
     }
 
@@ -174,6 +182,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         _calldata: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>> {
+        // Cross-contract calls require address -> class-hash -> function resolution.
         unimplemented!()
     }
 
@@ -220,6 +229,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         _payload: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<()> {
+        // L1 message queue isn't modeled -- extend ContractLogs if a test needs it.
         unimplemented!()
     }
 
