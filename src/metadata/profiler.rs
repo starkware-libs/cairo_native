@@ -330,7 +330,7 @@ impl ProfilerMeta {
 /// Represents the entire profile of the execution.
 ///
 /// It maps the libfunc ID to a libfunc profile.
-type Profile = HashMap<ConcreteLibfuncId, LibfuncProfileData>;
+pub type Profile = HashMap<ConcreteLibfuncId, LibfuncProfileData>;
 
 /// Represents the profile data for a particular libfunc.
 #[derive(Default)]

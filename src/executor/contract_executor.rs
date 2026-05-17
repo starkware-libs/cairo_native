@@ -5,14 +5,14 @@
 //! `H: StarknetSyscallHandler` -- sierra-emu and cairo-native re-export the trait from
 //! `cairo-native-syscalls`, so no adapter is needed.
 
-#[cfg(feature = "sierra-emu")]
+#[cfg(any(feature = "sierra-emu", feature = "with-libfunc-profiling"))]
 use cairo_lang_sierra::program::Program;
 #[cfg(feature = "sierra-emu")]
 use cairo_lang_starknet_classes::compiler_version::VersionId;
 #[cfg(feature = "sierra-emu")]
 use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
 use starknet_types_core::felt::Felt;
-#[cfg(feature = "sierra-emu")]
+#[cfg(any(feature = "sierra-emu", feature = "with-libfunc-profiling"))]
 use std::sync::Arc;
 
 #[cfg(feature = "sierra-emu")]
@@ -20,6 +20,8 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::execution_result::ContractExecutionResult;
 use crate::executor::AotContractExecutor;
+#[cfg(feature = "with-libfunc-profiling")]
+use crate::metadata::profiler::Profile;
 use crate::starknet::StarknetSyscallHandler;
 use crate::utils::BuiltinCosts;
 
@@ -33,6 +35,8 @@ pub enum ContractExecutor {
     Aot(AotContractExecutor),
     #[cfg(feature = "sierra-emu")]
     Emu(EmuContractInfo),
+    #[cfg(feature = "with-libfunc-profiling")]
+    AotWithProgram(AotWithProgram),
 }
 
 /// Inputs required to construct a `sierra_emu::VirtualMachine` for the `Emu` variant.
@@ -42,6 +46,16 @@ pub struct EmuContractInfo {
     pub program: Arc<Program>,
     pub entry_points: ContractEntryPoints,
     pub sierra_version: VersionId,
+}
+
+/// AOT executor paired with the Sierra program it was built from. Required by
+/// [`ContractExecutor::run_with_profile`] so libfunc samples can be resolved against
+/// the program's declarations.
+#[cfg(feature = "with-libfunc-profiling")]
+#[derive(Debug)]
+pub struct AotWithProgram {
+    pub executor: AotContractExecutor,
+    pub program: Arc<Program>,
 }
 
 impl From<AotContractExecutor> for ContractExecutor {
@@ -54,6 +68,13 @@ impl From<AotContractExecutor> for ContractExecutor {
 impl From<EmuContractInfo> for ContractExecutor {
     fn from(value: EmuContractInfo) -> Self {
         Self::Emu(value)
+    }
+}
+
+#[cfg(feature = "with-libfunc-profiling")]
+impl From<AotWithProgram> for ContractExecutor {
+    fn from(value: AotWithProgram) -> Self {
+        Self::AotWithProgram(value)
     }
 }
 
@@ -105,6 +126,51 @@ impl ContractExecutor {
                     builtin_stats: Default::default(),
                 })
             }
+            #[cfg(feature = "with-libfunc-profiling")]
+            ContractExecutor::AotWithProgram(AotWithProgram { executor, program }) => executor
+                .run_with_libfunc_profile(
+                    program,
+                    selector,
+                    args,
+                    gas,
+                    builtin_costs,
+                    syscall_handler,
+                    // Profile is collected and dropped on this path. Use
+                    // `run_with_profile` to capture it.
+                    |_profile| {},
+                ),
+        }
+    }
+
+    /// Like [`Self::run`] but, for the `AotWithProgram` variant, hands the captured
+    /// libfunc profile to `on_profile` after the call returns successfully. For other
+    /// variants this is identical to `run` and `on_profile` is never invoked.
+    #[cfg(feature = "with-libfunc-profiling")]
+    pub fn run_with_profile<H, F>(
+        &self,
+        selector: Felt,
+        args: &[Felt],
+        gas: u64,
+        builtin_costs: Option<BuiltinCosts>,
+        syscall_handler: H,
+        on_profile: F,
+    ) -> Result<ContractExecutionResult>
+    where
+        H: StarknetSyscallHandler,
+        F: FnOnce(Profile),
+    {
+        match self {
+            ContractExecutor::AotWithProgram(AotWithProgram { executor, program }) => executor
+                .run_with_libfunc_profile(
+                    program,
+                    selector,
+                    args,
+                    gas,
+                    builtin_costs,
+                    syscall_handler,
+                    on_profile,
+                ),
+            _ => self.run(selector, args, gas, builtin_costs, syscall_handler),
         }
     }
 }
