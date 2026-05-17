@@ -330,7 +330,7 @@ impl ProfilerMeta {
 /// Represents the entire profile of the execution.
 ///
 /// It maps the libfunc ID to a libfunc profile.
-type Profile = HashMap<ConcreteLibfuncId, LibfuncProfileData>;
+pub type Profile = HashMap<ConcreteLibfuncId, LibfuncProfileData>;
 
 /// Represents the profile data for a particular libfunc.
 #[derive(Default)]
@@ -362,7 +362,11 @@ impl ProfilerImpl {
 
     // Push a profiler frame
     pub extern "C" fn push_stmt(profile_id: u64, statement_idx: u64, tick_delta: u64) {
-        let mut profiler = LIBFUNC_PROFILE.lock().unwrap();
+        // Invoked directly from compiled/JIT'd Cairo code across the C ABI: a panic
+        // here (e.g. `.unwrap()` on a poisoned mutex) would unwind into machine code
+        // that cannot handle it. Recover from poison instead of panicking, matching
+        // the lock handling in `run_with_libfunc_profile`.
+        let mut profiler = LIBFUNC_PROFILE.lock().unwrap_or_else(|e| e.into_inner());
 
         let Some(profiler) = profiler.get_mut(&profile_id) else {
             eprintln!("Could not find libfunc profiler!");
