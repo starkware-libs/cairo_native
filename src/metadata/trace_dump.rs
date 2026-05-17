@@ -773,6 +773,7 @@ pub mod trace_dump_runtime {
                                 lo: point.y.lo,
                                 hi: point.y.hi,
                             },
+                            is_infinity: point.is_infinity,
                         };
                         emu_point.into_value()
                     }
@@ -787,6 +788,7 @@ pub mod trace_dump_runtime {
                                 lo: point.y.lo,
                                 hi: point.y.hi,
                             },
+                            is_infinity: point.is_infinity,
                         };
                         emu_point.into_value()
                     }
