@@ -5,8 +5,9 @@ use std::{
 
 pub use self::{
     block_info::BlockInfo, execution_info::ExecutionInfo, execution_info_v2::ExecutionInfoV2,
-    resource_bounds::ResourceBounds, secp256k1_point::Secp256k1Point,
-    secp256r1_point::Secp256r1Point, tx_info::TxInfo, tx_v2_info::TxV2Info, u256::U256,
+    execution_info_v3::ExecutionInfoV3, resource_bounds::ResourceBounds,
+    secp256k1_point::Secp256k1Point, secp256r1_point::Secp256r1Point, tx_info::TxInfo,
+    tx_v2_info::TxV2Info, tx_v3_info::TxV3Info, u256::U256,
 };
 use k256::elliptic_curve::{
     generic_array::GenericArray,
@@ -19,11 +20,13 @@ use starknet_types_core::felt::Felt;
 mod block_info;
 mod execution_info;
 mod execution_info_v2;
+mod execution_info_v3;
 mod resource_bounds;
 mod secp256k1_point;
 mod secp256r1_point;
 mod tx_info;
 mod tx_v2_info;
+mod tx_v3_info;
 mod u256;
 
 pub type SyscallResult<T> = Result<T, Vec<Felt>>;
@@ -36,11 +39,18 @@ pub trait StarknetSyscallHandler {
 
     fn get_execution_info_v2(&mut self, remaining_gas: &mut u64) -> SyscallResult<ExecutionInfoV2>;
 
+    fn get_execution_info_v3(
+        &mut self,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<ExecutionInfoV3> {
+        unimplemented!()
+    }
+
     fn deploy(
         &mut self,
         class_hash: Felt,
         contract_address_salt: Felt,
-        calldata: Vec<Felt>,
+        calldata: &[Felt],
         deploy_from_zero: bool,
         remaining_gas: &mut u64,
     ) -> SyscallResult<(Felt, Vec<Felt>)>;
@@ -51,7 +61,7 @@ pub trait StarknetSyscallHandler {
         &mut self,
         class_hash: Felt,
         function_selector: Felt,
-        calldata: Vec<Felt>,
+        calldata: &[Felt],
         remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>>;
 
@@ -59,7 +69,7 @@ pub trait StarknetSyscallHandler {
         &mut self,
         address: Felt,
         entry_point_selector: Felt,
-        calldata: Vec<Felt>,
+        calldata: &[Felt],
         remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>>;
 
@@ -80,19 +90,19 @@ pub trait StarknetSyscallHandler {
 
     fn emit_event(
         &mut self,
-        keys: Vec<Felt>,
-        data: Vec<Felt>,
+        keys: &[Felt],
+        data: &[Felt],
         remaining_gas: &mut u64,
     ) -> SyscallResult<()>;
 
     fn send_message_to_l1(
         &mut self,
         to_address: Felt,
-        payload: Vec<Felt>,
+        payload: &[Felt],
         remaining_gas: &mut u64,
     ) -> SyscallResult<()>;
 
-    fn keccak(&mut self, input: Vec<u64>, remaining_gas: &mut u64) -> SyscallResult<U256>;
+    fn keccak(&mut self, input: &[u64], remaining_gas: &mut u64) -> SyscallResult<U256>;
 
     fn secp256k1_new(
         &mut self,
@@ -164,17 +174,17 @@ pub trait StarknetSyscallHandler {
 
     fn sha256_process_block(
         &mut self,
-        prev_state: [u32; 8],
-        current_block: [u32; 16],
+        prev_state: &mut [u32; 8],
+        current_block: &[u32; 16],
         remaining_gas: &mut u64,
-    ) -> SyscallResult<[u32; 8]>;
+    ) -> SyscallResult<()>;
 
     fn meta_tx_v0(
         &mut self,
         _address: Felt,
         _entry_point_selector: Felt,
-        _calldata: Vec<Felt>,
-        _signature: Vec<Felt>,
+        _calldata: &[Felt],
+        _signature: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>> {
         unimplemented!();
@@ -188,7 +198,7 @@ pub trait StarknetSyscallHandler {
         unimplemented!()
     }
 
-    fn cheatcode(&mut self, _selector: Felt, _input: Vec<Felt>) -> Vec<Felt> {
+    fn cheatcode(&mut self, _selector: Felt, _input: &[Felt]) -> Vec<Felt> {
         unimplemented!()
     }
 }
@@ -292,7 +302,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         &mut self,
         _class_hash: Felt,
         _contract_address_salt: Felt,
-        _calldata: Vec<Felt>,
+        _calldata: &[Felt],
         _deploy_from_zero: bool,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<(Felt, Vec<Felt>)> {
@@ -307,7 +317,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         &mut self,
         _class_hash: Felt,
         _function_selector: Felt,
-        _calldata: Vec<Felt>,
+        _calldata: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>> {
         unimplemented!()
@@ -317,7 +327,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         &mut self,
         _address: Felt,
         _entry_point_selector: Felt,
-        _calldata: Vec<Felt>,
+        _calldata: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Vec<Felt>> {
         unimplemented!()
@@ -349,8 +359,8 @@ impl StarknetSyscallHandler for StubSyscallHandler {
 
     fn emit_event(
         &mut self,
-        keys: Vec<Felt>,
-        data: Vec<Felt>,
+        keys: &[Felt],
+        data: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<()> {
         self.events.push(StubEvent {
@@ -363,13 +373,13 @@ impl StarknetSyscallHandler for StubSyscallHandler {
     fn send_message_to_l1(
         &mut self,
         _to_address: Felt,
-        _payload: Vec<Felt>,
+        _payload: &[Felt],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<()> {
         unimplemented!()
     }
 
-    fn keccak(&mut self, input: Vec<u64>, gas: &mut u64) -> SyscallResult<U256> {
+    fn keccak(&mut self, input: &[u64], gas: &mut u64) -> SyscallResult<U256> {
         let length = input.len();
 
         if length % 17 != 0 {
@@ -428,7 +438,11 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         );
 
         if bool::from(point.is_some()) {
-            Ok(Some(Secp256k1Point { x, y }))
+            Ok(Some(Secp256k1Point {
+                x,
+                y,
+                is_infinity: false,
+            }))
         } else {
             Ok(None)
         }
@@ -489,9 +503,17 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // P + (-P) yields the identity. Return the canonical (0, 0) +
+                // is_infinity encoding (see Secp256k1Point::into_value).
+                return Ok(Secp256k1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -509,6 +531,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                 hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                 lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
             },
+            is_infinity: false,
         })
     }
 
@@ -553,9 +576,16 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // m * P can be the identity (e.g. m = ord(P)).
+                return Ok(Secp256k1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -573,6 +603,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                 hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                 lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
             },
+            is_infinity: false,
         })
     }
 
@@ -621,6 +652,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                     hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                     lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
                 },
+                is_infinity: false,
             }))
         } else {
             Ok(None)
@@ -658,7 +690,11 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         );
 
         if bool::from(point.is_some()) {
-            Ok(Some(Secp256r1Point { x, y }))
+            Ok(Some(Secp256r1Point {
+                x,
+                y,
+                is_infinity: false,
+            }))
         } else {
             Ok(None)
         }
@@ -719,9 +755,17 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // P + (-P) yields the identity. Return the canonical (0, 0) +
+                // is_infinity encoding (see Secp256r1Point::into_value).
+                return Ok(Secp256r1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -739,6 +783,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                 hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                 lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
             },
+            is_infinity: false,
         })
     }
 
@@ -782,9 +827,16 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         let p = p.to_encoded_point(false);
         let (x, y) = match p.coordinates() {
             Coordinates::Uncompressed { x, y } => (x, y),
+            Coordinates::Identity => {
+                // m * P can be the identity (e.g. m = ord(P)).
+                return Ok(Secp256r1Point {
+                    x: U256 { lo: 0, hi: 0 },
+                    y: U256 { lo: 0, hi: 0 },
+                    is_infinity: true,
+                });
+            }
             _ => {
-                // This should be unreachable because we explicitly asked for the uncompressed
-                // encoding.
+                // We explicitly asked for the uncompressed encoding.
                 unreachable!()
             }
         };
@@ -802,6 +854,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                 hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                 lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
             },
+            is_infinity: false,
         })
     }
 
@@ -839,6 +892,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
                     hi: u128::from_be_bytes(y[0..16].try_into().unwrap()),
                     lo: u128::from_be_bytes(y[16..32].try_into().unwrap()),
                 },
+                is_infinity: false,
             }))
         } else {
             Ok(None)
@@ -855,16 +909,15 @@ impl StarknetSyscallHandler for StubSyscallHandler {
 
     fn sha256_process_block(
         &mut self,
-        prev_state: [u32; 8],
-        current_block: [u32; 16],
+        prev_state: &mut [u32; 8],
+        current_block: &[u32; 16],
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<[u32; 8]> {
-        let mut state = prev_state;
+    ) -> SyscallResult<()> {
         let data_as_bytes = sha2::digest::generic_array::GenericArray::from_exact_iter(
             current_block.iter().flat_map(|x| x.to_be_bytes()),
         )
         .unwrap();
-        sha2::compress256(&mut state, &[data_as_bytes]);
-        Ok(state)
+        sha2::compress256(prev_state, &[data_as_bytes]);
+        Ok(())
     }
 }
