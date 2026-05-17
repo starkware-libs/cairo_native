@@ -3,6 +3,8 @@
 //! This module provides methods to execute the programs, either via JIT or compiled ahead
 //! of time. It also provides a cache to avoid recompiling previously compiled programs.
 
+#[cfg(feature = "with-libfunc-profiling")]
+pub use self::contract_executor::AotWithProgram;
 #[cfg(feature = "sierra-emu")]
 pub use self::contract_executor::EmuContractInfo;
 pub use self::{
@@ -26,6 +28,10 @@ use crate::{
     values::Value,
 };
 use bumpalo::Bump;
+// Re-exported so libfunc-profiling consumers (e.g. blockifier) can refer to the
+// program type without adding a direct `cairo-lang-sierra` dependency.
+#[cfg(feature = "with-libfunc-profiling")]
+pub use cairo_lang_sierra::program::Program;
 use cairo_lang_sierra::{
     extensions::{
         circuit::CircuitTypeConcrete,
@@ -46,6 +52,8 @@ mod aot;
 mod contract;
 mod contract_executor;
 mod jit;
+#[cfg(feature = "with-libfunc-profiling")]
+mod libfunc_profile;
 
 #[cfg(target_arch = "aarch64")]
 global_asm!(include_str!("arch/aarch64.s"));
