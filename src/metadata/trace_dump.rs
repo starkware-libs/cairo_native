@@ -210,6 +210,7 @@ pub mod trace_dump_runtime {
     use num_traits::One;
     use sierra_emu::{
         starknet::{
+            value_conv::{secp256k1_point_into_value, secp256r1_point_into_value},
             Secp256k1Point as EmuSecp256k1Point, Secp256r1Point as EmuSecp256r1Point,
             U256 as EmuU256,
         },
@@ -776,7 +777,7 @@ pub mod trace_dump_runtime {
                             },
                             is_infinity: point.is_infinity,
                         };
-                        emu_point.into_value()
+                        secp256k1_point_into_value(emu_point)
                     }
                     Secp256PointTypeConcrete::R1(_) => {
                         let point: Secp256Point = value_ptr.cast().read();
@@ -791,7 +792,7 @@ pub mod trace_dump_runtime {
                             },
                             is_infinity: point.is_infinity,
                         };
-                        emu_point.into_value()
+                        secp256r1_point_into_value(emu_point)
                     }
                 },
                 StarknetTypeConcrete::Sha256StateHandle(_) => {
