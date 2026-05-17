@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+cairo-starknet-syscalls.workspace = true
 cairo-lang-lowering.workspace = true
 cairo-lang-compiler.workspace = true
 cairo-lang-filesystem.workspace = true

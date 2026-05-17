@@ -1,6 +1,13 @@
 use super::EvalAction;
 use crate::{
-    starknet::{Secp256k1Point, Secp256r1Point, StarknetSyscallHandler, U256},
+    starknet::{
+        value_conv::{
+            execution_info_into_value, execution_info_v2_into_value, secp256k1_point_from_value,
+            secp256k1_point_into_value, secp256r1_point_from_value, secp256r1_point_into_value,
+            u256_from_value, u256_into_value,
+        },
+        StarknetSyscallHandler, U256,
+    },
     Value,
 };
 use cairo_lang_sierra::{
@@ -194,10 +201,10 @@ fn eval_secp256_new(
     let syscall_result = match secp_type {
         SecpPointType::K1 => syscall_handler
             .secp256k1_new(x, y, &mut gas)
-            .map(|res| res.map(|op| op.into_value())),
+            .map(|res| res.map(secp256k1_point_into_value)),
         SecpPointType::R1 => syscall_handler
             .secp256r1_new(x, y, &mut gas)
-            .map(|res| res.map(|op| op.into_value())),
+            .map(|res| res.map(secp256r1_point_into_value)),
     };
 
     match syscall_result {
@@ -260,20 +267,20 @@ fn eval_secp256_add(
 
     let syscall_result = match secp_type {
         SecpPointType::K1 => {
-            let x = Secp256k1Point::from_value(x);
-            let y = Secp256k1Point::from_value(y);
+            let x = secp256k1_point_from_value(x);
+            let y = secp256k1_point_from_value(y);
 
             syscall_handler
                 .secp256k1_add(x, y, &mut gas)
-                .map(|res| res.into_value())
+                .map(secp256k1_point_into_value)
         }
         SecpPointType::R1 => {
-            let x = Secp256r1Point::from_value(x);
-            let y = Secp256r1Point::from_value(y);
+            let x = secp256r1_point_from_value(x);
+            let y = secp256r1_point_from_value(y);
 
             syscall_handler
                 .secp256r1_add(x, y, &mut gas)
-                .map(|res| res.into_value())
+                .map(secp256r1_point_into_value)
         }
     };
 
@@ -298,22 +305,22 @@ fn eval_secp256_mul(
         panic!()
     };
 
-    let n = U256::from_value(n);
+    let n = u256_from_value(n);
 
     let syscall_result = match secp_type {
         SecpPointType::K1 => {
-            let x = Secp256k1Point::from_value(x);
+            let x = secp256k1_point_from_value(x);
 
             syscall_handler
                 .secp256k1_mul(x, n, &mut gas)
-                .map(|res| res.into_value())
+                .map(secp256k1_point_into_value)
         }
         SecpPointType::R1 => {
-            let x = Secp256r1Point::from_value(x);
+            let x = secp256r1_point_from_value(x);
 
             syscall_handler
                 .secp256r1_mul(x, n, &mut gas)
-                .map(|res| res.into_value())
+                .map(secp256r1_point_into_value)
         }
     };
 
@@ -348,10 +355,10 @@ fn eval_secp256_get_point_from_x(
     let syscall_result = match secp_type {
         SecpPointType::K1 => syscall_handler
             .secp256k1_get_point_from_x(x, y_parity, &mut gas)
-            .map(|res| res.map(|op| op.into_value())),
+            .map(|res| res.map(secp256k1_point_into_value)),
         SecpPointType::R1 => syscall_handler
             .secp256r1_get_point_from_x(x, y_parity, &mut gas)
-            .map(|res| res.map(|op| op.into_value())),
+            .map(|res| res.map(secp256r1_point_into_value)),
     };
 
     match syscall_result {
@@ -416,14 +423,14 @@ fn eval_secp256_get_xy(
 
     let syscall_result = match secp_type {
         SecpPointType::K1 => {
-            let secp_value = Secp256k1Point::from_value(secp_value);
+            let secp_value = secp256k1_point_from_value(secp_value);
 
             syscall_handler
                 .secp256k1_get_xy(secp_value, &mut gas)
                 .map(|res| (res.0, res.1))
         }
         SecpPointType::R1 => {
-            let secp_value = Secp256r1Point::from_value(secp_value);
+            let secp_value = secp256r1_point_from_value(secp_value);
 
             syscall_handler
                 .secp256r1_get_xy(secp_value, &mut gas)
@@ -433,7 +440,7 @@ fn eval_secp256_get_xy(
 
     match syscall_result {
         Ok(payload) => {
-            let (x, y) = (payload.0.into_value(), payload.1.into_value());
+            let (x, y) = (u256_into_value(payload.0), u256_into_value(payload.1));
             EvalAction::NormalBranch(0, smallvec![Value::U64(gas), system, x, y])
         }
         Err(payload) => {
@@ -894,7 +901,11 @@ fn eval_get_execution_info(
     match result {
         Ok(res) => EvalAction::NormalBranch(
             0,
-            smallvec![Value::U64(gas), system, res.into_value(felt_ty)],
+            smallvec![
+                Value::U64(gas),
+                system,
+                execution_info_into_value(res, felt_ty)
+            ],
         ),
         Err(e) => EvalAction::NormalBranch(
             1,
@@ -975,7 +986,7 @@ fn eval_get_execution_info_v2(
             smallvec![
                 Value::U64(gas),
                 system,
-                res.into_value(felt_ty, out_ty_id.clone())
+                execution_info_v2_into_value(res, felt_ty, out_ty_id.clone())
             ],
         ),
         Err(e) => EvalAction::NormalBranch(
@@ -1112,7 +1123,7 @@ fn eval_keccak(
 
     match result {
         Ok(res) => {
-            EvalAction::NormalBranch(0, smallvec![Value::U64(gas), system, res.into_value()])
+            EvalAction::NormalBranch(0, smallvec![Value::U64(gas), system, u256_into_value(res)])
         }
         Err(e) => EvalAction::NormalBranch(
             1,

@@ -3,6 +3,7 @@ exclude = [
     "debug_utils/casm-data-flow",
 ]
 members = [
+    "cairo-starknet-syscalls",
     "debug_utils",
     "debug_utils/sierra-emu",
     "debug_utils/cairo-native-stress",
@@ -53,6 +54,7 @@ cairo-lang-test-runner = "~2.17.0-rc.4"
 cairo-lang-utils = "~2.17.0-rc.4"
 cairo-native-bin-utils.path = "binaries/cairo-native-bin-utils"
 cairo-native = { path = ".", version = "0.9.0-rc.6" }
+cairo-starknet-syscalls = { path = "cairo-starknet-syscalls", version = "0.9.0-rc.6" }
 clap = "4.5.23"
 colored = "2.1.0"
 criterion = "0.5.1"
@@ -128,6 +130,7 @@ testing = ["dep:cairo-lang-compiler", "dep:cairo-lang-filesystem"]
 [dependencies]
 aquamarine.workspace = true
 bumpalo.workspace = true
+cairo-starknet-syscalls.workspace = true
 cairo-lang-compiler = { workspace = true, optional = true }
 cairo-lang-filesystem = { workspace = true, optional = true }
 cairo-lang-lowering.workspace = true
