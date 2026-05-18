@@ -58,7 +58,7 @@
 <a href=#58 id=58 data-nosnippet>58</a>    QM31Sub,
 <a href=#59 id=59 data-nosnippet>59</a>    QM31Mul,
 <a href=#60 id=60 data-nosnippet>60</a>    QM31Div,
-<a href=#61 id=61 data-nosnippet>61</a>    BoxAlloc,
+<a href=#61 id=61 data-nosnippet>61</a>    ArenaAlloc,
 <a href=#62 id=62 data-nosnippet>62</a>    <span class="attr">#[cfg(feature = <span class="string">"with-cheatcode"</span>)]
 <a href=#63 id=63 data-nosnippet>63</a>    </span>VtableCheatcode,
 <a href=#64 id=64 data-nosnippet>64</a>}
@@ -99,7 +99,7 @@
 <a href=#99 id=99 data-nosnippet>99</a>            RuntimeBinding::QM31Sub =&gt; <span class="string">"cairo_native__libfunc__qm31__qm31_sub"</span>,
 <a href=#100 id=100 data-nosnippet>100</a>            RuntimeBinding::QM31Mul =&gt; <span class="string">"cairo_native__libfunc__qm31__qm31_mul"</span>,
 <a href=#101 id=101 data-nosnippet>101</a>            RuntimeBinding::QM31Div =&gt; <span class="string">"cairo_native__libfunc__qm31__qm31_div"</span>,
-<a href=#102 id=102 data-nosnippet>102</a>            RuntimeBinding::BoxAlloc =&gt; <span class="string">"cairo_native__box_alloc"</span>,
+<a href=#102 id=102 data-nosnippet>102</a>            RuntimeBinding::ArenaAlloc =&gt; <span class="string">"cairo_native__arena_alloc"</span>,
 <a href=#103 id=103 data-nosnippet>103</a>            <span class="attr">#[cfg(feature = <span class="string">"with-cheatcode"</span>)]
 <a href=#104 id=104 data-nosnippet>104</a>            </span>RuntimeBinding::VtableCheatcode =&gt; <span class="string">"cairo_native__vtable_cheatcode"</span>,
 <a href=#105 id=105 data-nosnippet>105</a>        }
@@ -170,7 +170,7 @@
 <a href=#170 id=170 data-nosnippet>170</a>            | RuntimeBinding::U252ExtendedEuclideanAlgorithm
 <a href=#171 id=171 data-nosnippet>171</a>            | RuntimeBinding::U384ExtendedEuclideanAlgorithm =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 <a href=#172 id=172 data-nosnippet>172</a>            RuntimeBinding::CircuitArithOperation =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-<a href=#173 id=173 data-nosnippet>173</a>            RuntimeBinding::BoxAlloc =&gt; <span class="kw">crate</span>::runtime::cairo_native__box_alloc <span class="kw">as </span><span class="kw-2">*const </span>(),
+<a href=#173 id=173 data-nosnippet>173</a>            RuntimeBinding::ArenaAlloc =&gt; <span class="kw">crate</span>::runtime::cairo_native__arena_alloc <span class="kw">as </span><span class="kw-2">*const </span>(),
 <a href=#174 id=174 data-nosnippet>174</a>            <span class="attr">#[cfg(feature = <span class="string">"with-cheatcode"</span>)]
 <a href=#175 id=175 data-nosnippet>175</a>            </span>RuntimeBinding::VtableCheatcode =&gt; {
 <a href=#176 id=176 data-nosnippet>176</a>                <span class="kw">crate</span>::starknet::cairo_native__vtable_cheatcode <span class="kw">as </span><span class="kw-2">*const </span>()
@@ -762,10 +762,10 @@
 <a href=#762 id=762 data-nosnippet>762</a>        <span class="prelude-val">Ok</span>(block.load(context, location, res_ptr, qm31_ty)<span class="question-mark">?</span>)
 <a href=#763 id=763 data-nosnippet>763</a>    }
 <a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>    <span class="doccomment">/// Register the `cairo_native__box_alloc` global if necessary, then invoke
+<a href=#765 id=765 data-nosnippet>765</a>    <span class="doccomment">/// Register the `cairo_native__arena_alloc` global if necessary, then invoke
 <a href=#766 id=766 data-nosnippet>766</a>    /// it to allocate `size` bytes with alignment `align` from the per-invocation
 <a href=#767 id=767 data-nosnippet>767</a>    /// arena.  Returns an opaque pointer to the allocated memory.
-<a href=#768 id=768 data-nosnippet>768</a>    </span><span class="kw">pub fn </span>box_alloc&lt;<span class="lifetime">'c</span>, <span class="lifetime">'a</span>&gt;(
+<a href=#768 id=768 data-nosnippet>768</a>    </span><span class="kw">pub fn </span>arena_alloc&lt;<span class="lifetime">'c</span>, <span class="lifetime">'a</span>&gt;(
 <a href=#769 id=769 data-nosnippet>769</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#770 id=770 data-nosnippet>770</a>        context: <span class="kw-2">&amp;</span><span class="lifetime">'c </span>Context,
 <a href=#771 id=771 data-nosnippet>771</a>        module: <span class="kw-2">&amp;</span>Module,
@@ -778,7 +778,7 @@
 <a href=#778 id=778 data-nosnippet>778</a>        </span><span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
 <a href=#779 id=779 data-nosnippet>779</a>    {
 <a href=#780 id=780 data-nosnippet>780</a>        <span class="kw">let </span>function =
-<a href=#781 id=781 data-nosnippet>781</a>            <span class="self">self</span>.build_function(context, module, block, location, RuntimeBinding::BoxAlloc)<span class="question-mark">?</span>;
+<a href=#781 id=781 data-nosnippet>781</a>            <span class="self">self</span>.build_function(context, module, block, location, RuntimeBinding::ArenaAlloc)<span class="question-mark">?</span>;
 <a href=#782 id=782 data-nosnippet>782</a>
 <a href=#783 id=783 data-nosnippet>783</a>        <span class="prelude-val">Ok</span>(block.append_op_result(
 <a href=#784 id=784 data-nosnippet>784</a>            OperationBuilder::new(<span class="string">"llvm.call"</span>, location)
@@ -1080,7 +1080,7 @@
 <a href=#1080 id=1080 data-nosnippet>1080</a>        RuntimeBinding::QM31Sub,
 <a href=#1081 id=1081 data-nosnippet>1081</a>        RuntimeBinding::QM31Mul,
 <a href=#1082 id=1082 data-nosnippet>1082</a>        RuntimeBinding::QM31Div,
-<a href=#1083 id=1083 data-nosnippet>1083</a>        RuntimeBinding::BoxAlloc,
+<a href=#1083 id=1083 data-nosnippet>1083</a>        RuntimeBinding::ArenaAlloc,
 <a href=#1084 id=1084 data-nosnippet>1084</a>        <span class="attr">#[cfg(feature = <span class="string">"with-cheatcode"</span>)]
 <a href=#1085 id=1085 data-nosnippet>1085</a>        </span>RuntimeBinding::VtableCheatcode,
 <a href=#1086 id=1086 data-nosnippet>1086</a>    ] {

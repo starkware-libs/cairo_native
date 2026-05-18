@@ -88,7 +88,7 @@
 <a href=#88 id=88 data-nosnippet>88</a>        .to_native_assert_error(<span class="string">"runtime library should be available"</span>)<span class="question-mark">?</span>;
 <a href=#89 id=89 data-nosnippet>89</a>
 <a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span>out_state_ptr =
-<a href=#91 id=91 data-nosnippet>91</a>        runtime_bindings.box_alloc(context, helper, entry, location, size, align)<span class="question-mark">?</span>;
+<a href=#91 id=91 data-nosnippet>91</a>        runtime_bindings.arena_alloc(context, helper, entry, location, size, align)<span class="question-mark">?</span>;
 <a href=#92 id=92 data-nosnippet>92</a>
 <a href=#93 id=93 data-nosnippet>93</a>    runtime_bindings.libfunc_blake_compress(
 <a href=#94 id=94 data-nosnippet>94</a>        context,

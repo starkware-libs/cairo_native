@@ -106,7 +106,7 @@
 <a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>src_value = entry.arg(<span class="number">0</span>)<span class="question-mark">?</span>;
 <a href=#107 id=107 data-nosnippet>107</a>    <span class="comment">// build_dup is only registered when the inner type has a dup override.
 <a href=#108 id=108 data-nosnippet>108</a>    </span><span class="kw">let </span>rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span>dst_value = rtb.box_alloc(context, module, <span class="kw-2">&amp;</span>entry, location, size_val, align_val)<span class="question-mark">?</span>;
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span>dst_value = rtb.arena_alloc(context, module, <span class="kw-2">&amp;</span>entry, location, size_val, align_val)<span class="question-mark">?</span>;
 <a href=#110 id=110 data-nosnippet>110</a>
 <a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">let </span>value = entry.load(context, location, src_value, inner_ty)<span class="question-mark">?</span>;
 <a href=#112 id=112 data-nosnippet>112</a>    <span class="kw">let </span>values = DupOverridesMeta::invoke_override(
