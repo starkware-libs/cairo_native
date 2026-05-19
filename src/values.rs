@@ -848,7 +848,8 @@ impl Value {
                 }
 
                 CoreTypeConcrete::Const(_) => native_panic!("implement const from_ptr"),
-                CoreTypeConcrete::BoundedInt(info) => {
+                CoreTypeConcrete::BoundedInt(info)
+                | CoreTypeConcrete::BoundedIntGuarantee(info) => {
                     let mut data = BigInt::from_biguint(
                         Sign::Plus,
                         BigUint::from_bytes_le(slice::from_raw_parts(
