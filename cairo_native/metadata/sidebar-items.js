@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["auto_breakpoint","debug_utils","drop_overrides","dup_overrides","enum_snapshot_variants","felt252_dict","gas","profiler","realloc_bindings","runtime_bindings","tail_recursion","trace_dump"],"struct":["MetadataStorage"]};
+window.SIDEBAR_ITEMS = {"mod":["auto_breakpoint","debug_utils","drop_overrides","dup_overrides","enum_snapshot_variants","gas","profiler","realloc_bindings","runtime_bindings","tail_recursion","trace_dump"],"struct":["MetadataStorage"]};
