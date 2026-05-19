@@ -41,4 +41,3 @@ test_data_artifacts/programs
 test_data_artifacts/contracts
 test_data_artifacts/tests
 test_data_artifacts/tests_starknet
-test_data/e2e_libfuncs_raw

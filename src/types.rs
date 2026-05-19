@@ -205,7 +205,7 @@ impl TypeBuilder for CoreTypeConcrete {
                 metadata,
                 WithSelf::new(self_ty, info),
             ),
-            Self::BoundedInt(info) => self::bounded_int::build(
+            Self::BoundedInt(info) | Self::BoundedIntGuarantee(info) => self::bounded_int::build(
                 context,
                 module,
                 registry,
@@ -567,7 +567,8 @@ impl TypeBuilder for CoreTypeConcrete {
             },
             CoreTypeConcrete::Struct(_) => true,
 
-            CoreTypeConcrete::BoundedInt(_info) => {
+            CoreTypeConcrete::BoundedInt(_info)
+            | CoreTypeConcrete::BoundedIntGuarantee(_info) => {
                 #[cfg(target_arch = "x86_64")]
                 let value = _info.range.repr_bit_width() > 128;
 
@@ -660,7 +661,7 @@ impl TypeBuilder for CoreTypeConcrete {
                 is_zst
             }
 
-            CoreTypeConcrete::BoundedInt(_) => false,
+            CoreTypeConcrete::BoundedInt(_) | CoreTypeConcrete::BoundedIntGuarantee(_) => false,
             CoreTypeConcrete::GasReserve(_info) => false,
             CoreTypeConcrete::Const(info) => {
                 let type_info = registry.get_type(&info.inner_ty)?;
@@ -771,7 +772,9 @@ impl TypeBuilder for CoreTypeConcrete {
             CoreTypeConcrete::Sint64(_) => get_integer_layout(64),
             CoreTypeConcrete::Sint128(_) => get_integer_layout(128),
             CoreTypeConcrete::Bytes31(_) => get_integer_layout(248),
-            CoreTypeConcrete::BoundedInt(info) => get_integer_layout(info.range.repr_bit_width()),
+            CoreTypeConcrete::BoundedInt(info) | CoreTypeConcrete::BoundedIntGuarantee(info) => {
+                get_integer_layout(info.range.repr_bit_width())
+            }
             CoreTypeConcrete::QM31(_info) => layout_repeat(&get_integer_layout(31), 4)?.0,
             CoreTypeConcrete::GasReserve(_info) => get_integer_layout(128),
 
@@ -854,7 +857,7 @@ impl TypeBuilder for CoreTypeConcrete {
             }
             CoreTypeConcrete::Bytes31(_) => false,
 
-            CoreTypeConcrete::BoundedInt(_) => false,
+            CoreTypeConcrete::BoundedInt(_) | CoreTypeConcrete::BoundedIntGuarantee(_) => false,
             CoreTypeConcrete::Const(info) => registry
                 .get_type(&info.inner_ty)?
                 .is_memory_allocated(registry)?,

@@ -318,7 +318,8 @@ pub mod trace_dump_runtime {
             }
             CoreTypeConcrete::Uint128(_) => Value::U128(value_ptr.cast().read()),
 
-            CoreTypeConcrete::BoundedInt(BoundedIntConcreteType { range, .. }) => {
+            CoreTypeConcrete::BoundedInt(BoundedIntConcreteType { range, .. })
+            | CoreTypeConcrete::BoundedIntGuarantee(BoundedIntConcreteType { range, .. }) => {
                 let n_bits = ((range.size() - BigInt::one()).bits() as u32).max(1);
                 let n_bytes = n_bits.next_multiple_of(8) >> 3;
 

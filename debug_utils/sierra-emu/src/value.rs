@@ -126,7 +126,8 @@ impl Value {
             CoreTypeConcrete::Array(info) => {
                 matches!(self, Self::Array { ty, .. } if *ty == info.ty)
             }
-            CoreTypeConcrete::BoundedInt(info) => {
+            CoreTypeConcrete::BoundedInt(info)
+            | CoreTypeConcrete::BoundedIntGuarantee(info) => {
                 matches!(self, Self::BoundedInt { range, .. } if range.start == info.range.lower && range.end == info.range.upper)
             }
             CoreTypeConcrete::Enum(_) => {

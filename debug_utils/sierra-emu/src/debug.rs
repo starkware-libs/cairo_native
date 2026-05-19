@@ -420,6 +420,8 @@ pub fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             BoundedIntConcreteLibfunc::WrapNonZero(_) => "bounded_int_wrap_non_zero",
             BoundedIntConcreteLibfunc::TrimMin(_) => "bounded_int_trim_min",
             BoundedIntConcreteLibfunc::TrimMax(_) => "bounded_int_trim_max",
+            BoundedIntConcreteLibfunc::GuaranteeVerify(_) => "bounded_int_guarantee_verify",
+            BoundedIntConcreteLibfunc::U128ToU32Guarantees(_) => "u128_to_u32_guarantees",
         },
         CoreConcreteLibfunc::IntRange(selector) => match selector {
             IntRangeConcreteLibfunc::TryNew(_) => "int_range_try_new",
@@ -553,6 +555,7 @@ pub fn type_to_name(
         CoreTypeConcrete::SegmentArena(_) => String::from("SegmentArena"),
         CoreTypeConcrete::Bytes31(_) => String::from("Bytes31"),
         CoreTypeConcrete::BoundedInt(_) => String::from("BoundedInt"),
+        CoreTypeConcrete::BoundedIntGuarantee(_) => String::from("BoundedIntGuarantee"),
         CoreTypeConcrete::IntRange(info) => {
             format!("IntRange<{}>", type_to_name(&info.ty, registry))
         }

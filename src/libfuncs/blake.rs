@@ -31,10 +31,12 @@ pub fn build<'ctx, 'this>(
     selector: &BlakeConcreteLibfunc,
 ) -> Result<()> {
     match selector {
-        BlakeConcreteLibfunc::Blake2sCompress(info) => build_blake_operation(
+        BlakeConcreteLibfunc::Blake2sCompress(info)
+        | BlakeConcreteLibfunc::Blake2sCompressGuarantees(info) => build_blake_operation(
             context, registry, entry, location, helper, metadata, info, false,
         ),
-        BlakeConcreteLibfunc::Blake2sFinalize(info) => build_blake_operation(
+        BlakeConcreteLibfunc::Blake2sFinalize(info)
+        | BlakeConcreteLibfunc::Blake2sFinalizeGuarantees(info) => build_blake_operation(
             context, registry, entry, location, helper, metadata, info, true,
         ),
     }
