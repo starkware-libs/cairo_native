@@ -15,10 +15,7 @@
 use super::{TypeBuilder, WithSelf};
 use crate::{
     error::Result,
-    metadata::{
-        drop_overrides::DropOverridesMeta, dup_overrides::DupOverridesMeta,
-        enum_snapshot_variants::EnumSnapshotVariantsMeta, MetadataStorage,
-    },
+    metadata::{enum_snapshot_variants::EnumSnapshotVariantsMeta, MetadataStorage},
     utils::ProgramRegistryExt,
 };
 use cairo_lang_sierra::{
@@ -28,12 +25,8 @@ use cairo_lang_sierra::{
     },
     program_registry::ProgramRegistry,
 };
-use melior::{
-    dialect::func,
-    helpers::BuiltinBlockExt,
-    ir::{Block, BlockLike, Location, Module, Region, Type},
-    Context,
-};
+use melior::ir::{Module, Type};
+use melior::Context;
 
 /// Build the MLIR type.
 ///
@@ -56,95 +49,5 @@ pub fn build<'ctx>(
             .set_mapping(info.self_ty, variants);
     }
 
-    // Register clone override (if required).
-    DupOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            registry.build_type(context, module, metadata, &info.ty)?;
-            DupOverridesMeta::is_overriden(metadata, &info.ty)
-                .then(|| build_dup(context, module, registry, metadata, &info))
-                .transpose()
-        },
-    )?;
-    // Register clone override (if required).
-    DropOverridesMeta::register_with(
-        context,
-        module,
-        registry,
-        metadata,
-        info.self_ty(),
-        |metadata| {
-            registry.build_type(context, module, metadata, &info.ty)?;
-
-            DropOverridesMeta::is_overriden(metadata, &info.ty)
-                .then(|| build_drop(context, module, registry, metadata, &info))
-                .transpose()
-        },
-    )?;
-
     registry.build_type(context, module, metadata, &info.ty)
-}
-
-fn build_dup<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<InfoAndTypeConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-
-    let inner_ty = registry.build_type(context, module, metadata, &info.ty)?;
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(inner_ty, location)]));
-
-    let values = DupOverridesMeta::invoke_override(
-        context,
-        registry,
-        module,
-        &entry,
-        &entry,
-        location,
-        metadata,
-        &info.ty,
-        entry.arg(0)?,
-    )?;
-
-    entry.append_operation(func::r#return(&[values.0, values.1], location));
-    Ok(region)
-}
-
-fn build_drop<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: &WithSelf<InfoAndTypeConcreteType>,
-) -> Result<Region<'ctx>> {
-    let location = Location::unknown(context);
-
-    let inner_ty = registry.build_type(context, module, metadata, &info.ty)?;
-
-    let region = Region::new();
-    let entry = region.append_block(Block::new(&[(inner_ty, location)]));
-
-    DropOverridesMeta::invoke_override(
-        context,
-        registry,
-        module,
-        &entry,
-        &entry,
-        location,
-        metadata,
-        &info.ty,
-        entry.arg(0)?,
-    )?;
-
-    entry.append_operation(func::r#return(&[], location));
-    Ok(region)
 }

@@ -8,7 +8,6 @@ use crate::{
     execution_result::{ADD_MOD_BUILTIN_SIZE, MUL_MOD_BUILTIN_SIZE, RANGE_CHECK96_BUILTIN_SIZE},
     libfuncs::r#struct::build_struct_value,
     metadata::{
-        drop_overrides::DropOverridesMeta,
         runtime_bindings::{CircuitArithOperationType, RuntimeBindingsMeta},
         MetadataStorage,
     },
@@ -341,19 +340,6 @@ fn build_eval<'ctx, 'this>(
 
     // Ok case
     {
-        // We drop circuit_data, as its consumed by this libfunc.
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            ok_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[3].ty,
-            circuit_data,
-        )?;
-
         // Increase the mul mod builtin pointer by the number of evaluated gates.
         // If the evaluation succedes, then we assume that every gate was evaluated.
         // https://github.com/starkware-libs/cairo/blob/v2.12.0-dev.1/crates/cairo-lang-sierra-to-casm/src/invocations/circuit.rs?plain=1#L261
@@ -416,19 +402,6 @@ fn build_eval<'ctx, 'this>(
 
     // Error case
     {
-        // We drop circuit_data, as its consumed by this libfunc.
-        DropOverridesMeta::invoke_override(
-            context,
-            registry,
-            helper,
-            helper.init_block(),
-            err_block,
-            location,
-            metadata,
-            &info.signature.param_signatures[3].ty,
-            circuit_data,
-        )?;
-
         // We only consider mul gates evaluated before failure
         // Increase the mul mod builtin pointer by the number of evaluated gates.
         // As the evaluation failed, we read the number of evaluated gates from
@@ -868,23 +841,6 @@ fn build_get_output<'ctx, 'this>(
         metadata,
         guarantee_type_id,
         &[output_struct, modulus_struct],
-    )?;
-
-    // We drop the circuit outputs value, as its consumed by this libfunc.
-    // NOTE: As this libfunc consumes circuit_outputs, this implies that
-    // calling it multiple times involves duplicating the circuit outputs
-    // each time. This could be fixed by implementing a reference counter,
-    // like we do with regular arrays.
-    DropOverridesMeta::invoke_override(
-        context,
-        registry,
-        helper,
-        helper.init_block(),
-        entry,
-        location,
-        metadata,
-        &info.signature.param_signatures[0].ty,
-        outputs,
     )?;
 
     helper.br(entry, 0, &[output_struct, guarantee], location)?;
