@@ -420,6 +420,8 @@ pub const fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             BoundedIntConcreteLibfunc::WrapNonZero(_) => "bounded_int_wrap_non_zero",
             BoundedIntConcreteLibfunc::TrimMin(_) => "bounded_int_trim_min",
             BoundedIntConcreteLibfunc::TrimMax(_) => "bounded_int_trim_max",
+            BoundedIntConcreteLibfunc::GuaranteeVerify(_) => "bounded_int_guarantee_verify",
+            BoundedIntConcreteLibfunc::U128ToU32Guarantees(_) => "u128_to_u32_guarantees",
         },
         CoreConcreteLibfunc::IntRange(selector) => match selector {
             IntRangeConcreteLibfunc::TryNew(_) => "int_range_try_new",
@@ -464,6 +466,12 @@ pub fn type_to_name(
         CoreTypeConcrete::Enum(info) => generic_type_to_name(registry, "enum", &info.variants),
         CoreTypeConcrete::BoundedInt(info) => {
             format!("bounded_int<{},{}>", info.range.lower, info.range.upper)
+        }
+        CoreTypeConcrete::BoundedIntGuarantee(info) => {
+            format!(
+                "bounded_int_guarantee<{},{}>",
+                info.range.lower, info.range.upper
+            )
         }
         CoreTypeConcrete::Array(info) => {
             generic_type_to_name(registry, "array", std::slice::from_ref(&info.ty))
