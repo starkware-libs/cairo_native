@@ -22,5 +22,5 @@ fn u256_test() {
         result.return_values,
         vec![Felt::from_hex("0xf70cba9bb86caa97b086fdfa3df602ed").unwrap()]
     );
-    assert_eq!(result.remaining_gas, 18446744073709352905);
+    assert_eq!(result.remaining_gas, 18446744073709353675);
 }

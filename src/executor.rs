@@ -506,24 +506,26 @@ fn parse_result(
                 }))
             }
         },
-        CoreTypeConcrete::BoundedInt(info) => match return_ptr {
-            Some(return_ptr) => Ok(Value::from_ptr(return_ptr, type_id, registry)?),
-            None => {
-                let mut data = if info.range.repr_bit_width() <= 64 {
-                    BigInt::from(ret_registers[0])
-                } else {
-                    BigInt::from(((ret_registers[1] as u128) << 64) | ret_registers[0] as u128)
-                };
+        CoreTypeConcrete::BoundedInt(info) | CoreTypeConcrete::BoundedIntGuarantee(info) => {
+            match return_ptr {
+                Some(return_ptr) => Ok(Value::from_ptr(return_ptr, type_id, registry)?),
+                None => {
+                    let mut data = if info.range.repr_bit_width() <= 64 {
+                        BigInt::from(ret_registers[0])
+                    } else {
+                        BigInt::from(((ret_registers[1] as u128) << 64) | ret_registers[0] as u128)
+                    };
 
-                data &= (BigInt::one() << info.range.repr_bit_width()) - BigInt::one();
-                data += &info.range.lower;
+                    data &= (BigInt::one() << info.range.repr_bit_width()) - BigInt::one();
+                    data += &info.range.lower;
 
-                Ok(Value::BoundedInt {
-                    value: data.into(),
-                    range: info.range.clone(),
-                })
+                    Ok(Value::BoundedInt {
+                        value: data.into(),
+                        range: info.range.clone(),
+                    })
+                }
             }
-        },
+        }
         CoreTypeConcrete::Uint8(_) => match return_ptr {
             Some(return_ptr) => Ok(Value::Uint8(unsafe { *return_ptr.cast().as_ref() })),
             None => Ok(Value::Uint8(ret_registers[0] as u8)),
