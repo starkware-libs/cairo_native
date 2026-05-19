@@ -7,7 +7,8 @@ use cairo_lang_sierra::{
     extensions::{
         bounded_int::{
             BoundedIntConcreteLibfunc, BoundedIntConstrainConcreteLibfunc,
-            BoundedIntDivRemConcreteLibfunc, BoundedIntTrimConcreteLibfunc,
+            BoundedIntDivRemConcreteLibfunc, BoundedIntGuaranteeVerifyConcreteLibfunc,
+            BoundedIntTrimConcreteLibfunc,
         },
         core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         lib_func::SignatureOnlyConcreteLibfunc,
@@ -33,6 +34,12 @@ pub fn eval(
         BoundedIntConcreteLibfunc::WrapNonZero(info) => eval_wrap_non_zero(registry, info, args),
         BoundedIntConcreteLibfunc::TrimMin(info) | BoundedIntConcreteLibfunc::TrimMax(info) => {
             eval_trim(registry, info, args)
+        }
+        BoundedIntConcreteLibfunc::GuaranteeVerify(info) => {
+            eval_guarantee_verify(registry, info, args)
+        }
+        BoundedIntConcreteLibfunc::U128ToU32Guarantees(info) => {
+            eval_u128_to_u32_guarantees(registry, info, args)
         }
     }
 }
@@ -287,6 +294,34 @@ pub fn eval_trim(
     } else {
         EvalAction::NormalBranch(0, smallvec![])
     }
+}
+
+pub fn eval_guarantee_verify(
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _info: &BoundedIntGuaranteeVerifyConcreteLibfunc,
+    args: Vec<Value>,
+) -> EvalAction {
+    let range_check @ Value::Unit = args[0].clone() else {
+        panic!()
+    };
+    EvalAction::NormalBranch(0, smallvec![range_check])
+}
+
+pub fn eval_u128_to_u32_guarantees(
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _info: &SignatureOnlyConcreteLibfunc,
+    args: Vec<Value>,
+) -> EvalAction {
+    let [value]: [Value; 1] = args.try_into().unwrap();
+    let Value::U128(value) = value else {
+        panic!("Expected u128")
+    };
+    let range = BigInt::from(0u32)..BigInt::from(u32::MAX) + 1;
+    let limb = |shift: u32| Value::BoundedInt {
+        range: range.clone(),
+        value: BigInt::from((value >> shift) as u32),
+    };
+    EvalAction::NormalBranch(0, smallvec![limb(0), limb(32), limb(64), limb(96)])
 }
 
 #[cfg(test)]
