@@ -11,120 +11,78 @@
 
 use super::AbiArgument;
 use crate::{error::Error, starknet::U256, utils::get_integer_layout};
-use cairo_lang_sierra::ids::ConcreteTypeId;
 use num_traits::ToBytes;
 use starknet_types_core::felt::Felt;
-use std::ffi::c_void;
 
 fn align_to(buffer: &mut Vec<u8>, align: usize) {
     buffer.resize(buffer.len().next_multiple_of(align), 0);
 }
 
 impl AbiArgument for bool {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for u8 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for i8 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for u16 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for i16 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for u32 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for i32 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&(*self as u64).to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for u64 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&self.to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for i64 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.extend_from_slice(&self.to_ne_bytes());
         Ok(())
     }
 }
 
 impl AbiArgument for u128 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         if buffer.len() >= 40 {
             align_to(buffer, get_integer_layout(128).align());
         }
@@ -135,11 +93,7 @@ impl AbiArgument for u128 {
 }
 
 impl AbiArgument for i128 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         if buffer.len() >= 40 {
             align_to(buffer, get_integer_layout(128).align());
         }
@@ -150,11 +104,7 @@ impl AbiArgument for i128 {
 }
 
 impl AbiArgument for Felt {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         if buffer.len() >= 40 {
             align_to(buffer, get_integer_layout(252).align());
         }
@@ -165,22 +115,14 @@ impl AbiArgument for Felt {
 }
 
 impl AbiArgument for U256 {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
-        self.lo.to_bytes(buffer, find_dict_drop_override)?;
-        self.hi.to_bytes(buffer, find_dict_drop_override)
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
+        self.lo.to_bytes(buffer)?;
+        self.hi.to_bytes(buffer)
     }
 }
 
 impl AbiArgument for [u8; 31] {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        _find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
         // The `bytes31` type is treated as a 248-bit integer, therefore it follows the same
         // splitting rules as them.
 
@@ -195,22 +137,14 @@ impl AbiArgument for [u8; 31] {
 }
 
 impl<T> AbiArgument for *const T {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
-        <u64 as AbiArgument>::to_bytes(&(*self as u64), buffer, find_dict_drop_override)
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
+        <u64 as AbiArgument>::to_bytes(&(*self as u64), buffer)
     }
 }
 
 impl<T> AbiArgument for *mut T {
-    fn to_bytes(
-        &self,
-        buffer: &mut Vec<u8>,
-        find_dict_drop_override: impl Copy + Fn(&ConcreteTypeId) -> Option<extern "C" fn(*mut c_void)>,
-    ) -> Result<(), Error> {
-        <u64 as AbiArgument>::to_bytes(&(*self as u64), buffer, find_dict_drop_override)
+    fn to_bytes(&self, buffer: &mut Vec<u8>) -> Result<(), Error> {
+        <u64 as AbiArgument>::to_bytes(&(*self as u64), buffer)
     }
 }
 
@@ -221,7 +155,7 @@ mod test {
     #[test]
     fn u128_stack_split() {
         let mut buffer = vec![0; 40];
-        u128::MAX.to_bytes(&mut buffer, |_| unreachable!()).unwrap();
+        u128::MAX.to_bytes(&mut buffer).unwrap();
         assert_eq!(
             buffer,
             [0; 48].into_iter().chain([0xFF; 16]).collect::<Vec<_>>()
@@ -234,7 +168,7 @@ mod test {
         let mut buffer = vec![0; 24];
         Felt::from_hex("0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
             .unwrap()
-            .to_bytes(&mut buffer, |_| unreachable!())
+            .to_bytes(&mut buffer)
             .unwrap();
         assert_eq!(
             buffer,
@@ -249,7 +183,7 @@ mod test {
         let mut buffer = vec![0; 32];
         Felt::from_hex("0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
             .unwrap()
-            .to_bytes(&mut buffer, |_| unreachable!())
+            .to_bytes(&mut buffer)
             .unwrap();
         assert_eq!(
             buffer,
@@ -264,7 +198,7 @@ mod test {
         let mut buffer = vec![0; 40];
         Felt::from_hex("0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
             .unwrap()
-            .to_bytes(&mut buffer, |_| unreachable!())
+            .to_bytes(&mut buffer)
             .unwrap();
         assert_eq!(
             buffer,
