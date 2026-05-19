@@ -241,6 +241,14 @@ impl StarknetSyscallHandler for &mut MultiContractHandler {
     ) -> SyscallResult<()> {
         unimplemented!()
     }
+    fn sha512_process_block(
+        &mut self,
+        _state: &mut [u64; 8],
+        _block: &[u64; 16],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        unimplemented!()
+    }
     fn get_class_hash_at(
         &mut self,
         _contract_address: Felt,

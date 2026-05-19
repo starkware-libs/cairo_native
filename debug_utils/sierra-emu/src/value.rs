@@ -126,7 +126,7 @@ impl Value {
             CoreTypeConcrete::Array(info) => {
                 matches!(self, Self::Array { ty, .. } if *ty == info.ty)
             }
-            CoreTypeConcrete::BoundedInt(info) => {
+            CoreTypeConcrete::BoundedInt(info) | CoreTypeConcrete::BoundedIntGuarantee(info) => {
                 matches!(self, Self::BoundedInt { range, .. } if range.start == info.range.lower && range.end == info.range.upper)
             }
             CoreTypeConcrete::Enum(_) => {
@@ -236,6 +236,7 @@ impl Value {
                 StarknetTypeConcrete::System(_) => matches!(self, Self::Unit),
                 StarknetTypeConcrete::Secp256Point(_) => matches!(self, Self::Struct(_)),
                 StarknetTypeConcrete::Sha256StateHandle(_) => matches!(self, Self::Struct { .. }),
+                StarknetTypeConcrete::Sha512StateHandle(_) => matches!(self, Self::Struct { .. }),
             },
             CoreTypeConcrete::IntRange(_) => matches!(self, Self::IntRange { .. }),
             CoreTypeConcrete::GasReserve(_) => matches!(self, Self::U128(_)),

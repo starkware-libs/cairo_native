@@ -14,7 +14,7 @@ use cairo_lang_sierra::{
         bounded_int::{
             BoundedIntConcreteLibfunc, BoundedIntConstrainConcreteLibfunc,
             BoundedIntDivRemAlgorithm, BoundedIntDivRemConcreteLibfunc,
-            BoundedIntTrimConcreteLibfunc,
+            BoundedIntGuaranteeVerifyConcreteLibfunc, BoundedIntTrimConcreteLibfunc,
         },
         core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         lib_func::SignatureOnlyConcreteLibfunc,
@@ -71,6 +71,12 @@ pub fn build<'ctx, 'this>(
         }
         BoundedIntConcreteLibfunc::WrapNonZero(info) => {
             build_wrap_non_zero(context, registry, entry, location, helper, metadata, info)
+        }
+        BoundedIntConcreteLibfunc::GuaranteeVerify(info) => {
+            build_guarantee_verify(context, entry, location, helper, info)
+        }
+        BoundedIntConcreteLibfunc::U128ToU32Guarantees(info) => {
+            build_u128_to_u32_guarantees(context, entry, location, helper, info)
         }
     }
 }
@@ -706,6 +712,54 @@ fn build_is_zero<'ctx, 'this>(
         [&[], &[src_value]],
         location,
     )
+}
+
+/// Generate MLIR operations for the `bounded_int_guarantee_verify` libfunc.
+///
+/// Consumes a `BoundedIntGuarantee<min, max>` and returns the input `RangeCheck` builtin
+/// incremented to account for the two range-check operations performed at the Sierra/CASM
+/// level (one for `value >= min`, one for `value < max`).
+fn build_guarantee_verify<'ctx, 'this>(
+    context: &'ctx Context,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    _info: &BoundedIntGuaranteeVerifyConcreteLibfunc,
+) -> Result<()> {
+    let range_check = super::increment_builtin_counter_by(
+        context,
+        entry,
+        location,
+        entry.arg(0)?,
+        2 * RANGE_CHECK_BUILTIN_SIZE,
+    )?;
+    helper.br(entry, 0, &[range_check], location)
+}
+
+/// Generate MLIR operations for the `u128_to_u32_guarantees` libfunc.
+///
+/// Splits a `u128` into 4 `BoundedIntGuarantee<0, u32::MAX>` values, from low limb to
+/// high limb. The guarantees share the same MLIR representation as `u32`.
+fn build_u128_to_u32_guarantees<'ctx, 'this>(
+    context: &'ctx Context,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    _info: &SignatureOnlyConcreteLibfunc,
+) -> Result<()> {
+    let value = entry.arg(0)?;
+    let u32_ty = IntegerType::new(context, 32).into();
+
+    let k32 = entry.const_int(context, location, 32, 128)?;
+    let k64 = entry.const_int(context, location, 64, 128)?;
+    let k96 = entry.const_int(context, location, 96, 128)?;
+
+    let w0 = entry.trunci(value, u32_ty, location)?;
+    let w1 = entry.trunci(entry.shrui(value, k32, location)?, u32_ty, location)?;
+    let w2 = entry.trunci(entry.shrui(value, k64, location)?, u32_ty, location)?;
+    let w3 = entry.trunci(entry.shrui(value, k96, location)?, u32_ty, location)?;
+
+    helper.br(entry, 0, &[w0, w1, w2, w3], location)
 }
 
 /// Generate MLIR operations for the `bounded_int_wrap_non_zero` libfunc.
