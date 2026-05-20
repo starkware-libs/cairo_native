@@ -1,6 +1,5 @@
 //! Starknet related code for `cairo_native`
 
-use crate::types::array::ArrayMetadata;
 use serde::{Deserialize, Serialize};
 use starknet_types_core::felt::Felt;
 
@@ -9,7 +8,7 @@ pub type SyscallResult<T> = std::result::Result<T, Vec<Felt>>;
 #[repr(C)]
 #[derive(Debug)]
 pub struct ArrayAbi<T> {
-    pub ptr: *mut *mut T,
+    pub ptr: *mut T,
     pub since: u32,
     pub until: u32,
     pub capacity: u32,
@@ -24,12 +23,7 @@ impl From<&ArrayAbi<Felt252Abi>> for Vec<Felt> {
             let len = until_offset - since_offset;
             match len {
                 0 => &[],
-                _ => {
-                    // Access data through ArrayMetadata.data_ptr
-                    let metadata = &*value.ptr.cast::<ArrayMetadata>();
-                    let data_ptr = metadata.data_ptr.cast::<Felt252Abi>();
-                    std::slice::from_raw_parts(data_ptr.add(since_offset), len)
-                }
+                _ => std::slice::from_raw_parts(value.ptr.add(since_offset), len),
             }
         }
         .iter()
@@ -642,7 +636,7 @@ impl StarknetSyscallHandler for DummySyscallHandler {
 // TODO: Move to the correct place or remove if unused. See: https://github.com/starkware-libs/cairo_native/issues/1222
 pub(crate) mod handler {
     use super::*;
-    use crate::{types::array::ArrayMetadata, utils::libc_malloc};
+    use crate::utils::libc_malloc;
     use std::{
         alloc::Layout,
         fmt::Debug,
@@ -1060,7 +1054,7 @@ pub(crate) mod handler {
                 _ => {
                     let len: u32 = data.len().try_into().unwrap();
 
-                    // Allocate data from the arena (no prefix).
+                    // Allocate data from the arena.
                     let data_layout = Layout::array::<E>(data.len()).unwrap();
                     let data_ptr = crate::runtime::cairo_native__arena_alloc(
                         data_layout.size() as u64,
@@ -1071,18 +1065,8 @@ pub(crate) mod handler {
                         data_ptr.add(i).write(val.clone());
                     }
 
-                    let metadata_layout = Layout::new::<ArrayMetadata>();
-                    let metadata_ptr = crate::runtime::cairo_native__arena_alloc(
-                        metadata_layout.size() as u64,
-                        metadata_layout.align() as u64,
-                    ) as *mut ArrayMetadata;
-                    metadata_ptr.write(ArrayMetadata {
-                        max_len: len,
-                        data_ptr: data_ptr.cast::<u8>(),
-                    });
-
                     ArrayAbi {
-                        ptr: metadata_ptr.cast(),
+                        ptr: data_ptr,
                         since: 0,
                         until: len,
                         capacity: len,
@@ -1605,12 +1589,7 @@ pub(crate) mod handler {
                 let len = until_offset - since_offset;
                 match len {
                     0 => &[],
-                    _ => {
-                        // Access data through ArrayMetadata.data_ptr
-                        let metadata = &*input.ptr.cast::<ArrayMetadata>();
-                        let data_ptr = metadata.data_ptr.cast::<u64>();
-                        std::slice::from_raw_parts(data_ptr.add(since_offset), len)
-                    }
+                    _ => std::slice::from_raw_parts(input.ptr.add(since_offset), len),
                 }
             };
 

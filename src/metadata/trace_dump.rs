@@ -407,10 +407,8 @@ pub mod trace_dump_runtime {
                 let mut data = Vec::with_capacity((array.until - array.since) as usize);
 
                 if !array.ptr.is_null() {
-                    let data_ptr = array.ptr.read();
+                    let data_ptr = array.ptr.cast::<u8>();
                     for index in (array.since)..array.until {
-                        let index = index as usize;
-
                         data.push(value_from_ptr(
                             registry,
                             &info.ty,
