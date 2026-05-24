@@ -73,6 +73,7 @@ fn main() -> anyhow::Result<()> {
             add_statements_functions: false,
             add_statements_code_locations: false,
             add_functions_debug_info: false,
+            add_type_names: false,
             contract_declarations: None,
             contract_crate_ids: None,
             executable_crate_ids: None,

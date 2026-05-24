@@ -999,6 +999,20 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
         Ok(())
     }
 
+    fn sha512_process_block(
+        &mut self,
+        state: &mut [u64; 8],
+        block: &[u64; 16],
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        tracing::debug!("called");
+        deduct_gas(remaining_gas, gas_costs::SHA512_PROCESS_BLOCK)?;
+        let data_as_bytes =
+            GenericArray::from_exact_iter(block.iter().flat_map(|x| x.to_be_bytes())).unwrap();
+        sha2::compress512(state, &[data_as_bytes]);
+        Ok(())
+    }
+
     fn get_class_hash_at(
         &mut self,
         contract_address: Felt,
@@ -1045,6 +1059,7 @@ mod gas_costs {
     pub const KECCAK: u64 = 0;
     pub const KECCAK_ROUND_COST: u64 = 180000;
     pub const SHA256_PROCESS_BLOCK: u64 = 1852 * STEP + 65 * RANGE_CHECK + 1115 * BITWISE;
+    pub const SHA512_PROCESS_BLOCK: u64 = 4733 * STEP + 65 * RANGE_CHECK + 3320 * BITWISE;
     pub const LIBRARY_CALL: u64 = CALL_CONTRACT;
     pub const REPLACE_CLASS: u64 = 50 * STEP;
     pub const SECP256K1_ADD: u64 = 254 * STEP + 29 * RANGE_CHECK;

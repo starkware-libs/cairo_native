@@ -54,6 +54,7 @@ fn test_corelib() {
         contract_crate_ids: None,
         executable_crate_ids: None,
         add_functions_debug_info: false,
+        add_type_names: false,
         replace_ids: true,
     };
 

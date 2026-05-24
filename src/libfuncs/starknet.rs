@@ -52,7 +52,9 @@ pub fn build<'ctx, 'this>(
         | StarknetConcreteLibfunc::StorageAddressFromBase(info)
         | StarknetConcreteLibfunc::StorageAddressToFelt252(info)
         | StarknetConcreteLibfunc::Sha256StateHandleInit(info)
-        | StarknetConcreteLibfunc::Sha256StateHandleDigest(info) => super::build_noop::<1, false>(
+        | StarknetConcreteLibfunc::Sha256StateHandleDigest(info)
+        | StarknetConcreteLibfunc::Sha512StateHandleInit(info)
+        | StarknetConcreteLibfunc::Sha512StateHandleDigest(info) => super::build_noop::<1, false>(
             context,
             registry,
             entry,
@@ -141,6 +143,9 @@ pub fn build<'ctx, 'this>(
             context, registry, entry, location, helper, metadata, selector,
         ),
         StarknetConcreteLibfunc::Sha256ProcessBlock(info) => build_sha256_process_block_syscall(
+            context, registry, entry, location, helper, metadata, info,
+        ),
+        StarknetConcreteLibfunc::Sha512ProcessBlock(info) => build_sha512_process_block_syscall(
             context, registry, entry, location, helper, metadata, info,
         ),
         StarknetConcreteLibfunc::MetaTxV0(info) => {
@@ -2013,6 +2018,101 @@ pub fn build_sha256_process_block_syscall<'ctx, 'this>(
         gas_builtin_ptr,
         sha256_prev_state_ptr,
         sha256_current_block_ptr,
+    ];
+    let (result_tag, payload_ok, payload_err) = execute_syscall(
+        context,
+        registry,
+        entry,
+        fn_ptr,
+        &mut args,
+        location,
+        helper,
+        metadata,
+        info.branch_signatures()[0].vars[2].ty.clone(),
+        info.branch_signatures()[1].vars[2].ty.clone(),
+    )?;
+
+    registry.build_type(
+        context,
+        helper,
+        metadata,
+        &info.signature.param_signatures[3].ty,
+    )?;
+
+    let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
+
+    helper.cond_br(
+        context,
+        entry,
+        result_tag,
+        [1, 0],
+        [
+            &[remaining_gas, entry.arg(1)?, payload_err],
+            &[remaining_gas, entry.arg(1)?, payload_ok],
+        ],
+        location,
+    )
+}
+
+pub fn build_sha512_process_block_syscall<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    info: &SignatureOnlyConcreteLibfunc,
+) -> Result<()> {
+    // Extract self pointer.
+    let ptr = entry
+        .append_operation(llvm::load(
+            context,
+            entry.arg(1)?,
+            llvm::r#type::pointer(context, 0),
+            location,
+            LoadStoreOptions::default(),
+        ))
+        .result(0)?
+        .into();
+
+    // Allocate space and write the current gas.
+    let (gas_ty, gas_layout) = registry.build_type_with_layout(
+        context,
+        helper,
+        metadata,
+        &info.param_signatures()[0].ty,
+    )?;
+    let gas_builtin_ptr =
+        helper
+            .init_block()
+            .alloca1(context, location, gas_ty, gas_layout.align())?;
+    entry.append_operation(llvm::store(
+        context,
+        entry.arg(0)?,
+        gas_builtin_ptr,
+        location,
+        LoadStoreOptions::default(),
+    ));
+
+    let sha512_prev_state_ptr = entry.arg(2)?;
+    let sha512_current_block_ptr = entry.arg(3)?;
+
+    let fn_ptr = entry.gep(
+        context,
+        location,
+        entry.arg(1)?,
+        &[GepIndex::Const(
+            StarknetSyscallHandlerCallbacks::<()>::SHA512_PROCESS_BLOCK.try_into()?,
+        )],
+        pointer(context, 0),
+    )?;
+    let fn_ptr = entry.load(context, location, fn_ptr, llvm::r#type::pointer(context, 0))?;
+
+    let mut args = vec![
+        ptr,
+        gas_builtin_ptr,
+        sha512_prev_state_ptr,
+        sha512_current_block_ptr,
     ];
     let (result_tag, payload_ok, payload_err) = execute_syscall(
         context,

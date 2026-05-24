@@ -35,7 +35,7 @@ pub fn eval(
         EcConcreteLibfunc::PointFromX(info) => eval_point_from_x(registry, info, args),
         EcConcreteLibfunc::UnwrapPoint(info) => eval_unwrap_point(registry, info, args),
         EcConcreteLibfunc::Zero(info) => eval_zero(registry, info, args),
-        EcConcreteLibfunc::NegNz(_) => todo!(),
+        EcConcreteLibfunc::NegNz(info) => eval_neg(registry, info, args),
     }
 }
 

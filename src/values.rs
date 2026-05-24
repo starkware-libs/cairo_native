@@ -839,6 +839,9 @@ impl Value {
                     StarknetTypeConcrete::Sha256StateHandle(_) => {
                         native_panic!("todo: implement Sha256StateHandle from_ptr")
                     }
+                    StarknetTypeConcrete::Sha512StateHandle(_) => {
+                        native_panic!("todo: implement Sha512StateHandle from_ptr")
+                    }
                 },
                 CoreTypeConcrete::Span(_) => native_panic!("implement span from_ptr"),
                 CoreTypeConcrete::Snapshot(info) => Self::from_ptr(ptr, &info.ty, registry)?,
@@ -848,7 +851,8 @@ impl Value {
                 }
 
                 CoreTypeConcrete::Const(_) => native_panic!("implement const from_ptr"),
-                CoreTypeConcrete::BoundedInt(info) => {
+                CoreTypeConcrete::BoundedInt(info)
+                | CoreTypeConcrete::BoundedIntGuarantee(info) => {
                     let mut data = BigInt::from_biguint(
                         Sign::Plus,
                         BigUint::from_bytes_le(slice::from_raw_parts(
