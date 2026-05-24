@@ -464,6 +464,15 @@ impl StarknetSyscallHandler for SyscallHandler {
         Ok(())
     }
 
+    fn sha512_process_block(
+        &mut self,
+        _state: &mut [u64; 8],
+        _block: &[u64; 16],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        Ok(())
+    }
+
     fn get_class_hash_at(
         &mut self,
         contract_address: Felt,

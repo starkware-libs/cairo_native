@@ -97,6 +97,13 @@ pub fn build<'ctx>(
             metadata,
             WithSelf::new(selector.self_ty(), info),
         ),
+        StarknetTypeConcrete::Sha512StateHandle(info) => build_sha512_state_handle(
+            context,
+            module,
+            registry,
+            metadata,
+            WithSelf::new(selector.self_ty(), info),
+        ),
     }
 }
 
@@ -195,5 +202,17 @@ pub fn build_sha256_state_handle<'ctx>(
 ) -> Result<Type<'ctx>> {
     // Arena-allocated [u32; 8]. No dup/drop overrides needed — bitwise
     // copy of the pointer is safe and drop is a noop (arena owns memory).
+    Ok(llvm::r#type::pointer(context, 0))
+}
+
+pub fn build_sha512_state_handle<'ctx>(
+    context: &'ctx Context,
+    _module: &Module<'ctx>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _metadata: &mut MetadataStorage,
+    _info: WithSelf<InfoOnlyConcreteType>,
+) -> Result<Type<'ctx>> {
+    // Arena-allocated [u64; 8]. Same representation as Sha256StateHandle —
+    // an opaque pointer; arena owns the memory.
     Ok(llvm::r#type::pointer(context, 0))
 }

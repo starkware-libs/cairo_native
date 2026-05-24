@@ -169,6 +169,13 @@ pub trait StarknetSyscallHandler {
         remaining_gas: &mut u64,
     ) -> SyscallResult<[u32; 8]>;
 
+    fn sha512_process_block(
+        &mut self,
+        prev_state: [u64; 8],
+        current_block: [u64; 16],
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<[u64; 8]>;
+
     fn meta_tx_v0(
         &mut self,
         _address: Felt,
@@ -865,6 +872,21 @@ impl StarknetSyscallHandler for StubSyscallHandler {
         )
         .unwrap();
         sha2::compress256(&mut state, &[data_as_bytes]);
+        Ok(state)
+    }
+
+    fn sha512_process_block(
+        &mut self,
+        prev_state: [u64; 8],
+        current_block: [u64; 16],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<[u64; 8]> {
+        let mut state = prev_state;
+        let data_as_bytes = sha2::digest::generic_array::GenericArray::from_exact_iter(
+            current_block.iter().flat_map(|x| x.to_be_bytes()),
+        )
+        .unwrap();
+        sha2::compress512(&mut state, &[data_as_bytes]);
         Ok(state)
     }
 }

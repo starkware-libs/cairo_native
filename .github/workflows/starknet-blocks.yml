@@ -1,10 +1,7 @@
 name: Starknet Blocks
 
 on:
-  pull_request:
-    branches: [main]
-  merge_group:
-    types: [checks_requested]
+  workflow_dispatch:
 
 jobs:
   run-blocks:

@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs::File, path::PathBuf};
 
 use cairo_lang_runner::casm_run::{hint_to_hint_params, run_function, CairoHintProcessor};
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_utils::unordered_hash_map::UnorderedHashMap;
 use cairo_vm::{
     cairo_run::{write_encoded_memory, write_encoded_trace},
     types::builtin_name::BuiltinName,
@@ -47,7 +48,7 @@ pub fn main() {
         .map(|(offset, hints)| (*offset, hints.iter().map(hint_to_hint_params).collect()))
         .collect();
 
-    let string_to_hint: HashMap<String, cairo_lang_casm::hints::Hint> = contract
+    let string_to_hint: UnorderedHashMap<String, cairo_lang_casm::hints::Hint> = contract
         .hints
         .iter()
         .flat_map(|(_, hints)| hints.iter().cloned())

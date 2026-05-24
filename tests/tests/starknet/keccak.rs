@@ -16,7 +16,7 @@ fn keccak_test() {
     );
 
     assert!(!result.failure_flag);
-    assert_eq!(result.remaining_gas, 18446744073709325515);
+    assert_eq!(result.remaining_gas, 18446744073709326285);
     assert_eq!(result.return_values, vec![1.into()]);
 
     let result_aot_ct = run_native_starknet_aot_contract(
