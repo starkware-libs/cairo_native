@@ -2,7 +2,6 @@
 
 use crate::{
     starknet::{ArrayAbi, Felt252Abi},
-    types::array::ArrayMetadata,
     utils::{blake_utils, BuiltinCosts},
 };
 use bumpalo::Bump;
@@ -335,18 +334,8 @@ unsafe fn create_dict_entries_array(dict: &mut FeltDict) -> ArrayAbi<c_void> {
         final_value_ptr.copy_from_nonoverlapping(value, element_size);
     }
 
-    // Allocate and initialize ArrayMetadata struct from the arena
-    let metadata_ptr = cairo_native__arena_alloc(
-        size_of::<ArrayMetadata>() as u64,
-        align_of::<ArrayMetadata>() as u64,
-    ) as *mut ArrayMetadata;
-    metadata_ptr.write(ArrayMetadata {
-        max_len: len as u32,
-        data_ptr: data_ptr.cast::<u8>(),
-    });
-
     ArrayAbi {
-        ptr: metadata_ptr.cast(),
+        ptr: data_ptr.cast(),
         since: 0,
         until: len as u32,
         capacity: len as u32,
