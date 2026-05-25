@@ -6,8 +6,8 @@ use crate::{
     error::{panic::ToNativeAssertError, CompilerError, Error},
     native_assert, native_panic,
     runtime::FeltDict,
-    starknet::{Secp256k1Point, Secp256r1Point},
-    types::{array::ArrayMetadata, TypeBuilder},
+    starknet::{ArrayAbi, Secp256k1Point, Secp256r1Point},
+    types::TypeBuilder,
     utils::{felt252_bigint, get_integer_layout, layout_repeat, RangeExt, PRIME},
 };
 use bumpalo::Bump;
@@ -245,45 +245,14 @@ impl Value {
                             );
                         }
 
-                        // Allocate metadata struct: { max_len: u32, data_ptr: *mut () }
-                        let metadata_ptr: *mut () = if data_ptr.is_null() {
-                            null_mut()
-                        } else {
-                            let metadata: *mut ArrayMetadata = arena
-                                .alloc_layout(Layout::new::<ArrayMetadata>())
-                                .cast()
-                                .as_ptr();
-                            metadata.write(ArrayMetadata {
-                                max_len: len,
-                                data_ptr,
-                            });
-                            metadata.cast()
+                        let target = arena.alloc_layout(Layout::new::<ArrayAbi<u8>>()).as_ptr();
+
+                        *target.cast::<ArrayAbi<u8>>() = ArrayAbi {
+                            ptr: data_ptr,
+                            since: 0,
+                            until: len,
+                            capacity: len,
                         };
-
-                        let target = arena
-                            .alloc_layout(
-                                Layout::new::<*mut ()>() // metadata_ptr
-                                    .extend(Layout::new::<u32>())? // start
-                                    .0
-                                    .extend(Layout::new::<u32>())? // end
-                                    .0
-                                    .extend(Layout::new::<u32>())? // capacity
-                                    .0
-                                    .pad_to_align(),
-                            )
-                            .as_ptr();
-
-                        *target.cast::<*mut ()>() = metadata_ptr.cast();
-
-                        let (layout, offset) =
-                            Layout::new::<*mut NonNull<()>>().extend(Layout::new::<u32>())?;
-                        *target.byte_add(offset).cast::<u32>() = 0; // start
-
-                        let (layout, offset) = layout.extend(Layout::new::<u32>())?;
-                        *target.byte_add(offset).cast::<u32>() = len; // end
-
-                        let (_, offset) = layout.extend(Layout::new::<u32>())?;
-                        *target.byte_add(offset).cast::<u32>() = len; // capacity
 
                         NonNull::new_unchecked(target).cast()
                     } else {
@@ -602,24 +571,18 @@ impl Value {
                         .as_ref();
                     let (_ptr_layout, _offset) = ptr_layout.extend(len_layout)?; // capacity (unused here)
 
-                    // This pointer can be null if the array is empty.
-                    let metadata_ptr = *ptr.cast::<*mut *mut ()>().as_ref();
+                    // This pointer is null when no buffer has been allocated for the array.
+                    let data_ptr = *ptr.cast::<*mut u8>().as_ref();
 
-                    let array_value = if metadata_ptr.is_null() {
+                    let array_value = if data_ptr.is_null() {
                         Vec::new()
                     } else {
-                        let metadata = metadata_ptr
-                            .cast::<ArrayMetadata>()
-                            .as_ref()
-                            .to_native_assert_error("metadata pointer should not be null")?;
-
                         native_assert!(
                             end_offset_value >= start_offset_value,
                             "can't have an array with negative length"
                         );
                         let num_elems = (end_offset_value - start_offset_value) as usize;
 
-                        let data_ptr = metadata.data_ptr;
                         let mut array_value = Vec::with_capacity(num_elems);
                         for i in start_offset_value..end_offset_value {
                             let cur_elem_ptr =

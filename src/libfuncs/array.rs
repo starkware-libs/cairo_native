@@ -5,9 +5,6 @@ use crate::{
     error::{Error, Result, SierraAssertError},
     metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     native_assert,
-    types::array::{
-        calc_metadata_align, calc_metadata_size, load_data_ptr, store_data_ptr, store_max_len,
-    },
     utils::ProgramRegistryExt,
 };
 use cairo_lang_sierra::{
@@ -189,25 +186,7 @@ pub fn build_span_from_tuple<'ctx, 'this>(
     // data_ptr aliases the input box: both are arena-backed.
     let data_ptr: Value = entry.argument(0)?.into();
 
-    // Allocate metadata struct from the arena.
-    let metadata_size = entry.const_int(context, location, calc_metadata_size(), 64)?;
-    let metadata_align_val = entry.const_int(context, location, calc_metadata_align(), 64)?;
-    let metadata_ptr = {
-        let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-        rtb.arena_alloc(
-            context,
-            helper.module,
-            entry,
-            location,
-            metadata_size,
-            metadata_align_val,
-        )?
-    };
-
-    store_max_len(context, entry, location, metadata_ptr, array_len)?;
-    store_data_ptr(context, entry, location, metadata_ptr, data_ptr)?;
-
-    // Build the array representation (4 fields: metadata_ptr, start, end, capacity)
+    // Build the array representation (4 fields: data_ptr, start, end, capacity)
     let value = entry.append_op_result(llvm::undef(
         llvm::r#type::r#struct(context, &[ptr_ty, len_ty, len_ty, len_ty], false),
         location,
@@ -216,7 +195,7 @@ pub fn build_span_from_tuple<'ctx, 'this>(
         context,
         location,
         value,
-        &[metadata_ptr, k0, array_len, array_len],
+        &[data_ptr, k0, array_len, array_len],
     )?;
 
     helper.br(entry, 0, &[value], location)
@@ -265,8 +244,7 @@ pub fn build_tuple_from_span<'ctx, 'this>(
     let len_ty = IntegerType::new(context, 32).into();
     let (_, elem_layout) = registry.build_type_with_layout(context, helper, metadata, elem_id)?;
 
-    let metadata_ptr =
-        entry.extract_value(context, location, entry.argument(0)?.into(), ptr_ty, 0)?;
+    let data_ptr = entry.extract_value(context, location, entry.argument(0)?.into(), ptr_ty, 0)?;
     let array_start =
         entry.extract_value(context, location, entry.argument(0)?.into(), len_ty, 1)?;
     let array_end = entry.extract_value(context, location, entry.argument(0)?.into(), len_ty, 2)?;
@@ -305,8 +283,6 @@ pub fn build_tuple_from_span<'ctx, 'this>(
             valid_block.const_int(context, location, elem_layout.pad_to_align().size(), 64)?,
             location,
         ))?;
-
-        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
 
         let array_data_start_ptr = valid_block.gep(
             context,
@@ -376,21 +352,19 @@ pub fn build_append<'ctx, 'this>(
         Result::Ok((realloc_len, realloc_size))
     }
 
-    let metadata_ptr =
-        entry.extract_value(context, location, entry.argument(0)?.into(), ptr_ty, 0)?;
+    let data_ptr = entry.extract_value(context, location, entry.argument(0)?.into(), ptr_ty, 0)?;
     let null_ptr = entry.append_op_result(llvm::zero(ptr_ty, location))?;
     let is_empty = entry.append_op_result(
         ods::llvm::icmp(
             context,
             IntegerType::new(context, 1).into(),
-            metadata_ptr,
+            data_ptr,
             null_ptr,
             IntegerAttribute::new(IntegerType::new(context, 64).into(), 0).into(),
             location,
         )
         .into(),
     )?;
-    let k0 = entry.const_int_from_type(context, location, 0, len_ty)?;
     let array_obj = entry.append_op_result(scf::r#if(
         is_empty,
         &[self_ty],
@@ -416,28 +390,8 @@ pub fn build_append<'ctx, 'this>(
                 )?
             };
 
-            // Allocate metadata struct from the arena.
-            let metadata_size = block.const_int(context, location, calc_metadata_size(), 64)?;
-            let metadata_align_val =
-                block.const_int(context, location, calc_metadata_align(), 64)?;
-            let metadata_ptr = {
-                let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
-                rtb.arena_alloc(
-                    context,
-                    helper.module,
-                    &block,
-                    location,
-                    metadata_size,
-                    metadata_align_val,
-                )?
-            };
-
-            store_max_len(context, &block, location, metadata_ptr, k0)?;
-            store_data_ptr(context, &block, location, metadata_ptr, data_ptr)?;
-
-            // Build 4-field struct with capacity
             let array_obj = entry.argument(0)?.into();
-            let array_obj = block.insert_value(context, location, array_obj, metadata_ptr, 0)?;
+            let array_obj = block.insert_value(context, location, array_obj, data_ptr, 0)?;
             let array_obj = block.insert_value(context, location, array_obj, array_capacity, 3)?;
             block.append_operation(scf::r#yield(&[array_obj], location));
             region
@@ -480,15 +434,6 @@ pub fn build_append<'ctx, 'this>(
                         array_capacity,
                     )?;
 
-                    let metadata_ptr = block.extract_value(
-                        context,
-                        location,
-                        entry.argument(0)?.into(),
-                        ptr_ty,
-                        0,
-                    )?;
-                    let data_ptr = load_data_ptr(context, &block, location, metadata_ptr)?;
-
                     // Only [0, array_end) holds live data; the tail up to capacity is unused.
                     let array_end_64 =
                         block.extui(array_end, IntegerType::new(context, 64).into(), location)?;
@@ -496,6 +441,8 @@ pub fn build_append<'ctx, 'this>(
                     let data_align = block.const_int(context, location, elem_align, 64)?;
 
                     // Arena-realloc the data (old buffer is abandoned in the arena).
+                    // Pre-existing snapshots keep pointing at the old buffer, which remains
+                    // alive in the arena; the memcpy preserves their visible prefix.
                     let new_data_ptr = {
                         let rtb = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
                         rtb.arena_alloc(
@@ -509,11 +456,9 @@ pub fn build_append<'ctx, 'this>(
                     };
                     block.memcpy(context, location, data_ptr, new_data_ptr, copy_size);
 
-                    // Update data_ptr in metadata
-                    store_data_ptr(context, &block, location, metadata_ptr, new_data_ptr)?;
-
-                    // Update capacity in struct field 3
                     let array_obj = entry.argument(0)?.into();
+                    let array_obj =
+                        block.insert_value(context, location, array_obj, new_data_ptr, 0)?;
                     let array_obj =
                         block.insert_value(context, location, array_obj, new_capacity, 3)?;
                     block.append_operation(scf::r#yield(&[array_obj], location));
@@ -528,8 +473,7 @@ pub fn build_append<'ctx, 'this>(
         location,
     ))?;
 
-    let metadata_ptr = entry.extract_value(context, location, array_obj, ptr_ty, 0)?;
-    let data_ptr = load_data_ptr(context, entry, location, metadata_ptr)?;
+    let data_ptr = entry.extract_value(context, location, array_obj, ptr_ty, 0)?;
 
     // Insert the value.
     let target_offset = entry.extract_value(context, location, array_obj, len_ty, 2)?;
@@ -554,8 +498,6 @@ pub fn build_append<'ctx, 'this>(
     let array_end = entry.extract_value(context, location, array_obj, len_ty, 2)?;
     let array_end = entry.addi(array_end, k1, location)?;
     let array_obj = entry.insert_value(context, location, array_obj, array_end, 2)?;
-
-    store_max_len(context, entry, location, metadata_ptr, array_end)?;
 
     helper.br(entry, 0, &[array_obj], location)
 }
@@ -656,9 +598,7 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
     {
         let mut branch_values = branch_values.clone();
 
-        let metadata_ptr = valid_block.extract_value(context, location, array_obj, ptr_ty, 0)?;
-
-        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
+        let data_ptr = valid_block.extract_value(context, location, array_obj, ptr_ty, 0)?;
 
         let elem_stride =
             valid_block.const_int(context, location, elem_layout.pad_to_align().size(), 64)?;
@@ -790,9 +730,8 @@ pub fn build_get<'ctx, 'this>(
         )?;
         let source_offset = valid_block.muli(source_offset, elem_stride, location)?;
 
-        let metadata_ptr =
+        let data_ptr =
             valid_block.extract_value(context, location, entry.argument(1)?.into(), ptr_ty, 0)?;
-        let data_ptr = load_data_ptr(context, valid_block, location, metadata_ptr)?;
 
         let source_ptr = valid_block.gep(
             context,

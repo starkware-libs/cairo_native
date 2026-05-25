@@ -50,7 +50,7 @@ use crate::{
     runtime::BLAKE_CALL_COUNT,
     starknet::{handler::StarknetSyscallHandlerCallbacks, StarknetSyscallHandler},
     statistics::{SierraDeclaredTypeStats, SierraFuncStats, Statistics},
-    types::{array::ArrayMetadata, TypeBuilder},
+    types::TypeBuilder,
     utils::{
         decode_error_message, generate_function_name, get_integer_layout, get_types_total_size,
         BuiltinCosts,
@@ -89,7 +89,7 @@ use std::{
     fs::{self, File},
     io,
     path::{Path, PathBuf},
-    ptr::{self, NonNull},
+    ptr::NonNull,
     sync::Arc,
     time::Instant,
 };
@@ -516,25 +516,7 @@ impl AotContractExecutor {
             };
         }
 
-        // Allocate metadata struct: { max_len: u32, data_ptr: *mut () }
-        let metadata_ptr = if data_ptr.is_null() {
-            ptr::null_mut()
-        } else {
-            unsafe {
-                let metadata = crate::runtime::cairo_native__arena_alloc(
-                    size_of::<ArrayMetadata>() as u64,
-                    align_of::<ArrayMetadata>() as u64,
-                )
-                .cast::<ArrayMetadata>();
-                metadata.write(ArrayMetadata {
-                    max_len: len_u32,
-                    data_ptr,
-                });
-                metadata.cast::<()>()
-            }
-        };
-
-        metadata_ptr.to_bytes(&mut invoke_data)?;
+        data_ptr.to_bytes(&mut invoke_data)?;
         if cfg!(target_arch = "aarch64") {
             0u32.to_bytes(&mut invoke_data)?; // start
             len_u32.to_bytes(&mut invoke_data)?; // end
@@ -666,16 +648,13 @@ impl AotContractExecutor {
         let value_layout = unsafe { Layout::from_size_align_unchecked(24, 8) };
         let mut value_ptr = unsafe { enum_ptr.byte_add(tag_layout.extend(value_layout)?.1).cast() };
 
-        let metadata_ptr = unsafe { *read_value::<*mut NonNull<()>>(&mut value_ptr) };
+        let data_ptr = unsafe { *read_value::<*mut u8>(&mut value_ptr) };
         let array_start = unsafe { *read_value::<u32>(&mut value_ptr) };
         let array_end = unsafe { *read_value::<u32>(&mut value_ptr) };
         let _array_capacity = unsafe { *read_value::<u32>(&mut value_ptr) };
 
         let mut array_value = Vec::with_capacity((array_end - array_start) as usize);
-        if !metadata_ptr.is_null() {
-            let metadata = unsafe { metadata_ptr.cast::<ArrayMetadata>().read() };
-            let data_ptr = metadata.data_ptr;
-
+        if !data_ptr.is_null() {
             let elem_stride = felt_layout.pad_to_align().size();
             for i in array_start..array_end {
                 let cur_elem_ptr = unsafe { data_ptr.byte_add(elem_stride * i as usize) };
