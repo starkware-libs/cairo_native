@@ -143,7 +143,16 @@ pub struct ExecutionInfoV3 {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    Default,
 )]
 pub struct TxV3Info {
     pub version: Felt,
@@ -390,6 +399,13 @@ pub trait StarknetSyscallHandler {
         remaining_gas: &mut u64,
     ) -> SyscallResult<()>;
 
+    fn sha512_process_block(
+        &mut self,
+        state: &mut [u64; 8],
+        block: &[u64; 16],
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<()>;
+
     fn get_class_hash_at(
         &mut self,
         contract_address: Felt,
@@ -608,6 +624,15 @@ impl StarknetSyscallHandler for DummySyscallHandler {
         &mut self,
         _state: &mut [u32; 8],
         _block: &[u32; 16],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        unimplemented!()
+    }
+
+    fn sha512_process_block(
+        &mut self,
+        _state: &mut [u64; 8],
+        _block: &[u64; 16],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<()> {
         unimplemented!()
@@ -938,6 +963,13 @@ pub(crate) mod handler {
             state: *mut [u32; 8],
             block: &[u32; 16],
         ),
+        sha512_process_block: extern "C" fn(
+            result_ptr: &mut SyscallResultAbi<*mut [u64; 8]>,
+            ptr: &mut T,
+            gas: &mut u64,
+            state: *mut [u64; 8],
+            block: &[u64; 16],
+        ),
         get_class_hash_at: extern "C" fn(
             result_ptr: &mut SyscallResultAbi<Felt252Abi>,
             ptr: &mut T,
@@ -998,6 +1030,7 @@ pub(crate) mod handler {
         pub const SECP256R1_GET_XY: usize = field_offset!(Self, secp256r1_get_xy) >> 3;
 
         pub const SHA256_PROCESS_BLOCK: usize = field_offset!(Self, sha256_process_block) >> 3;
+        pub const SHA512_PROCESS_BLOCK: usize = field_offset!(Self, sha512_process_block) >> 3;
 
         pub const GET_CLASS_HASH_AT: usize = field_offset!(Self, get_class_hash_at) >> 3;
 
@@ -1036,6 +1069,7 @@ pub(crate) mod handler {
                 secp256r1_get_point_from_x: Self::wrap_secp256r1_get_point_from_x,
                 secp256r1_get_xy: Self::wrap_secp256r1_get_xy,
                 sha256_process_block: Self::wrap_sha256_process_block,
+                sha512_process_block: Self::wrap_sha512_process_block,
                 get_class_hash_at: Self::wrap_get_class_hash_at,
                 meta_tx_v0: Self::wrap_meta_tx_v0,
                 #[cfg(feature = "with-cheatcode")]
@@ -1854,6 +1888,37 @@ pub(crate) mod handler {
             unsafe { std::ptr::copy_nonoverlapping(state, new_state, 1) };
             let state_ref = unsafe { new_state.as_mut().unwrap() };
             let result = ptr.sha256_process_block(state_ref, block, gas);
+
+            *result_ptr = match result {
+                Ok(_) => SyscallResultAbi {
+                    ok: ManuallyDrop::new(SyscallResultAbiOk {
+                        tag: 0u8,
+                        payload: ManuallyDrop::new(new_state),
+                    }),
+                },
+                Err(e) => Self::wrap_error(&e),
+            };
+        }
+
+        extern "C" fn wrap_sha512_process_block(
+            result_ptr: &mut SyscallResultAbi<*mut [u64; 8]>,
+            ptr: &mut T,
+            gas: &mut u64,
+            state: *mut [u64; 8],
+            block: &[u64; 16],
+        ) {
+            // Sha512StateHandle is Copy in corelib, so the input pointer may be
+            // aliased by other live copies. Mutate a fresh arena slot rather than
+            // the input buffer to keep aliased copies observing the prior state.
+            let new_state = unsafe {
+                crate::runtime::cairo_native__arena_alloc(
+                    std::mem::size_of::<[u64; 8]>() as u64,
+                    std::mem::align_of::<[u64; 8]>() as u64,
+                ) as *mut [u64; 8]
+            };
+            unsafe { std::ptr::copy_nonoverlapping(state, new_state, 1) };
+            let state_ref = unsafe { new_state.as_mut().unwrap() };
+            let result = ptr.sha512_process_block(state_ref, block, gas);
 
             *result_ptr = match result {
                 Ok(_) => SyscallResultAbi {

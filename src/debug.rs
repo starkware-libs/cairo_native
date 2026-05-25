@@ -380,6 +380,9 @@ pub const fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             StarknetConcreteLibfunc::Sha256ProcessBlock(_) => "sha256_process_block",
             StarknetConcreteLibfunc::Sha256StateHandleInit(_) => "sha256_state_handle_init",
             StarknetConcreteLibfunc::Sha256StateHandleDigest(_) => "sha256_state_handle_digest",
+            StarknetConcreteLibfunc::Sha512ProcessBlock(_) => "sha512_process_block",
+            StarknetConcreteLibfunc::Sha512StateHandleInit(_) => "sha512_state_handle_init",
+            StarknetConcreteLibfunc::Sha512StateHandleDigest(_) => "sha512_state_handle_digest",
             StarknetConcreteLibfunc::GetClassHashAt(_) => "get_class_hash_at_syscall",
             StarknetConcreteLibfunc::MetaTxV0(_) => "meta_tx_v0",
         },
@@ -420,6 +423,8 @@ pub const fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             BoundedIntConcreteLibfunc::WrapNonZero(_) => "bounded_int_wrap_non_zero",
             BoundedIntConcreteLibfunc::TrimMin(_) => "bounded_int_trim_min",
             BoundedIntConcreteLibfunc::TrimMax(_) => "bounded_int_trim_max",
+            BoundedIntConcreteLibfunc::GuaranteeVerify(_) => "bounded_int_guarantee_verify",
+            BoundedIntConcreteLibfunc::U128ToU32Guarantees(_) => "u128_to_u32_guarantees",
         },
         CoreConcreteLibfunc::IntRange(selector) => match selector {
             IntRangeConcreteLibfunc::TryNew(_) => "int_range_try_new",
@@ -464,6 +469,12 @@ pub fn type_to_name(
         CoreTypeConcrete::Enum(info) => generic_type_to_name(registry, "enum", &info.variants),
         CoreTypeConcrete::BoundedInt(info) => {
             format!("bounded_int<{},{}>", info.range.lower, info.range.upper)
+        }
+        CoreTypeConcrete::BoundedIntGuarantee(info) => {
+            format!(
+                "bounded_int_guarantee<{},{}>",
+                info.range.lower, info.range.upper
+            )
         }
         CoreTypeConcrete::Array(info) => {
             generic_type_to_name(registry, "array", std::slice::from_ref(&info.ty))
@@ -513,6 +524,7 @@ pub fn type_to_name(
             StarknetTypeConcrete::System(_) => String::from("system"),
             StarknetTypeConcrete::Secp256Point(_) => String::from("secp256_point"),
             StarknetTypeConcrete::Sha256StateHandle(_) => String::from("sha256_state_handle"),
+            StarknetTypeConcrete::Sha512StateHandle(_) => String::from("sha512_state_handle"),
         },
         CoreTypeConcrete::Circuit(selector) => match selector {
             CircuitTypeConcrete::AddMod(_) => String::from("add_mod"),

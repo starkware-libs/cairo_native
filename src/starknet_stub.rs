@@ -14,8 +14,8 @@ use crate::{
     execution_result::BuiltinStats,
     executor::AotNativeExecutor,
     starknet::{
-        ExecutionInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarknetSyscallHandler,
-        SyscallResult, TxV2Info, U256,
+        ExecutionInfo, ExecutionInfoV2, ExecutionInfoV3, Secp256k1Point, Secp256r1Point,
+        StarknetSyscallHandler, SyscallResult, TxV2Info, TxV3Info, U256,
     },
     Value,
 };
@@ -470,8 +470,25 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
     fn get_execution_info_v3(
         &mut self,
         remaining_gas: &mut u64,
-    ) -> crate::starknet::SyscallResult<crate::starknet::ExecutionInfoV3> {
-        todo!();
+    ) -> crate::starknet::SyscallResult<ExecutionInfoV3> {
+        tracing::debug!("called");
+        deduct_gas(remaining_gas, gas_costs::GET_EXECUTION_INFO)?;
+        Ok(ExecutionInfoV3 {
+            block_info: self.execution_info.block_info,
+            tx_info: TxV3Info {
+                version: self.execution_info.tx_info.version,
+                account_contract_address: self.execution_info.tx_info.account_contract_address,
+                max_fee: self.execution_info.tx_info.max_fee,
+                signature: self.execution_info.tx_info.signature.clone(),
+                transaction_hash: self.execution_info.tx_info.transaction_hash,
+                chain_id: self.execution_info.tx_info.chain_id,
+                nonce: self.execution_info.tx_info.nonce,
+                ..TxV3Info::default()
+            },
+            caller_address: self.execution_info.caller_address,
+            contract_address: self.execution_info.contract_address,
+            entry_point_selector: self.execution_info.entry_point_selector,
+        })
     }
 
     #[instrument(skip(self))]
@@ -999,6 +1016,20 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
         Ok(())
     }
 
+    fn sha512_process_block(
+        &mut self,
+        state: &mut [u64; 8],
+        block: &[u64; 16],
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        tracing::debug!("called");
+        deduct_gas(remaining_gas, gas_costs::SHA512_PROCESS_BLOCK)?;
+        let data_as_bytes =
+            GenericArray::from_exact_iter(block.iter().flat_map(|x| x.to_be_bytes())).unwrap();
+        sha2::compress512(state, &[data_as_bytes]);
+        Ok(())
+    }
+
     fn get_class_hash_at(
         &mut self,
         contract_address: Felt,
@@ -1045,6 +1076,7 @@ mod gas_costs {
     pub const KECCAK: u64 = 0;
     pub const KECCAK_ROUND_COST: u64 = 180000;
     pub const SHA256_PROCESS_BLOCK: u64 = 1852 * STEP + 65 * RANGE_CHECK + 1115 * BITWISE;
+    pub const SHA512_PROCESS_BLOCK: u64 = 4733 * STEP + 65 * RANGE_CHECK + 3320 * BITWISE;
     pub const LIBRARY_CALL: u64 = CALL_CONTRACT;
     pub const REPLACE_CLASS: u64 = 50 * STEP;
     pub const SECP256K1_ADD: u64 = 254 * STEP + 29 * RANGE_CHECK;

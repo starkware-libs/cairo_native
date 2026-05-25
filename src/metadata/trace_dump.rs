@@ -318,7 +318,8 @@ pub mod trace_dump_runtime {
             }
             CoreTypeConcrete::Uint128(_) => Value::U128(value_ptr.cast().read()),
 
-            CoreTypeConcrete::BoundedInt(BoundedIntConcreteType { range, .. }) => {
+            CoreTypeConcrete::BoundedInt(BoundedIntConcreteType { range, .. })
+            | CoreTypeConcrete::BoundedIntGuarantee(BoundedIntConcreteType { range, .. }) => {
                 let n_bits = ((range.size() - BigInt::one()).bits() as u32).max(1);
                 let n_bytes = n_bits.next_multiple_of(8) >> 3;
 
@@ -793,6 +794,11 @@ pub mod trace_dump_runtime {
                 StarknetTypeConcrete::Sha256StateHandle(_) => {
                     let raw_data = value_ptr.cast::<NonNull<[u32; 8]>>().read().read();
                     let data = raw_data.into_iter().map(Value::U32).collect_vec();
+                    Value::Struct(data)
+                }
+                StarknetTypeConcrete::Sha512StateHandle(_) => {
+                    let raw_data = value_ptr.cast::<NonNull<[u64; 8]>>().read().read();
+                    let data = raw_data.into_iter().map(Value::U64).collect_vec();
                     Value::Struct(data)
                 }
                 _ => unreachable!(),
