@@ -3,6 +3,7 @@ name = "sierra-emu"
 description = "A Cairo (Sierra) Virtual Machine."
 readme = "README.md"
 keywords = ["starknet", "cairo", "vm", "sierra"]
+exclude = ["corelib"]
 version.workspace = true
 edition.workspace = true
 license.workspace = true
