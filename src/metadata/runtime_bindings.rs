@@ -1145,8 +1145,20 @@ fn build_egcd_function<'ctx>(
         let old_s = loop_block.arg(2)?;
         let new_s = loop_block.arg(3)?;
 
-        // First calculate quotient of old_r/new_r.
-        let quotient = loop_block.append_op_result(arith::divui(old_r, new_r, location))?;
+        let zero = loop_block.const_int_from_type(context, location, 0, integer_type)?;
+        let one = loop_block.const_int_from_type(context, location, 1, integer_type)?;
+
+        // First calculate quotient of old_r/new_r. The caller may pass `a = 0`
+        // (e.g. the circuit INV gate, where the inverted value isn't constrained
+        // to be non-zero), so guard the divisor against zero to avoid udiv UB.
+        // After the first iteration the cond_br below ensures new_r != 0, making
+        // this select a no-op on every subsequent iteration. With new_r == 0 the
+        // loop produces gcd = old_r = b (the modulus), so the caller's post-check
+        // (`gcd == 1`) correctly reports "not invertible".
+        let new_r_is_zero = loop_block.cmpi(context, CmpiPredicate::Eq, new_r, zero, location)?;
+        let safe_divisor =
+            loop_block.append_op_result(arith::select(new_r_is_zero, one, new_r, location))?;
+        let quotient = loop_block.append_op_result(arith::divui(old_r, safe_divisor, location))?;
 
         // Multiply quotient by new_r and new_s.
         let quotient_by_new_r = loop_block.muli(quotient, new_r, location)?;
@@ -1161,7 +1173,6 @@ fn build_egcd_function<'ctx>(
             loop_block.append_op_result(arith::subi(old_s, quotient_by_new_s, location))?;
 
         // Jump to end block if next_new_r is zero.
-        let zero = loop_block.const_int_from_type(context, location, 0, integer_type)?;
         let next_new_r_is_zero =
             loop_block.cmpi(context, CmpiPredicate::Eq, next_new_r, zero, location)?;
         loop_block.append_operation(cf::cond_br(

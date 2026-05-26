@@ -773,8 +773,28 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
                 (i256_ty, location),
             ]));
 
+            // `a` (= block.arg(0) on the first iteration) is not constrained to be
+            // non-zero by the Cairo signature, so guard against udiv-by-zero (UB at
+            // the LLVM IR level). Substituting 1 leaves the post-loop check
+            // `result.1 == 1` returning false for any n > 1 and `inv != 0` returning
+            // false for n == 1, so both branches still report "no inverse" — matching
+            // casm_vm's behavior for a == 0.
+            let lhs_is_zero = block
+                .append_operation(arith::cmpi(
+                    context,
+                    CmpiPredicate::Eq,
+                    block.arg(0)?,
+                    k0,
+                    location,
+                ))
+                .result(0)?
+                .into();
+            let safe_divisor = block
+                .append_operation(arith::select(lhs_is_zero, k1, block.arg(0)?, location))
+                .result(0)?
+                .into();
             let q = block
-                .append_operation(arith::divui(block.arg(1)?, block.arg(0)?, location))
+                .append_operation(arith::divui(block.arg(1)?, safe_divisor, location))
                 .result(0)?
                 .into();
 
