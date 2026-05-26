@@ -148,19 +148,18 @@
 <a href=#148 id=148 data-nosnippet>148</a>
 <a href=#149 id=149 data-nosnippet>149</a>    <span class="attr">#[test]
 <a href=#150 id=150 data-nosnippet>150</a>    </span><span class="kw">fn </span>int_range_try_new() {
-<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">let </span>program =
-<a href=#152 id=152 data-nosnippet>152</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/int_range_try_new"</span>);
-<a href=#153 id=153 data-nosnippet>153</a>        run_program_assert_output(
-<a href=#154 id=154 data-nosnippet>154</a>            <span class="kw-2">&amp;</span>program,
-<a href=#155 id=155 data-nosnippet>155</a>            <span class="string">"run_test"</span>,
-<a href=#156 id=156 data-nosnippet>156</a>            <span class="kw-2">&amp;</span>[<span class="number">2u64</span>.into(), <span class="number">4u64</span>.into()],
-<a href=#157 id=157 data-nosnippet>157</a>            <span class="macro">jit_enum!</span>(
-<a href=#158 id=158 data-nosnippet>158</a>                <span class="number">0</span>,
-<a href=#159 id=159 data-nosnippet>159</a>                <span class="macro">jit_struct!</span>(Value::IntRange {
-<a href=#160 id=160 data-nosnippet>160</a>                    x: Box::new(<span class="number">2u64</span>.into()),
-<a href=#161 id=161 data-nosnippet>161</a>                    y: Box::new(<span class="number">4u64</span>.into()),
-<a href=#162 id=162 data-nosnippet>162</a>                })
-<a href=#163 id=163 data-nosnippet>163</a>            ),
-<a href=#164 id=164 data-nosnippet>164</a>        );
-<a href=#165 id=165 data-nosnippet>165</a>    }
-<a href=#166 id=166 data-nosnippet>166</a>}</code></pre></div></section></main></body></html>
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/int_range_try_new"</span>);
+<a href=#152 id=152 data-nosnippet>152</a>        run_program_assert_output(
+<a href=#153 id=153 data-nosnippet>153</a>            <span class="kw-2">&amp;</span>program,
+<a href=#154 id=154 data-nosnippet>154</a>            <span class="string">"run_test"</span>,
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="kw-2">&amp;</span>[<span class="number">2u64</span>.into(), <span class="number">4u64</span>.into()],
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="macro">jit_enum!</span>(
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="number">0</span>,
+<a href=#158 id=158 data-nosnippet>158</a>                <span class="macro">jit_struct!</span>(Value::IntRange {
+<a href=#159 id=159 data-nosnippet>159</a>                    x: Box::new(<span class="number">2u64</span>.into()),
+<a href=#160 id=160 data-nosnippet>160</a>                    y: Box::new(<span class="number">4u64</span>.into()),
+<a href=#161 id=161 data-nosnippet>161</a>                })
+<a href=#162 id=162 data-nosnippet>162</a>            ),
+<a href=#163 id=163 data-nosnippet>163</a>        );
+<a href=#164 id=164 data-nosnippet>164</a>    }
+<a href=#165 id=165 data-nosnippet>165</a>}</code></pre></div></section></main></body></html>

@@ -121,29 +121,28 @@
 <a href=#121 id=121 data-nosnippet>121</a>    // https://www.rfc-editor.org/rfc/rfc7693#appendix-B.
 <a href=#122 id=122 data-nosnippet>122</a>    </span><span class="attr">#[test]
 <a href=#123 id=123 data-nosnippet>123</a>    </span><span class="kw">fn </span>test_blake_3_bytes_compress() {
-<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>program =
-<a href=#125 id=125 data-nosnippet>125</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/blake_3_bytes_compress"</span>);
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span>result = run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]);
-<a href=#128 id=128 data-nosnippet>128</a>
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="macro">assert_eq!</span>(
-<a href=#130 id=130 data-nosnippet>130</a>            result.return_value,
-<a href=#131 id=131 data-nosnippet>131</a>            <span class="macro">jit_struct!</span>(
-<a href=#132 id=132 data-nosnippet>132</a>                Value::Uint32(<span class="number">0x8C5E8C50</span>),
-<a href=#133 id=133 data-nosnippet>133</a>                Value::Uint32(<span class="number">0xE2147C32</span>),
-<a href=#134 id=134 data-nosnippet>134</a>                Value::Uint32(<span class="number">0xA32BA7E1</span>),
-<a href=#135 id=135 data-nosnippet>135</a>                Value::Uint32(<span class="number">0x2F45EB4E</span>),
-<a href=#136 id=136 data-nosnippet>136</a>                Value::Uint32(<span class="number">0x208B4537</span>),
-<a href=#137 id=137 data-nosnippet>137</a>                Value::Uint32(<span class="number">0x293AD69E</span>),
-<a href=#138 id=138 data-nosnippet>138</a>                Value::Uint32(<span class="number">0x4C9B994D</span>),
-<a href=#139 id=139 data-nosnippet>139</a>                Value::Uint32(<span class="number">0x82596786</span>),
-<a href=#140 id=140 data-nosnippet>140</a>            )
-<a href=#141 id=141 data-nosnippet>141</a>        );
-<a href=#142 id=142 data-nosnippet>142</a>
-<a href=#143 id=143 data-nosnippet>143</a>        <span class="comment">// blake2s_finalize calls build_blake_operation once → blake count = 1
-<a href=#144 id=144 data-nosnippet>144</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#145 id=145 data-nosnippet>145</a>            result.builtin_stats.blake, <span class="number">1</span>,
-<a href=#146 id=146 data-nosnippet>146</a>            <span class="string">"blake counter should be exactly 1 for a single blake2s_finalize call"
-<a href=#147 id=147 data-nosnippet>147</a>        </span>);
-<a href=#148 id=148 data-nosnippet>148</a>    }
-<a href=#149 id=149 data-nosnippet>149</a>}</code></pre></div></section></main></body></html>
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/blake_3_bytes_compress"</span>);
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">let </span>result = run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]);
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="macro">assert_eq!</span>(
+<a href=#129 id=129 data-nosnippet>129</a>            result.return_value,
+<a href=#130 id=130 data-nosnippet>130</a>            <span class="macro">jit_struct!</span>(
+<a href=#131 id=131 data-nosnippet>131</a>                Value::Uint32(<span class="number">0x8C5E8C50</span>),
+<a href=#132 id=132 data-nosnippet>132</a>                Value::Uint32(<span class="number">0xE2147C32</span>),
+<a href=#133 id=133 data-nosnippet>133</a>                Value::Uint32(<span class="number">0xA32BA7E1</span>),
+<a href=#134 id=134 data-nosnippet>134</a>                Value::Uint32(<span class="number">0x2F45EB4E</span>),
+<a href=#135 id=135 data-nosnippet>135</a>                Value::Uint32(<span class="number">0x208B4537</span>),
+<a href=#136 id=136 data-nosnippet>136</a>                Value::Uint32(<span class="number">0x293AD69E</span>),
+<a href=#137 id=137 data-nosnippet>137</a>                Value::Uint32(<span class="number">0x4C9B994D</span>),
+<a href=#138 id=138 data-nosnippet>138</a>                Value::Uint32(<span class="number">0x82596786</span>),
+<a href=#139 id=139 data-nosnippet>139</a>            )
+<a href=#140 id=140 data-nosnippet>140</a>        );
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>        <span class="comment">// blake2s_finalize calls build_blake_operation once → blake count = 1
+<a href=#143 id=143 data-nosnippet>143</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#144 id=144 data-nosnippet>144</a>            result.builtin_stats.blake, <span class="number">1</span>,
+<a href=#145 id=145 data-nosnippet>145</a>            <span class="string">"blake counter should be exactly 1 for a single blake2s_finalize call"
+<a href=#146 id=146 data-nosnippet>146</a>        </span>);
+<a href=#147 id=147 data-nosnippet>147</a>    }
+<a href=#148 id=148 data-nosnippet>148</a>}</code></pre></div></section></main></body></html>

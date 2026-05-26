@@ -250,7 +250,7 @@
 <a href=#250 id=250 data-nosnippet>250</a>
 <a href=#251 id=251 data-nosnippet>251</a>    <span class="attr">#[test]
 <a href=#252 id=252 data-nosnippet>252</a>    </span><span class="kw">fn </span>felt252_add() {
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_add"</span>);
+<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"programs/libfuncs/felt252_add"</span>);
 <a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">fn </span>r(lhs: Felt, rhs: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; Felt {
 <a href=#255 id=255 data-nosnippet>255</a>            <span class="kw">match </span>run_program(
 <a href=#256 id=256 data-nosnippet>256</a>                program,
@@ -289,7 +289,7 @@
 <a href=#289 id=289 data-nosnippet>289</a>
 <a href=#290 id=290 data-nosnippet>290</a>    <span class="attr">#[test]
 <a href=#291 id=291 data-nosnippet>291</a>    </span><span class="kw">fn </span>felt252_sub() {
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_sub"</span>);
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"programs/libfuncs/felt252_sub"</span>);
 <a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">fn </span>r(lhs: Felt, rhs: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; Felt {
 <a href=#294 id=294 data-nosnippet>294</a>            <span class="kw">match </span>run_program(
 <a href=#295 id=295 data-nosnippet>295</a>                program,
@@ -326,7 +326,7 @@
 <a href=#326 id=326 data-nosnippet>326</a>
 <a href=#327 id=327 data-nosnippet>327</a>    <span class="attr">#[test]
 <a href=#328 id=328 data-nosnippet>328</a>    </span><span class="kw">fn </span>felt252_mul() {
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_mul"</span>);
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"programs/libfuncs/felt252_mul"</span>);
 <a href=#330 id=330 data-nosnippet>330</a>        <span class="kw">fn </span>r(lhs: Felt, rhs: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; Felt {
 <a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">match </span>run_program(
 <a href=#332 id=332 data-nosnippet>332</a>                program,
@@ -363,7 +363,7 @@
 <a href=#363 id=363 data-nosnippet>363</a>
 <a href=#364 id=364 data-nosnippet>364</a>    <span class="attr">#[test]
 <a href=#365 id=365 data-nosnippet>365</a>    </span><span class="kw">fn </span>felt252_div() {
-<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_div"</span>);
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"programs/libfuncs/felt252_div"</span>);
 <a href=#367 id=367 data-nosnippet>367</a>        <span class="comment">// Helper function to run the test and extract the return value.
 <a href=#368 id=368 data-nosnippet>368</a>        </span><span class="kw">fn </span>r(lhs: Felt, rhs: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; <span class="prelude-ty">Option</span>&lt;Felt&gt; {
 <a href=#369 id=369 data-nosnippet>369</a>            <span class="kw">match </span>run_program(
@@ -430,7 +430,7 @@
 <a href=#430 id=430 data-nosnippet>430</a>
 <a href=#431 id=431 data-nosnippet>431</a>    <span class="attr">#[test]
 <a href=#432 id=432 data-nosnippet>432</a>    </span><span class="kw">fn </span>felt252_const() {
-<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_const"</span>);
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_const"</span>);
 <a href=#434 id=434 data-nosnippet>434</a>        <span class="macro">assert_eq!</span>(
 <a href=#435 id=435 data-nosnippet>435</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
 <a href=#436 id=436 data-nosnippet>436</a>            Value::Struct {
@@ -444,106 +444,101 @@
 <a href=#444 id=444 data-nosnippet>444</a>
 <a href=#445 id=445 data-nosnippet>445</a>    <span class="attr">#[test]
 <a href=#446 id=446 data-nosnippet>446</a>    </span><span class="kw">fn </span>felt252_add_const() {
-<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span>program =
-<a href=#448 id=448 data-nosnippet>448</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_add_const"</span>);
-<a href=#449 id=449 data-nosnippet>449</a>        <span class="macro">assert_eq!</span>(
-<a href=#450 id=450 data-nosnippet>450</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
-<a href=#451 id=451 data-nosnippet>451</a>            <span class="macro">jit_struct!</span>(
-<a href=#452 id=452 data-nosnippet>452</a>                f(<span class="string">"0"</span>).into(),
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_add_const"</span>);
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="macro">assert_eq!</span>(
+<a href=#449 id=449 data-nosnippet>449</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
+<a href=#450 id=450 data-nosnippet>450</a>            <span class="macro">jit_struct!</span>(
+<a href=#451 id=451 data-nosnippet>451</a>                f(<span class="string">"0"</span>).into(),
+<a href=#452 id=452 data-nosnippet>452</a>                f(<span class="string">"1"</span>).into(),
 <a href=#453 id=453 data-nosnippet>453</a>                f(<span class="string">"1"</span>).into(),
-<a href=#454 id=454 data-nosnippet>454</a>                f(<span class="string">"1"</span>).into(),
-<a href=#455 id=455 data-nosnippet>455</a>                f(<span class="string">"2"</span>).into(),
+<a href=#454 id=454 data-nosnippet>454</a>                f(<span class="string">"2"</span>).into(),
+<a href=#455 id=455 data-nosnippet>455</a>                f(<span class="string">"-1"</span>).into(),
 <a href=#456 id=456 data-nosnippet>456</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#457 id=457 data-nosnippet>457</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#458 id=458 data-nosnippet>458</a>                f(<span class="string">"-2"</span>).into(),
+<a href=#457 id=457 data-nosnippet>457</a>                f(<span class="string">"-2"</span>).into(),
+<a href=#458 id=458 data-nosnippet>458</a>                f(<span class="string">"0"</span>).into(),
 <a href=#459 id=459 data-nosnippet>459</a>                f(<span class="string">"0"</span>).into(),
-<a href=#460 id=460 data-nosnippet>460</a>                f(<span class="string">"0"</span>).into(),
-<a href=#461 id=461 data-nosnippet>461</a>            )
-<a href=#462 id=462 data-nosnippet>462</a>        );
-<a href=#463 id=463 data-nosnippet>463</a>    }
-<a href=#464 id=464 data-nosnippet>464</a>
-<a href=#465 id=465 data-nosnippet>465</a>    <span class="attr">#[test]
-<a href=#466 id=466 data-nosnippet>466</a>    </span><span class="kw">fn </span>felt252_sub_const() {
-<a href=#467 id=467 data-nosnippet>467</a>        <span class="kw">let </span>program =
-<a href=#468 id=468 data-nosnippet>468</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_sub_const"</span>);
-<a href=#469 id=469 data-nosnippet>469</a>        <span class="macro">assert_eq!</span>(
-<a href=#470 id=470 data-nosnippet>470</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
-<a href=#471 id=471 data-nosnippet>471</a>            <span class="macro">jit_struct!</span>(
-<a href=#472 id=472 data-nosnippet>472</a>                f(<span class="string">"0"</span>).into(),
-<a href=#473 id=473 data-nosnippet>473</a>                f(<span class="string">"1"</span>).into(),
+<a href=#460 id=460 data-nosnippet>460</a>            )
+<a href=#461 id=461 data-nosnippet>461</a>        );
+<a href=#462 id=462 data-nosnippet>462</a>    }
+<a href=#463 id=463 data-nosnippet>463</a>
+<a href=#464 id=464 data-nosnippet>464</a>    <span class="attr">#[test]
+<a href=#465 id=465 data-nosnippet>465</a>    </span><span class="kw">fn </span>felt252_sub_const() {
+<a href=#466 id=466 data-nosnippet>466</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_sub_const"</span>);
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="macro">assert_eq!</span>(
+<a href=#468 id=468 data-nosnippet>468</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
+<a href=#469 id=469 data-nosnippet>469</a>            <span class="macro">jit_struct!</span>(
+<a href=#470 id=470 data-nosnippet>470</a>                f(<span class="string">"0"</span>).into(),
+<a href=#471 id=471 data-nosnippet>471</a>                f(<span class="string">"1"</span>).into(),
+<a href=#472 id=472 data-nosnippet>472</a>                f(<span class="string">"-1"</span>).into(),
+<a href=#473 id=473 data-nosnippet>473</a>                f(<span class="string">"0"</span>).into(),
 <a href=#474 id=474 data-nosnippet>474</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#475 id=475 data-nosnippet>475</a>                f(<span class="string">"0"</span>).into(),
-<a href=#476 id=476 data-nosnippet>476</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#477 id=477 data-nosnippet>477</a>                f(<span class="string">"1"</span>).into(),
-<a href=#478 id=478 data-nosnippet>478</a>                f(<span class="string">"0"</span>).into(),
-<a href=#479 id=479 data-nosnippet>479</a>                f(<span class="string">"2"</span>).into(),
-<a href=#480 id=480 data-nosnippet>480</a>                f(<span class="string">"-2"</span>).into(),
-<a href=#481 id=481 data-nosnippet>481</a>            )
-<a href=#482 id=482 data-nosnippet>482</a>        );
-<a href=#483 id=483 data-nosnippet>483</a>    }
-<a href=#484 id=484 data-nosnippet>484</a>
-<a href=#485 id=485 data-nosnippet>485</a>    <span class="attr">#[test]
-<a href=#486 id=486 data-nosnippet>486</a>    </span><span class="kw">fn </span>felt252_mul_const() {
-<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw">let </span>program =
-<a href=#488 id=488 data-nosnippet>488</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_mul_const"</span>);
-<a href=#489 id=489 data-nosnippet>489</a>        <span class="macro">assert_eq!</span>(
-<a href=#490 id=490 data-nosnippet>490</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
-<a href=#491 id=491 data-nosnippet>491</a>            <span class="macro">jit_struct!</span>(
-<a href=#492 id=492 data-nosnippet>492</a>                f(<span class="string">"0"</span>).into(),
-<a href=#493 id=493 data-nosnippet>493</a>                f(<span class="string">"0"</span>).into(),
-<a href=#494 id=494 data-nosnippet>494</a>                f(<span class="string">"0"</span>).into(),
+<a href=#475 id=475 data-nosnippet>475</a>                f(<span class="string">"1"</span>).into(),
+<a href=#476 id=476 data-nosnippet>476</a>                f(<span class="string">"0"</span>).into(),
+<a href=#477 id=477 data-nosnippet>477</a>                f(<span class="string">"2"</span>).into(),
+<a href=#478 id=478 data-nosnippet>478</a>                f(<span class="string">"-2"</span>).into(),
+<a href=#479 id=479 data-nosnippet>479</a>            )
+<a href=#480 id=480 data-nosnippet>480</a>        );
+<a href=#481 id=481 data-nosnippet>481</a>    }
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a>    <span class="attr">#[test]
+<a href=#484 id=484 data-nosnippet>484</a>    </span><span class="kw">fn </span>felt252_mul_const() {
+<a href=#485 id=485 data-nosnippet>485</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_mul_const"</span>);
+<a href=#486 id=486 data-nosnippet>486</a>        <span class="macro">assert_eq!</span>(
+<a href=#487 id=487 data-nosnippet>487</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
+<a href=#488 id=488 data-nosnippet>488</a>            <span class="macro">jit_struct!</span>(
+<a href=#489 id=489 data-nosnippet>489</a>                f(<span class="string">"0"</span>).into(),
+<a href=#490 id=490 data-nosnippet>490</a>                f(<span class="string">"0"</span>).into(),
+<a href=#491 id=491 data-nosnippet>491</a>                f(<span class="string">"0"</span>).into(),
+<a href=#492 id=492 data-nosnippet>492</a>                f(<span class="string">"1"</span>).into(),
+<a href=#493 id=493 data-nosnippet>493</a>                f(<span class="string">"-2"</span>).into(),
+<a href=#494 id=494 data-nosnippet>494</a>                f(<span class="string">"-4"</span>).into(),
 <a href=#495 id=495 data-nosnippet>495</a>                f(<span class="string">"1"</span>).into(),
-<a href=#496 id=496 data-nosnippet>496</a>                f(<span class="string">"-2"</span>).into(),
-<a href=#497 id=497 data-nosnippet>497</a>                f(<span class="string">"-4"</span>).into(),
-<a href=#498 id=498 data-nosnippet>498</a>                f(<span class="string">"1"</span>).into(),
-<a href=#499 id=499 data-nosnippet>499</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#500 id=500 data-nosnippet>500</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#501 id=501 data-nosnippet>501</a>            )
-<a href=#502 id=502 data-nosnippet>502</a>        );
-<a href=#503 id=503 data-nosnippet>503</a>    }
-<a href=#504 id=504 data-nosnippet>504</a>
-<a href=#505 id=505 data-nosnippet>505</a>    <span class="attr">#[test]
-<a href=#506 id=506 data-nosnippet>506</a>    </span><span class="kw">fn </span>felt252_div_const() {
-<a href=#507 id=507 data-nosnippet>507</a>        <span class="kw">let </span>program =
-<a href=#508 id=508 data-nosnippet>508</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_div_const"</span>);
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="macro">assert_eq!</span>(
-<a href=#510 id=510 data-nosnippet>510</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
-<a href=#511 id=511 data-nosnippet>511</a>            <span class="macro">jit_struct!</span>(
-<a href=#512 id=512 data-nosnippet>512</a>                f(<span class="string">"0"</span>).into(),
+<a href=#496 id=496 data-nosnippet>496</a>                f(<span class="string">"-1"</span>).into(),
+<a href=#497 id=497 data-nosnippet>497</a>                f(<span class="string">"-1"</span>).into(),
+<a href=#498 id=498 data-nosnippet>498</a>            )
+<a href=#499 id=499 data-nosnippet>499</a>        );
+<a href=#500 id=500 data-nosnippet>500</a>    }
+<a href=#501 id=501 data-nosnippet>501</a>
+<a href=#502 id=502 data-nosnippet>502</a>    <span class="attr">#[test]
+<a href=#503 id=503 data-nosnippet>503</a>    </span><span class="kw">fn </span>felt252_div_const() {
+<a href=#504 id=504 data-nosnippet>504</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_div_const"</span>);
+<a href=#505 id=505 data-nosnippet>505</a>        <span class="macro">assert_eq!</span>(
+<a href=#506 id=506 data-nosnippet>506</a>            run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]).return_value,
+<a href=#507 id=507 data-nosnippet>507</a>            <span class="macro">jit_struct!</span>(
+<a href=#508 id=508 data-nosnippet>508</a>                f(<span class="string">"0"</span>).into(),
+<a href=#509 id=509 data-nosnippet>509</a>                f(<span class="string">"1"</span>).into(),
+<a href=#510 id=510 data-nosnippet>510</a>                f(<span class="string">"1809251394333065606848661391547535052811553607665798349986546028067936010240"</span>)
+<a href=#511 id=511 data-nosnippet>511</a>                    .into(),
+<a href=#512 id=512 data-nosnippet>512</a>                f(<span class="string">"-1"</span>).into(),
 <a href=#513 id=513 data-nosnippet>513</a>                f(<span class="string">"1"</span>).into(),
-<a href=#514 id=514 data-nosnippet>514</a>                f(<span class="string">"1809251394333065606848661391547535052811553607665798349986546028067936010240"</span>)
-<a href=#515 id=515 data-nosnippet>515</a>                    .into(),
-<a href=#516 id=516 data-nosnippet>516</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#517 id=517 data-nosnippet>517</a>                f(<span class="string">"1"</span>).into(),
-<a href=#518 id=518 data-nosnippet>518</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#519 id=519 data-nosnippet>519</a>                f(<span class="string">"-1"</span>).into(),
-<a href=#520 id=520 data-nosnippet>520</a>                f(<span class="string">"2"</span>).into(),
-<a href=#521 id=521 data-nosnippet>521</a>                f(<span class="string">"4"</span>).into(),
-<a href=#522 id=522 data-nosnippet>522</a>                f(<span class="string">"-4"</span>).into(),
-<a href=#523 id=523 data-nosnippet>523</a>                f(<span class="string">"-4"</span>).into(),
-<a href=#524 id=524 data-nosnippet>524</a>                f(<span class="string">"4"</span>).into(),
-<a href=#525 id=525 data-nosnippet>525</a>                f(<span class="string">"8"</span>).into(),
-<a href=#526 id=526 data-nosnippet>526</a>                f(<span class="string">"-8"</span>).into(),
-<a href=#527 id=527 data-nosnippet>527</a>                f(<span class="string">"-8"</span>).into(),
-<a href=#528 id=528 data-nosnippet>528</a>                f(<span class="string">"8"</span>).into(),
-<a href=#529 id=529 data-nosnippet>529</a>            )
-<a href=#530 id=530 data-nosnippet>530</a>        );
-<a href=#531 id=531 data-nosnippet>531</a>    }
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a>    <span class="attr">#[test]
-<a href=#534 id=534 data-nosnippet>534</a>    </span><span class="kw">fn </span>felt252_is_zero() {
-<a href=#535 id=535 data-nosnippet>535</a>        <span class="kw">let </span>program =
-<a href=#536 id=536 data-nosnippet>536</a>            <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_is_zero"</span>);
-<a href=#537 id=537 data-nosnippet>537</a>        <span class="kw">fn </span>r(x: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; bool {
-<a href=#538 id=538 data-nosnippet>538</a>            <span class="kw">match </span>run_program(program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[Value::Felt252(x)]).return_value {
-<a href=#539 id=539 data-nosnippet>539</a>                Value::Enum { tag, .. } =&gt; tag != <span class="number">0</span>,
-<a href=#540 id=540 data-nosnippet>540</a>                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"invalid return type"</span>),
-<a href=#541 id=541 data-nosnippet>541</a>            }
-<a href=#542 id=542 data-nosnippet>542</a>        }
-<a href=#543 id=543 data-nosnippet>543</a>
-<a href=#544 id=544 data-nosnippet>544</a>        <span class="macro">assert!</span>(r(f(<span class="string">"0"</span>), program));
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"1"</span>), program));
-<a href=#546 id=546 data-nosnippet>546</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"-2"</span>), program));
-<a href=#547 id=547 data-nosnippet>547</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"-1"</span>), program));
-<a href=#548 id=548 data-nosnippet>548</a>    }
-<a href=#549 id=549 data-nosnippet>549</a>}</code></pre></div></section></main></body></html>
+<a href=#514 id=514 data-nosnippet>514</a>                f(<span class="string">"-1"</span>).into(),
+<a href=#515 id=515 data-nosnippet>515</a>                f(<span class="string">"-1"</span>).into(),
+<a href=#516 id=516 data-nosnippet>516</a>                f(<span class="string">"2"</span>).into(),
+<a href=#517 id=517 data-nosnippet>517</a>                f(<span class="string">"4"</span>).into(),
+<a href=#518 id=518 data-nosnippet>518</a>                f(<span class="string">"-4"</span>).into(),
+<a href=#519 id=519 data-nosnippet>519</a>                f(<span class="string">"-4"</span>).into(),
+<a href=#520 id=520 data-nosnippet>520</a>                f(<span class="string">"4"</span>).into(),
+<a href=#521 id=521 data-nosnippet>521</a>                f(<span class="string">"8"</span>).into(),
+<a href=#522 id=522 data-nosnippet>522</a>                f(<span class="string">"-8"</span>).into(),
+<a href=#523 id=523 data-nosnippet>523</a>                f(<span class="string">"-8"</span>).into(),
+<a href=#524 id=524 data-nosnippet>524</a>                f(<span class="string">"8"</span>).into(),
+<a href=#525 id=525 data-nosnippet>525</a>            )
+<a href=#526 id=526 data-nosnippet>526</a>        );
+<a href=#527 id=527 data-nosnippet>527</a>    }
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>    <span class="attr">#[test]
+<a href=#530 id=530 data-nosnippet>530</a>    </span><span class="kw">fn </span>felt252_is_zero() {
+<a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">let </span>program = <span class="kw-2">&amp;</span>get_compiled_program(<span class="string">"programs/libfuncs/felt252_is_zero"</span>);
+<a href=#532 id=532 data-nosnippet>532</a>        <span class="kw">fn </span>r(x: Felt, program: <span class="kw-2">&amp;</span>(String, Program)) -&gt; bool {
+<a href=#533 id=533 data-nosnippet>533</a>            <span class="kw">match </span>run_program(program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[Value::Felt252(x)]).return_value {
+<a href=#534 id=534 data-nosnippet>534</a>                Value::Enum { tag, .. } =&gt; tag != <span class="number">0</span>,
+<a href=#535 id=535 data-nosnippet>535</a>                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"invalid return type"</span>),
+<a href=#536 id=536 data-nosnippet>536</a>            }
+<a href=#537 id=537 data-nosnippet>537</a>        }
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="macro">assert!</span>(r(f(<span class="string">"0"</span>), program));
+<a href=#540 id=540 data-nosnippet>540</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"1"</span>), program));
+<a href=#541 id=541 data-nosnippet>541</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"-2"</span>), program));
+<a href=#542 id=542 data-nosnippet>542</a>        <span class="macro">assert!</span>(!r(f(<span class="string">"-1"</span>), program));
+<a href=#543 id=543 data-nosnippet>543</a>    }
+<a href=#544 id=544 data-nosnippet>544</a>}</code></pre></div></section></main></body></html>

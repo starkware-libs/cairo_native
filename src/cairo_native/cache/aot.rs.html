@@ -94,7 +94,7 @@
 <a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span>native_context = NativeContext::new();
 <a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span><span class="kw-2">mut </span>cache = AotProgramCache::new(<span class="kw-2">&amp;</span>native_context);
 <a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span>program = load_program(<span class="string">"test_data_artifacts/programs/aot_program"</span>);
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/aot_program"</span>);
 <a href=#98 id=98 data-nosnippet>98</a>
 <a href=#99 id=99 data-nosnippet>99</a>        <span class="kw">let </span>function_id = <span class="kw-2">&amp;</span>program.funcs.first().expect(<span class="string">"should have a function"</span>).id;
 <a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>executor = cache.compile_and_insert((), <span class="kw-2">&amp;</span>program, OptLevel::default());

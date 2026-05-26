@@ -191,12 +191,12 @@
 <a href=#191 id=191 data-nosnippet>191</a>
 <a href=#192 id=192 data-nosnippet>192</a>    <span class="attr">#[fixture]
 <a href=#193 id=193 data-nosnippet>193</a>    </span><span class="kw">fn </span>program() -&gt; Program {
-<a href=#194 id=194 data-nosnippet>194</a>        load_program(<span class="string">"test_data_artifacts/programs/executor_aot"</span>)
+<a href=#194 id=194 data-nosnippet>194</a>        load_program(<span class="string">"programs/executor_aot"</span>)
 <a href=#195 id=195 data-nosnippet>195</a>    }
 <a href=#196 id=196 data-nosnippet>196</a>
 <a href=#197 id=197 data-nosnippet>197</a>    <span class="attr">#[fixture]
 <a href=#198 id=198 data-nosnippet>198</a>    </span><span class="kw">fn </span>starknet_program() -&gt; Program {
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="macro">include_contract!</span>(<span class="string">"test_data_artifacts/contracts/simple_storage_42.contract.json"</span>)
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="macro">include_contract!</span>(<span class="string">"contracts/simple_storage_42.contract.json"</span>)
 <a href=#200 id=200 data-nosnippet>200</a>            .extract_sierra_program(<span class="bool-val">true</span>)
 <a href=#201 id=201 data-nosnippet>201</a>            .unwrap()
 <a href=#202 id=202 data-nosnippet>202</a>            .program

@@ -341,14 +341,14 @@
 <a href=#341 id=341 data-nosnippet>341</a>
 <a href=#342 id=342 data-nosnippet>342</a>    <span class="attr">#[test]
 <a href=#343 id=343 data-nosnippet>343</a>    </span><span class="kw">fn </span>test_bounded_int_sub() {
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">let </span>program = load_program(<span class="string">"test_data_artifacts/programs/debug_utils/bounded_int_sub"</span>);
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/debug_utils/bounded_int_sub"</span>);
 <a href=#345 id=345 data-nosnippet>345</a>
 <a href=#346 id=346 data-nosnippet>346</a>        run_test_program(program);
 <a href=#347 id=347 data-nosnippet>347</a>    }
 <a href=#348 id=348 data-nosnippet>348</a>
 <a href=#349 id=349 data-nosnippet>349</a>    <span class="attr">#[test]
 <a href=#350 id=350 data-nosnippet>350</a>    </span><span class="kw">fn </span>test_trim_i8() {
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>program = load_program(<span class="string">"test_data_artifacts/programs/debug_utils/bounded_int_trim_i8"</span>);
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/debug_utils/bounded_int_trim_i8"</span>);
 <a href=#352 id=352 data-nosnippet>352</a>
 <a href=#353 id=353 data-nosnippet>353</a>        <span class="kw">let </span>result = run_test_program(program);
 <a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span>result = result.last().unwrap();
@@ -362,7 +362,7 @@
 <a href=#362 id=362 data-nosnippet>362</a>
 <a href=#363 id=363 data-nosnippet>363</a>    <span class="attr">#[test]
 <a href=#364 id=364 data-nosnippet>364</a>    </span><span class="kw">fn </span>test_trim_u32() {
-<a href=#365 id=365 data-nosnippet>365</a>        <span class="kw">let </span>program = load_program(<span class="string">"test_data_artifacts/programs/debug_utils/bounded_int_trim_u32"</span>);
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/debug_utils/bounded_int_trim_u32"</span>);
 <a href=#366 id=366 data-nosnippet>366</a>
 <a href=#367 id=367 data-nosnippet>367</a>        <span class="kw">let </span>result = run_test_program(program);
 <a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>result = result.last().unwrap();
@@ -376,16 +376,15 @@
 <a href=#376 id=376 data-nosnippet>376</a>
 <a href=#377 id=377 data-nosnippet>377</a>    <span class="attr">#[test]
 <a href=#378 id=378 data-nosnippet>378</a>    </span><span class="kw">fn </span>test_trim_none() {
-<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw">let </span>program =
-<a href=#380 id=380 data-nosnippet>380</a>            load_program(<span class="string">"test_data_artifacts/programs/debug_utils/bounded_int_trim_none"</span>);
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">let </span>result = run_test_program(program);
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">let </span>result = result.last().unwrap();
-<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>expected = Value::BoundedInt {
-<a href=#385 id=385 data-nosnippet>385</a>            range: BigInt::from(-<span class="number">32767</span>)..BigInt::from(<span class="number">32768</span>),
-<a href=#386 id=386 data-nosnippet>386</a>            value: BigInt::from(<span class="number">0</span>),
-<a href=#387 id=387 data-nosnippet>387</a>        };
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>result, expected);
-<a href=#390 id=390 data-nosnippet>390</a>    }
-<a href=#391 id=391 data-nosnippet>391</a>}</code></pre></div></section></main></body></html>
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/debug_utils/bounded_int_trim_none"</span>);
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="kw">let </span>result = run_test_program(program);
+<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">let </span>result = result.last().unwrap();
+<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">let </span>expected = Value::BoundedInt {
+<a href=#384 id=384 data-nosnippet>384</a>            range: BigInt::from(-<span class="number">32767</span>)..BigInt::from(<span class="number">32768</span>),
+<a href=#385 id=385 data-nosnippet>385</a>            value: BigInt::from(<span class="number">0</span>),
+<a href=#386 id=386 data-nosnippet>386</a>        };
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>result, expected);
+<a href=#389 id=389 data-nosnippet>389</a>    }
+<a href=#390 id=390 data-nosnippet>390</a>}</code></pre></div></section></main></body></html>

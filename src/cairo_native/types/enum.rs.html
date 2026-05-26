@@ -278,23 +278,22 @@
 <a href=#278 id=278 data-nosnippet>278</a>
 <a href=#279 id=279 data-nosnippet>279</a>    <span class="attr">#[test]
 <a href=#280 id=280 data-nosnippet>280</a>    </span><span class="kw">fn </span>enum_type_single_variant_no_i0() {
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>program =
-<a href=#282 id=282 data-nosnippet>282</a>            load_program(<span class="string">"test_data_artifacts/programs/types/enum_type_single_variant_no_i0"</span>);
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>context = Context::new();
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>registry = ProgramRegistry::&lt;CoreType, CoreLibfunc&gt;::new(<span class="kw-2">&amp;</span>program).unwrap();
-<a href=#285 id=285 data-nosnippet>285</a>
-<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span>module = Module::new(Location::unknown(<span class="kw-2">&amp;</span>context));
-<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span><span class="kw-2">mut </span>metadata = MetadataStorage::new();
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span>i0_ty = IntegerType::new(<span class="kw-2">&amp;</span>context, <span class="number">0</span>).into();
-<a href=#290 id=290 data-nosnippet>290</a>        program
-<a href=#291 id=291 data-nosnippet>291</a>            .type_declarations
-<a href=#292 id=292 data-nosnippet>292</a>            .iter()
-<a href=#293 id=293 data-nosnippet>293</a>            .map(|ty| (<span class="kw-2">&amp;</span>ty.id, registry.get_type(<span class="kw-2">&amp;</span>ty.id).unwrap()))
-<a href=#294 id=294 data-nosnippet>294</a>            .map(|(id, ty)| {
-<a href=#295 id=295 data-nosnippet>295</a>                ty.build(<span class="kw-2">&amp;</span>context, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;mut </span>metadata, id)
-<a href=#296 id=296 data-nosnippet>296</a>                    .unwrap()
-<a href=#297 id=297 data-nosnippet>297</a>            })
-<a href=#298 id=298 data-nosnippet>298</a>            .any(|width| width == i0_ty);
-<a href=#299 id=299 data-nosnippet>299</a>    }
-<a href=#300 id=300 data-nosnippet>300</a>}</code></pre></div></section></main></body></html>
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>program = load_program(<span class="string">"programs/types/enum_type_single_variant_no_i0"</span>);
+<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span>context = Context::new();
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span>registry = ProgramRegistry::&lt;CoreType, CoreLibfunc&gt;::new(<span class="kw-2">&amp;</span>program).unwrap();
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>module = Module::new(Location::unknown(<span class="kw-2">&amp;</span>context));
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">let </span><span class="kw-2">mut </span>metadata = MetadataStorage::new();
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>i0_ty = IntegerType::new(<span class="kw-2">&amp;</span>context, <span class="number">0</span>).into();
+<a href=#289 id=289 data-nosnippet>289</a>        program
+<a href=#290 id=290 data-nosnippet>290</a>            .type_declarations
+<a href=#291 id=291 data-nosnippet>291</a>            .iter()
+<a href=#292 id=292 data-nosnippet>292</a>            .map(|ty| (<span class="kw-2">&amp;</span>ty.id, registry.get_type(<span class="kw-2">&amp;</span>ty.id).unwrap()))
+<a href=#293 id=293 data-nosnippet>293</a>            .map(|(id, ty)| {
+<a href=#294 id=294 data-nosnippet>294</a>                ty.build(<span class="kw-2">&amp;</span>context, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;mut </span>metadata, id)
+<a href=#295 id=295 data-nosnippet>295</a>                    .unwrap()
+<a href=#296 id=296 data-nosnippet>296</a>            })
+<a href=#297 id=297 data-nosnippet>297</a>            .any(|width| width == i0_ty);
+<a href=#298 id=298 data-nosnippet>298</a>    }
+<a href=#299 id=299 data-nosnippet>299</a>}</code></pre></div></section></main></body></html>

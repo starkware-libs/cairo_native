@@ -169,21 +169,20 @@
 <a href=#169 id=169 data-nosnippet>169</a>
 <a href=#170 id=170 data-nosnippet>170</a>    <span class="attr">#[test]
 <a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">fn </span>bytes31_roundtrip() {
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>program =
-<a href=#173 id=173 data-nosnippet>173</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/bytes31_roundtrip"</span>);
-<a href=#174 id=174 data-nosnippet>174</a>
-<a href=#175 id=175 data-nosnippet>175</a>        run_program_assert_output(
-<a href=#176 id=176 data-nosnippet>176</a>            <span class="kw-2">&amp;</span>program,
-<a href=#177 id=177 data-nosnippet>177</a>            <span class="string">"run_test"</span>,
-<a href=#178 id=178 data-nosnippet>178</a>            <span class="kw-2">&amp;</span>[Felt::from(<span class="number">2</span>).into()],
-<a href=#179 id=179 data-nosnippet>179</a>            <span class="macro">jit_enum!</span>(<span class="number">0</span>, <span class="macro">jit_struct!</span>(Felt::from(<span class="number">2</span>).into())),
-<a href=#180 id=180 data-nosnippet>180</a>        );
-<a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a>        run_program_assert_output(
-<a href=#183 id=183 data-nosnippet>183</a>            <span class="kw-2">&amp;</span>program,
-<a href=#184 id=184 data-nosnippet>184</a>            <span class="string">"run_test"</span>,
-<a href=#185 id=185 data-nosnippet>185</a>            <span class="kw-2">&amp;</span>[Felt::MAX.into()],
-<a href=#186 id=186 data-nosnippet>186</a>            <span class="macro">jit_panic!</span>(Felt::from_bytes_be_slice(<span class="string">b"Option::unwrap failed."</span>)),
-<a href=#187 id=187 data-nosnippet>187</a>        );
-<a href=#188 id=188 data-nosnippet>188</a>    }
-<a href=#189 id=189 data-nosnippet>189</a>}</code></pre></div></section></main></body></html>
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/bytes31_roundtrip"</span>);
+<a href=#173 id=173 data-nosnippet>173</a>
+<a href=#174 id=174 data-nosnippet>174</a>        run_program_assert_output(
+<a href=#175 id=175 data-nosnippet>175</a>            <span class="kw-2">&amp;</span>program,
+<a href=#176 id=176 data-nosnippet>176</a>            <span class="string">"run_test"</span>,
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="kw-2">&amp;</span>[Felt::from(<span class="number">2</span>).into()],
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="macro">jit_enum!</span>(<span class="number">0</span>, <span class="macro">jit_struct!</span>(Felt::from(<span class="number">2</span>).into())),
+<a href=#179 id=179 data-nosnippet>179</a>        );
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a>        run_program_assert_output(
+<a href=#182 id=182 data-nosnippet>182</a>            <span class="kw-2">&amp;</span>program,
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="string">"run_test"</span>,
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="kw-2">&amp;</span>[Felt::MAX.into()],
+<a href=#185 id=185 data-nosnippet>185</a>            <span class="macro">jit_panic!</span>(Felt::from_bytes_be_slice(<span class="string">b"Option::unwrap failed."</span>)),
+<a href=#186 id=186 data-nosnippet>186</a>        );
+<a href=#187 id=187 data-nosnippet>187</a>    }
+<a href=#188 id=188 data-nosnippet>188</a>}</code></pre></div></section></main></body></html>

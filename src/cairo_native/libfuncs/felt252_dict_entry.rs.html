@@ -200,52 +200,43 @@
 <a href=#200 id=200 data-nosnippet>200</a>
 <a href=#201 id=201 data-nosnippet>201</a>    <span class="attr">#[test]
 <a href=#202 id=202 data-nosnippet>202</a>    </span><span class="kw">fn </span>run_dict_insert() {
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span>program =
-<a href=#204 id=204 data-nosnippet>204</a>            get_compiled_program(<span class="string">"test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert"</span>);
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">1u32</span>.into());
-<a href=#207 id=207 data-nosnippet>207</a>    }
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a>    <span class="attr">#[test]
-<a href=#210 id=210 data-nosnippet>210</a>    </span><span class="kw">fn </span>run_dict_insert_big() {
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>program = get_compiled_program(
-<a href=#212 id=212 data-nosnippet>212</a>            <span class="string">"test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_big"</span>,
-<a href=#213 id=213 data-nosnippet>213</a>        );
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_dict_entry_insert"</span>);
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">1u32</span>.into());
+<a href=#206 id=206 data-nosnippet>206</a>    }
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>    <span class="attr">#[test]
+<a href=#209 id=209 data-nosnippet>209</a>    </span><span class="kw">fn </span>run_dict_insert_big() {
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_dict_entry_insert_big"</span>);
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">4u64</span>.into());
+<a href=#213 id=213 data-nosnippet>213</a>    }
 <a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">4u64</span>.into());
-<a href=#216 id=216 data-nosnippet>216</a>    }
-<a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="attr">#[test]
-<a href=#219 id=219 data-nosnippet>219</a>    </span><span class="kw">fn </span>run_dict_insert_ret_dict() {
-<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">let </span>program = get_compiled_program(
-<a href=#221 id=221 data-nosnippet>221</a>            <span class="string">"test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_ret_dict"</span>,
-<a href=#222 id=222 data-nosnippet>222</a>        );
-<a href=#223 id=223 data-nosnippet>223</a>
-<a href=#224 id=224 data-nosnippet>224</a>        run_program_assert_output(
-<a href=#225 id=225 data-nosnippet>225</a>            <span class="kw-2">&amp;</span>program,
-<a href=#226 id=226 data-nosnippet>226</a>            <span class="string">"run_test"</span>,
-<a href=#227 id=227 data-nosnippet>227</a>            <span class="kw-2">&amp;</span>[],
-<a href=#228 id=228 data-nosnippet>228</a>            <span class="macro">jit_dict!</span>(
-<a href=#229 id=229 data-nosnippet>229</a>                <span class="number">2 </span>=&gt; <span class="number">1u32
-<a href=#230 id=230 data-nosnippet>230</a>            </span>),
-<a href=#231 id=231 data-nosnippet>231</a>        );
-<a href=#232 id=232 data-nosnippet>232</a>    }
-<a href=#233 id=233 data-nosnippet>233</a>
-<a href=#234 id=234 data-nosnippet>234</a>    <span class="attr">#[test]
-<a href=#235 id=235 data-nosnippet>235</a>    </span><span class="kw">fn </span>run_dict_insert_multiple() {
-<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span>program = get_compiled_program(
-<a href=#237 id=237 data-nosnippet>237</a>            <span class="string">"test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_multiple"</span>,
-<a href=#238 id=238 data-nosnippet>238</a>        );
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="attr">#[test]
+<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">fn </span>run_dict_insert_ret_dict() {
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_dict_entry_insert_ret_dict"</span>);
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a>        run_program_assert_output(
+<a href=#220 id=220 data-nosnippet>220</a>            <span class="kw-2">&amp;</span>program,
+<a href=#221 id=221 data-nosnippet>221</a>            <span class="string">"run_test"</span>,
+<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw-2">&amp;</span>[],
+<a href=#223 id=223 data-nosnippet>223</a>            <span class="macro">jit_dict!</span>(
+<a href=#224 id=224 data-nosnippet>224</a>                <span class="number">2 </span>=&gt; <span class="number">1u32
+<a href=#225 id=225 data-nosnippet>225</a>            </span>),
+<a href=#226 id=226 data-nosnippet>226</a>        );
+<a href=#227 id=227 data-nosnippet>227</a>    }
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="attr">#[test]
+<a href=#230 id=230 data-nosnippet>230</a>    </span><span class="kw">fn </span>run_dict_insert_multiple() {
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_dict_entry_insert_multiple"</span>);
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">1345432_u32</span>.into());
+<a href=#234 id=234 data-nosnippet>234</a>    }
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>    <span class="attr">#[test]
+<a href=#237 id=237 data-nosnippet>237</a>    </span><span class="kw">fn </span>run_dict_clone_ptr_update() {
+<a href=#238 id=238 data-nosnippet>238</a>        <span class="kw">let </span>program = get_compiled_program(<span class="string">"programs/libfuncs/felt252_dict_entry_clone_ptr_update"</span>);
 <a href=#239 id=239 data-nosnippet>239</a>
-<a href=#240 id=240 data-nosnippet>240</a>        run_program_assert_output(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[], <span class="number">1345432_u32</span>.into());
+<a href=#240 id=240 data-nosnippet>240</a>        run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]);
 <a href=#241 id=241 data-nosnippet>241</a>    }
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="attr">#[test]
-<a href=#244 id=244 data-nosnippet>244</a>    </span><span class="kw">fn </span>run_dict_clone_ptr_update() {
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>program = get_compiled_program(
-<a href=#246 id=246 data-nosnippet>246</a>            <span class="string">"test_data_artifacts/programs/libfuncs/felt252_dict_entry_clone_ptr_update"</span>,
-<a href=#247 id=247 data-nosnippet>247</a>        );
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a>        run_program(<span class="kw-2">&amp;</span>program, <span class="string">"run_test"</span>, <span class="kw-2">&amp;</span>[]);
-<a href=#250 id=250 data-nosnippet>250</a>    }
-<a href=#251 id=251 data-nosnippet>251</a>}</code></pre></div></section></main></body></html>
+<a href=#242 id=242 data-nosnippet>242</a>}</code></pre></div></section></main></body></html>
