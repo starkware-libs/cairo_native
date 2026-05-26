@@ -250,7 +250,7 @@ pub mod test {
 
     #[test]
     fn felt252_add() {
-        let program = &get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_add");
+        let program = &get_compiled_program("programs/libfuncs/felt252_add");
         fn r(lhs: Felt, rhs: Felt, program: &(String, Program)) -> Felt {
             match run_program(
                 program,
@@ -289,7 +289,7 @@ pub mod test {
 
     #[test]
     fn felt252_sub() {
-        let program = &get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_sub");
+        let program = &get_compiled_program("programs/libfuncs/felt252_sub");
         fn r(lhs: Felt, rhs: Felt, program: &(String, Program)) -> Felt {
             match run_program(
                 program,
@@ -326,7 +326,7 @@ pub mod test {
 
     #[test]
     fn felt252_mul() {
-        let program = &get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_mul");
+        let program = &get_compiled_program("programs/libfuncs/felt252_mul");
         fn r(lhs: Felt, rhs: Felt, program: &(String, Program)) -> Felt {
             match run_program(
                 program,
@@ -363,7 +363,7 @@ pub mod test {
 
     #[test]
     fn felt252_div() {
-        let program = &get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_div");
+        let program = &get_compiled_program("programs/libfuncs/felt252_div");
         // Helper function to run the test and extract the return value.
         fn r(lhs: Felt, rhs: Felt, program: &(String, Program)) -> Option<Felt> {
             match run_program(
@@ -430,7 +430,7 @@ pub mod test {
 
     #[test]
     fn felt252_const() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_const");
+        let program = get_compiled_program("programs/libfuncs/felt252_const");
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
             Value::Struct {
@@ -444,8 +444,7 @@ pub mod test {
 
     #[test]
     fn felt252_add_const() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_add_const");
+        let program = get_compiled_program("programs/libfuncs/felt252_add_const");
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
             jit_struct!(
@@ -464,8 +463,7 @@ pub mod test {
 
     #[test]
     fn felt252_sub_const() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_sub_const");
+        let program = get_compiled_program("programs/libfuncs/felt252_sub_const");
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
             jit_struct!(
@@ -484,8 +482,7 @@ pub mod test {
 
     #[test]
     fn felt252_mul_const() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_mul_const");
+        let program = get_compiled_program("programs/libfuncs/felt252_mul_const");
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
             jit_struct!(
@@ -504,8 +501,7 @@ pub mod test {
 
     #[test]
     fn felt252_div_const() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_div_const");
+        let program = get_compiled_program("programs/libfuncs/felt252_div_const");
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
             jit_struct!(
@@ -532,8 +528,7 @@ pub mod test {
 
     #[test]
     fn felt252_is_zero() {
-        let program =
-            &get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_is_zero");
+        let program = &get_compiled_program("programs/libfuncs/felt252_is_zero");
         fn r(x: Felt, program: &(String, Program)) -> bool {
             match run_program(program, "run_test", &[Value::Felt252(x)]).return_value {
                 Value::Enum { tag, .. } => tag != 0,

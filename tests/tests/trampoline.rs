@@ -23,7 +23,7 @@ fn run_program(program: &Program, entry_point: &str, args: &[Value]) -> Executio
 
 #[test]
 fn invoke0() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke0");
+    let program = load_program_and_runner("programs/invoke0");
 
     assert_eq!(
         run_program(
@@ -44,7 +44,7 @@ fn invoke0() {
 
 #[test]
 fn invoke1_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_felt252");
+    let program = load_program_and_runner("programs/invoke1_felt252");
 
     let r = |x: Felt| {
         let x = Value::Felt252(x);
@@ -70,7 +70,7 @@ fn invoke1_felt252() {
 
 #[test]
 fn invoke1_u8() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_u8");
+    let program = load_program_and_runner("programs/invoke1_u8");
 
     let r = |x: u8| {
         let x = Value::Uint8(x);
@@ -96,7 +96,7 @@ fn invoke1_u8() {
 
 #[test]
 fn invoke1_u16() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_u16");
+    let program = load_program_and_runner("programs/invoke1_u16");
 
     let r = |x: u16| {
         let x = Value::Uint16(x);
@@ -122,7 +122,7 @@ fn invoke1_u16() {
 
 #[test]
 fn invoke1_u32() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_u32");
+    let program = load_program_and_runner("programs/invoke1_u32");
 
     let r = |x: u32| {
         let x = Value::Uint32(x);
@@ -148,7 +148,7 @@ fn invoke1_u32() {
 
 #[test]
 fn invoke1_u64() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_u64");
+    let program = load_program_and_runner("programs/invoke1_u64");
 
     let r = |x: u64| {
         let x = Value::Uint64(x);
@@ -174,7 +174,7 @@ fn invoke1_u64() {
 
 #[test]
 fn invoke1_u128() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_u128");
+    let program = load_program_and_runner("programs/invoke1_u128");
 
     let r = |x: u128| {
         let x = Value::Uint128(x);
@@ -200,7 +200,7 @@ fn invoke1_u128() {
 
 #[test]
 fn invoke1_tuple1_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_tuple1_felt252");
+    let program = load_program_and_runner("programs/invoke1_tuple1_felt252");
 
     let r = |x: (Felt,)| {
         let x = Value::Struct {
@@ -229,7 +229,7 @@ fn invoke1_tuple1_felt252() {
 
 #[test]
 fn invoke1_tuple1_u64() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_tuple1_u64");
+    let program = load_program_and_runner("programs/invoke1_tuple1_u64");
 
     let r = |x: (u64,)| {
         let x = Value::Struct {
@@ -258,8 +258,7 @@ fn invoke1_tuple1_u64() {
 
 #[test]
 fn invoke1_tuple5_u8_u16_u32_u64_u128() {
-    let program =
-        load_program_and_runner("test_data_artifacts/programs/invoke1_tuple5_u8_u16_u32_u64_u128");
+    let program = load_program_and_runner("programs/invoke1_tuple5_u8_u16_u32_u64_u128");
 
     let r = |x: (u8, u16, u32, u64, u128)| {
         let x = Value::Struct {
@@ -294,7 +293,7 @@ fn invoke1_tuple5_u8_u16_u32_u64_u128() {
 
 #[test]
 fn invoke1_array_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_array_felt252");
+    let program = load_program_and_runner("programs/invoke1_array_felt252");
 
     let r = |x: Vec<Felt>| {
         let x = Value::Array(x.into_iter().map(Value::Felt252).collect());
@@ -321,7 +320,7 @@ fn invoke1_array_felt252() {
 
 #[test]
 fn invoke1_enum1_unit() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_enum1_unit");
+    let program = load_program_and_runner("programs/invoke1_enum1_unit");
 
     let x = Value::Enum {
         tag: 0,
@@ -347,7 +346,7 @@ fn invoke1_enum1_unit() {
 
 #[test]
 fn invoke1_enum1_u64() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_enum1_u64");
+    let program = load_program_and_runner("programs/invoke1_enum1_u64");
 
     let r = |x: u64| {
         let x = Value::Enum {
@@ -377,7 +376,7 @@ fn invoke1_enum1_u64() {
 
 #[test]
 fn invoke1_enum1_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_enum1_felt252");
+    let program = load_program_and_runner("programs/invoke1_enum1_felt252");
 
     let r = |x: Felt| {
         let x = Value::Enum {
@@ -407,7 +406,7 @@ fn invoke1_enum1_felt252() {
 
 #[test]
 fn invoke1_enum2_u8_u16() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_enum2_u8_u16");
+    let program = load_program_and_runner("programs/invoke1_enum2_u8_u16");
 
     enum MyEnum {
         A(u8),
@@ -453,7 +452,7 @@ fn invoke1_enum2_u8_u16() {
 
 #[test]
 fn invoke1_box_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_box_felt252");
+    let program = load_program_and_runner("programs/invoke1_box_felt252");
 
     assert_eq!(
         run_program(
@@ -471,7 +470,7 @@ fn invoke1_box_felt252() {
 
 #[test]
 fn invoke1_nullable_felt252() {
-    let program = load_program_and_runner("test_data_artifacts/programs/invoke1_nullable_felt252");
+    let program = load_program_and_runner("programs/invoke1_nullable_felt252");
 
     assert_eq!(
         run_program(
@@ -512,8 +511,7 @@ fn invoke1_nullable_felt252() {
 
 #[test]
 fn test_deserialize_param_bug() {
-    let (module_name, program, _) =
-        load_program_and_runner("test_data_artifacts/programs/trampoline");
+    let (module_name, program, _) = load_program_and_runner("programs/trampoline");
 
     let args = vec![
         Value::Uint64(0),

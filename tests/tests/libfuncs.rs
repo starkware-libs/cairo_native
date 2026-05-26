@@ -4,7 +4,7 @@ use cairo_native::utils::testing::load_program_and_runner;
 
 #[test]
 fn enum_init() {
-    let program = load_program_and_runner("test_data_artifacts/programs/enum_init");
+    let program = load_program_and_runner("programs/enum_init");
 
     let result_vm = run_vm_program(&program, "run_test", vec![], None).unwrap();
     let result_native = run_native_program(
@@ -26,7 +26,7 @@ fn enum_init() {
 
 #[test]
 fn enum_match() {
-    let program = load_program_and_runner("test_data_artifacts/programs/enum_match");
+    let program = load_program_and_runner("programs/enum_match");
 
     let result_vm = run_vm_program(&program, "match_a", vec![], None).unwrap();
     let result_native = run_native_program(

@@ -125,23 +125,21 @@ mod test {
 
     #[test]
     fn run_null() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/nullable_null");
+        let program = get_compiled_program("programs/libfuncs/nullable_null");
 
         run_program_assert_output(&program, "run_test", &[], jit_struct!());
     }
 
     #[test]
     fn run_null_jit() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/nullable_null_jit");
+        let program = get_compiled_program("programs/libfuncs/nullable_null_jit");
 
         run_program_assert_output(&program, "run_test", &[], Value::Null);
     }
 
     #[test]
     fn run_not_null() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/nullable_not_null");
+        let program = get_compiled_program("programs/libfuncs/nullable_not_null");
 
         run_program_assert_output(&program, "run_test", &[4u8.into()], 4u8.into());
         run_program_assert_output(&program, "run_test", &[0u8.into()], 99u8.into());
@@ -149,8 +147,7 @@ mod test {
 
     #[test]
     fn match_snapshot_nullable_clone_bug() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/nullable_match_snapshot");
+        let program = get_compiled_program("programs/libfuncs/nullable_match_snapshot");
 
         run_program_assert_output(
             &program,

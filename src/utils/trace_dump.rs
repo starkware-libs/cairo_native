@@ -148,7 +148,7 @@ mod tests {
 
     #[fixture]
     fn program() -> Program {
-        load_program("test_data_artifacts/programs/fib_program")
+        load_program("programs/fib_program")
     }
 
     #[rstest]

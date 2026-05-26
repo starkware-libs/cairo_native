@@ -481,7 +481,7 @@ mod test {
 
     #[test]
     fn downcast() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/cast_downcast");
+        let program = get_compiled_program("programs/libfuncs/cast_downcast");
         run_program_assert_output(
             &program,
             "run_test",
@@ -527,8 +527,7 @@ mod test {
     #[test_case("b0x30_b5x40", 10.into())]
     #[test_case("b0x30_bm40x40", 10.into())]
     fn downcast_bounded_int(entry_point: &str, value: Felt) {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/cast_downcast_bounded_int");
+        let program = get_compiled_program("programs/libfuncs/cast_downcast_bounded_int");
         run_program_assert_output(
             &program,
             entry_point,
@@ -546,8 +545,7 @@ mod test {
     #[test_case("felt252_i64", i64::MAX.into())]
     #[test_case("felt252_i64", i64::MIN.into())]
     fn downcast_felt(entry_point: &str, value: Felt) {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/cast_downcast_felt");
+        let program = get_compiled_program("programs/libfuncs/cast_downcast_felt");
         run_program_assert_output(
             &program,
             entry_point,
@@ -642,7 +640,7 @@ mod test {
     #[test_case("bm100x100_i8", Felt::from(-100))]
     #[test_case("bm100x100_i8", 100.into())]
     fn upcast(entry_point: &str, value: Felt) {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/cast_upcast");
+        let program = get_compiled_program("programs/libfuncs/cast_upcast");
         let arguments = &[value.into()];
         let expected_result = jit_enum!(0, jit_struct!(value.into(),));
         run_program_assert_output(&program, entry_point, arguments, expected_result);

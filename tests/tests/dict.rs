@@ -8,7 +8,7 @@ use starknet_types_core::felt::Felt;
 proptest! {
     #[test]
     fn dict_get_insert_proptest(a in any_felt(), b in any_felt()) {
-        let program = &load_program_and_runner("test_data_artifacts/programs/dict_get_insert");
+        let program = &load_program_and_runner("programs/dict_get_insert");
         let result_vm = run_vm_program(
             program,
             "run_test",
@@ -35,7 +35,7 @@ proptest! {
 
 #[test]
 fn dict_snapshot_loop() {
-    let program = &load_program_and_runner("test_data_artifacts/programs/snapshot_loop");
+    let program = &load_program_and_runner("programs/snapshot_loop");
     run_native_program(
         program,
         "run_test",

@@ -691,7 +691,7 @@ mod test {
 
     #[test]
     fn enum_init() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/enum_init");
+        let program = get_compiled_program("programs/libfuncs/enum_init");
         run_program_assert_output(
             &program,
             "run_test",
@@ -709,15 +709,14 @@ mod test {
 
     #[test]
     fn enum_match() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/enum_match");
+        let program = get_compiled_program("programs/libfuncs/enum_match");
         run_program_assert_output(&program, "match_a", &[], Felt::from(5).into());
         run_program_assert_output(&program, "match_b", &[], 5u8.into());
     }
 
     #[test]
     fn compile_enum_match_without_variants() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/enum_match_no_variants");
+        let program = get_compiled_program("programs/libfuncs/enum_match_no_variants");
 
         let native_context = NativeContext::new();
         native_context
@@ -727,8 +726,7 @@ mod test {
 
     #[test]
     fn create_enum_from_bounded_int() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/enum_from_bounded_int");
+        let program = get_compiled_program("programs/libfuncs/enum_from_bounded_int");
 
         run_program_assert_output(
             &program,

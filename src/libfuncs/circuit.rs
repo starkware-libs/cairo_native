@@ -1092,7 +1092,7 @@ mod test {
 
     #[test]
     fn run_add_circuit() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_add");
+        let program = get_compiled_program("programs/libfuncs/circuit_add");
 
         run_program_assert_output(
             &program,
@@ -1104,7 +1104,7 @@ mod test {
 
     #[test]
     fn run_sub_circuit() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_sub");
+        let program = get_compiled_program("programs/libfuncs/circuit_sub");
 
         run_program_assert_output(
             &program,
@@ -1116,7 +1116,7 @@ mod test {
 
     #[test]
     fn run_mul_circuit() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_mul");
+        let program = get_compiled_program("programs/libfuncs/circuit_mul");
 
         run_program_assert_output(
             &program,
@@ -1128,7 +1128,7 @@ mod test {
 
     #[test]
     fn run_inverse_circuit() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_inverse");
+        let program = get_compiled_program("programs/libfuncs/circuit_inverse");
 
         run_program_assert_output(
             &program,
@@ -1140,8 +1140,7 @@ mod test {
 
     #[test]
     fn run_no_coprime_circuit() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_no_coprime");
+        let program = get_compiled_program("programs/libfuncs/circuit_no_coprime");
 
         run_program_assert_output(
             &program,
@@ -1155,8 +1154,7 @@ mod test {
 
     #[test]
     fn run_mul_overflow_circuit() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_mul_overflow");
+        let program = get_compiled_program("programs/libfuncs/circuit_mul_overflow");
 
         run_program_assert_output(
             &program,
@@ -1171,7 +1169,7 @@ mod test {
 
     #[test]
     fn run_full_circuit() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_full");
+        let program = get_compiled_program("programs/libfuncs/circuit_full");
 
         run_program_assert_output(
             &program,
@@ -1191,8 +1189,7 @@ mod test {
 
     #[test]
     fn run_into_u96_guarantee() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/circuit_u96_guarantee");
+        let program = get_compiled_program("programs/libfuncs/circuit_u96_guarantee");
 
         let range = Range {
             lower: BigInt::ZERO,

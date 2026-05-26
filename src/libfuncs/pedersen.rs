@@ -111,7 +111,7 @@ mod test {
 
     #[test]
     fn run_pedersen() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/pedersen");
+        let program = get_compiled_program("programs/libfuncs/pedersen");
 
         run_program_assert_output(
             &program,

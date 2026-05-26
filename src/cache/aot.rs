@@ -94,7 +94,7 @@ mod tests {
         let native_context = NativeContext::new();
         let mut cache = AotProgramCache::new(&native_context);
 
-        let program = load_program("test_data_artifacts/programs/aot_program");
+        let program = load_program("programs/aot_program");
 
         let function_id = &program.funcs.first().expect("should have a function").id;
         let executor = cache.compile_and_insert((), &program, OptLevel::default());

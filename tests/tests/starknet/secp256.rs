@@ -293,7 +293,7 @@ impl StarknetSyscallHandler for &mut SyscallHandler {
 
 #[test]
 fn secp256k1_new() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256k1_new: (
             VecDeque::from([]),
@@ -447,7 +447,7 @@ fn secp256k1_new() {
 
 #[test]
 fn secp256k1_add() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256k1_add: (
             VecDeque::from([]),
@@ -635,7 +635,7 @@ fn secp256k1_add() {
 
 #[test]
 fn secp256k1_mul() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256k1_mul: (
             VecDeque::from([]),
@@ -775,7 +775,7 @@ fn secp256k1_mul() {
 
 #[test]
 fn secp256k1_get_point_from_x() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256k1_get_point_from_x: (
             VecDeque::from([]),
@@ -992,7 +992,7 @@ fn secp256k1_get_point_from_x() {
 
 #[test]
 fn secp256k1_get_xy() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256k1_get_xy: (
             VecDeque::from([]),
@@ -1211,7 +1211,7 @@ fn secp256k1_get_xy() {
 
 #[test]
 fn secp256r1_new() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256r1_new: (
             VecDeque::from([]),
@@ -1365,7 +1365,7 @@ fn secp256r1_new() {
 
 #[test]
 fn secp256r1_add() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256r1_add: (
             VecDeque::from([]),
@@ -1502,7 +1502,7 @@ fn secp256r1_add() {
 
 #[test]
 fn secp256r1_mul() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256r1_mul: (
             VecDeque::from([]),
@@ -1642,7 +1642,7 @@ fn secp256r1_mul() {
 
 #[test]
 fn secp256r1_get_point_from_x() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256r1_get_point_from_x: (
             VecDeque::from([]),
@@ -1859,7 +1859,7 @@ fn secp256r1_get_point_from_x() {
 
 #[test]
 fn secp256r1_get_xy() {
-    let program = load_program_and_runner("test_data_artifacts/programs/starknet/secp256");
+    let program = load_program_and_runner("programs/starknet/secp256");
     let mut syscall_handler = SyscallHandler {
         secp256r1_get_xy: (
             VecDeque::from([]),

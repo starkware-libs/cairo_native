@@ -2364,17 +2364,15 @@ mod test {
 
     #[test]
     fn class_hash_const() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/starknet_class_hash_const");
+        let program = get_compiled_program("programs/libfuncs/starknet_class_hash_const");
         let expected = jit_enum!(0, jit_struct!(Felt::ZERO.into()));
         run_program_assert_output(&program, "run_program", &[], expected)
     }
 
     #[test]
     fn storage_base_address_from_felt252() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/starknet_storage_base_address_from_felt252",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/starknet_storage_base_address_from_felt252");
         run_program_assert_output(
             &program,
             "run_program",
@@ -2409,9 +2407,7 @@ mod test {
 
     #[test]
     fn storage_address_from_base() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/starknet_storage_address_from_base",
-        );
+        let program = get_compiled_program("programs/libfuncs/starknet_storage_address_from_base");
         run_program_assert_output(
             &program,
             "run_program",
@@ -2440,9 +2436,8 @@ mod test {
 
     #[test]
     fn storage_address_from_base_and_offset() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/starknet_storage_address_from_base_and_offset",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/starknet_storage_address_from_base_and_offset");
         run_program_assert_output(
             &program,
             "run_program",
@@ -2525,9 +2520,7 @@ mod test {
 
     #[test]
     fn storage_address_to_felt252() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/starknet_storage_address_to_felt252",
-        );
+        let program = get_compiled_program("programs/libfuncs/starknet_storage_address_to_felt252");
         run_program_assert_output(
             &program,
             "run_program",
@@ -2556,9 +2549,8 @@ mod test {
 
     #[test]
     fn storage_address_try_from_felt252() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/starknet_storage_address_try_from_felt252",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/starknet_storage_address_try_from_felt252");
         run_program_assert_output(
             &program,
             "run_program",

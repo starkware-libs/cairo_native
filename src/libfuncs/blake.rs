@@ -121,8 +121,7 @@ mod tests {
     // https://www.rfc-editor.org/rfc/rfc7693#appendix-B.
     #[test]
     fn test_blake_3_bytes_compress() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/blake_3_bytes_compress");
+        let program = get_compiled_program("programs/libfuncs/blake_3_bytes_compress");
 
         let result = run_program(&program, "run_test", &[]);
 

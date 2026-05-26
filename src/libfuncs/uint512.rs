@@ -173,8 +173,7 @@ mod test {
 
     #[test]
     fn u512_safe_divmod_by_u256() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/u512_safe_divmod_by_u256");
+        let program = get_compiled_program("programs/libfuncs/u512_safe_divmod_by_u256");
         fn u512(value: BigUint) -> Value {
             assert!(value.bits() <= 512);
             jit_struct!(

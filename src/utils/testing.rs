@@ -316,7 +316,10 @@ pub fn load_program_and_runner(name: &str) -> (String, Program, SierraCasmRunner
 
 // TODO: Same as load_program_and_runner(). Both of the functions will be changed in a rafactor.
 pub fn get_compiled_program(name: &str) -> (String, Program) {
-    let program_path = format!("{}/{}.sierra.json", env!("CARGO_MANIFEST_DIR"), name);
+    let program_path = format!(
+        "{}/test_data_artifacts/{name}.sierra.json",
+        env!("CARGO_MANIFEST_DIR"),
+    );
     let program_content = fs::read_to_string(program_path)
         .expect("Failed to read the content of the program into a String");
     let versioned_program =
@@ -347,7 +350,11 @@ macro_rules! include_program {
 macro_rules! include_contract {
     ( $path:expr ) => {
         serde_json::from_str::<cairo_lang_starknet_classes::contract_class::ContractClass>(
-            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/", $path)),
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/test_data_artifacts/",
+                $path
+            )),
         )
         .unwrap()
     };
@@ -355,7 +362,11 @@ macro_rules! include_contract {
 
 pub fn load_contract(path: &str) -> ContractClass {
     serde_json::from_str::<ContractClass>(
-        &fs::read_to_string(format!("{}/{}", env!("CARGO_MANIFEST_DIR"), path)).unwrap(),
+        &fs::read_to_string(format!(
+            "{}/test_data_artifacts/{path}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap(),
     )
     .unwrap()
 }
@@ -363,7 +374,7 @@ pub fn load_contract(path: &str) -> ContractClass {
 pub fn load_program(path: &str) -> Program {
     let versioned_program = serde_json::from_str::<VersionedProgram>(
         &fs::read_to_string(format!(
-            "{}/{}.sierra.json",
+            "{}/test_data_artifacts/{}.sierra.json",
             env!("CARGO_MANIFEST_DIR"),
             path
         ))

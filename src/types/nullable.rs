@@ -48,8 +48,7 @@ mod test {
 
     #[test]
     fn test_nullable_deep_clone() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/types/nullable_deep_clone");
+        let program = get_compiled_program("programs/types/nullable_deep_clone");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
