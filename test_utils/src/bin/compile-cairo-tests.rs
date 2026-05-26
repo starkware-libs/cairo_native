@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let compiler = TestCompiler::try_new(
         &args.cairo_path,
-        true,
+        false,
         true,
         TestsCompilationConfig {
             starknet: args.starknet,
