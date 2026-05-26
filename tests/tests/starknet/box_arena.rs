@@ -296,8 +296,8 @@ fn build_executor(contract: &ContractClass) -> (AotContractExecutor, Felt) {
 
 #[test]
 fn test_boxes_stay_valid_across_contract_calls() {
-    let callee = load_contract("test_data_artifacts/contracts/box_arena/callee.contract.json");
-    let caller = load_contract("test_data_artifacts/contracts/box_arena/caller.contract.json");
+    let callee = load_contract("contracts/box_arena/callee.contract.json");
+    let caller = load_contract("contracts/box_arena/caller.contract.json");
 
     let (callee_executor, add_one_selector) = build_executor(&callee);
     let (caller_executor, proxy_selector) = build_executor(&caller);

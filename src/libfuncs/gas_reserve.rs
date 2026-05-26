@@ -123,8 +123,7 @@ mod test {
 
     #[test]
     fn run_create() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/gas_reserve_create");
+        let program = get_compiled_program("programs/libfuncs/gas_reserve_create");
 
         let result = run_program(&program, "run_test_1", &[]).return_value;
         if let Value::Enum { tag, value, .. } = result {
@@ -155,8 +154,7 @@ mod test {
 
     #[test]
     fn run_utilize() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/gas_reserve_utilize");
+        let program = get_compiled_program("programs/libfuncs/gas_reserve_utilize");
 
         let gas_amount = 10;
         let result = run_program(&program, "run_test", &[Value::Uint128(gas_amount)]).return_value;

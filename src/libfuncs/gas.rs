@@ -348,7 +348,7 @@ mod test {
 
     #[test]
     fn run_withdraw_gas() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/gas_withdraw");
+        let program = get_compiled_program("programs/libfuncs/gas_withdraw");
 
         let result = run_program(&program, "run_test", &[]);
         assert_eq!(result.remaining_gas, Some(18446744073709533495));
@@ -357,7 +357,7 @@ mod test {
     #[test]
     fn run_get_unspent_gas() {
         #[rustfmt::skip]
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/get_unspent_gas");
+        let program = get_compiled_program("programs/libfuncs/get_unspent_gas");
 
         let result = run_program(&program, "run_test", &[]);
         assert_eq!(

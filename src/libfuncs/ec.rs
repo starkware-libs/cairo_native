@@ -547,8 +547,7 @@ mod test {
 
     #[test]
     fn ec_point_is_zero() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_is_zero");
+        let program = get_compiled_program("programs/libfuncs/ec_point_is_zero");
         let r = |x, y| run_program(&program, "run_test", &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), jit_enum!(0, jit_struct!()));
@@ -565,7 +564,7 @@ mod test {
 
     #[test]
     fn ec_neg() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_neg");
+        let program = get_compiled_program("programs/libfuncs/ec_neg");
         let r = |x, y| run_program(&program, "run_test", &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), Value::EcPoint(0.into(), 0.into()));
@@ -582,7 +581,7 @@ mod test {
 
     #[test]
     fn ec_neg_nz() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_neg_nz");
+        let program = get_compiled_program("programs/libfuncs/ec_neg_nz");
         let r = |x, y| run_program(&program, "run_test", &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(
@@ -613,8 +612,7 @@ mod test {
 
     #[test]
     fn ec_point_from_x() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_from_x_nz");
+        let program = get_compiled_program("programs/libfuncs/ec_point_from_x_nz");
         let r = |x| run_program(&program, "run_test", &[Value::Felt252(x)]).return_value;
 
         assert_eq!(r(0.into()), jit_enum!(1, jit_struct!()));
@@ -626,7 +624,7 @@ mod test {
 
     #[test]
     fn ec_state_add() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_state_add");
+        let program = get_compiled_program("programs/libfuncs/ec_state_add");
         run_program_assert_output(&program, "run_test", &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
@@ -649,8 +647,7 @@ mod test {
 
     #[test]
     fn ec_state_add_mul() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/ec_state_add_mul");
+        let program = get_compiled_program("programs/libfuncs/ec_state_add_mul");
         run_program_assert_output(&program, "run_test", &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
@@ -696,8 +693,7 @@ mod test {
 
     #[test]
     fn ec_state_finalize() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/ec_state_finalize");
+        let program = get_compiled_program("programs/libfuncs/ec_state_finalize");
         run_program_assert_output(
             &program,
             "run_test",
@@ -739,7 +735,7 @@ mod test {
 
     #[test]
     fn ec_state_init() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_state_init");
+        let program = get_compiled_program("programs/libfuncs/ec_state_init");
         let result = run_program(&program, "run_test", &[]);
         // cant match the values because the state init is a random point
         assert!(matches!(result.return_value, Value::EcState(_, _, _, _)));
@@ -747,8 +743,7 @@ mod test {
 
     #[test]
     fn ec_point_try_new_nz() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_try_new_nz");
+        let program = get_compiled_program("programs/libfuncs/ec_point_try_new_nz");
         run_program_assert_output(
             &program,
             "run_test",
@@ -797,8 +792,7 @@ mod test {
 
         #[track_caller]
         fn run(a: &str, b: &str, ea: &str, eb: &str) {
-            let program =
-                get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_unwrap");
+            let program = get_compiled_program("programs/libfuncs/ec_point_unwrap");
             run_program_assert_output(
                 &program,
                 "run_test",
@@ -820,7 +814,7 @@ mod test {
 
     #[test]
     fn ec_point_zero() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_zero");
+        let program = get_compiled_program("programs/libfuncs/ec_point_zero");
         run_program_assert_output(
             &program,
             "run_test",

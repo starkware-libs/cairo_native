@@ -859,7 +859,7 @@ mod test {
 
     #[test]
     fn run_roundtrip() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_roundtrip");
+        let program = get_compiled_program("programs/libfuncs/array_roundtrip");
         let result = run_program(&program, "run_test", &[[1u32, 2u32].into()]).return_value;
 
         assert_eq!(result, Value::from([1u32, 2u32]));
@@ -867,7 +867,7 @@ mod test {
 
     #[test]
     fn run_append() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_append");
+        let program = get_compiled_program("programs/libfuncs/array_append");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, [4u32].into());
@@ -875,7 +875,7 @@ mod test {
 
     #[test]
     fn run_len() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_len");
+        let program = get_compiled_program("programs/libfuncs/array_len");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, 3u32.into());
@@ -883,7 +883,7 @@ mod test {
 
     #[test]
     fn run_get() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_get");
+        let program = get_compiled_program("programs/libfuncs/array_get");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -902,7 +902,7 @@ mod test {
 
     #[test]
     fn run_get_big() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_get_big");
+        let program = get_compiled_program("programs/libfuncs/array_get_big");
 
         let result = run_program(&program, "run_test", &[]).return_value;
 
@@ -922,7 +922,7 @@ mod test {
 
     #[test]
     fn run_pop_front() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_front");
+        let program = get_compiled_program("programs/libfuncs/array_pop_front");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(0, jit_struct!(3u32.into())));
@@ -930,14 +930,12 @@ mod test {
 
     #[test]
     fn run_pop_front_result() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_front_success");
+        let program = get_compiled_program("programs/libfuncs/array_pop_front_success");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(0, 4u32.into()));
 
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_front_empty");
+        let program = get_compiled_program("programs/libfuncs/array_pop_front_empty");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(1, jit_struct!()));
@@ -945,8 +943,7 @@ mod test {
 
     #[test]
     fn run_pop_front_consume() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_front_consume");
+        let program = get_compiled_program("programs/libfuncs/array_pop_front_consume");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, 4u32.into());
@@ -954,7 +951,7 @@ mod test {
 
     #[test]
     fn run_pop_back() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_back");
+        let program = get_compiled_program("programs/libfuncs/array_pop_back");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -976,7 +973,7 @@ mod test {
 
     #[test]
     fn run_slice() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_slice");
+        let program = get_compiled_program("programs/libfuncs/array_slice");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(0, jit_struct!(3u32.into())));
@@ -984,8 +981,7 @@ mod test {
 
     #[test]
     fn run_slice_fail() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_slice_fail");
+        let program = get_compiled_program("programs/libfuncs/array_slice_fail");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -998,8 +994,7 @@ mod test {
 
     #[test]
     fn run_slice_empty_array() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_slice_empty");
+        let program = get_compiled_program("programs/libfuncs/array_slice_empty");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1020,8 +1015,7 @@ mod test {
 
     #[test]
     fn run_span_from_tuple() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_span_from_tuple");
+        let program = get_compiled_program("programs/libfuncs/array_span_from_tuple");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1039,9 +1033,7 @@ mod test {
 
     #[test]
     fn run_span_from_multi_tuple() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_span_from_multi_tuple",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_span_from_multi_tuple");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(0, jit_struct!(jit_struct!())));
@@ -1049,8 +1041,7 @@ mod test {
 
     #[test]
     fn seq_append1() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append1");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append1");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1060,8 +1051,7 @@ mod test {
 
     #[test]
     fn seq_append2() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append2");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1071,8 +1061,7 @@ mod test {
 
     #[test]
     fn seq_append2_popf1() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append2_popf1");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2_popf1");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1082,8 +1071,7 @@ mod test {
 
     #[test]
     fn seq_append2_popb1() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append2_popb1");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2_popb1");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1093,9 +1081,7 @@ mod test {
 
     #[test]
     fn seq_append1_popf1_append1() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_seq_append1_popf1_append1",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_seq_append1_popf1_append1");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1105,8 +1091,7 @@ mod test {
 
     #[test]
     fn seq_append1_first() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append1_first");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append1_first");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1123,8 +1108,7 @@ mod test {
 
     #[test]
     fn seq_append2_first() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_seq_append2_first");
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2_first");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1141,9 +1125,7 @@ mod test {
 
     #[test]
     fn seq_append2_popf1_first() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_seq_append2_popf1_first",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2_popf1_first");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1160,9 +1142,7 @@ mod test {
 
     #[test]
     fn seq_append2_popb1_last() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_seq_append2_popb1_last",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_seq_append2_popb1_last");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1179,9 +1159,8 @@ mod test {
 
     #[test]
     fn seq_append1_popf1_append1_first() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_seq_append1_popf1_append1_first",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/array_seq_append1_popf1_append1_first");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1198,7 +1177,7 @@ mod test {
 
     #[test]
     fn array_clone() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/array_clone");
+        let program = get_compiled_program("programs/libfuncs/array_clone");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1215,8 +1194,7 @@ mod test {
 
     #[test]
     fn array_pop_back_state() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_pop_back_state");
+        let program = get_compiled_program("programs/libfuncs/array_pop_back_state");
 
         let result = run_program(&program, "run_test", &[]).return_value;
 
@@ -1226,8 +1204,7 @@ mod test {
     #[test]
     fn array_empty_span() {
         // Tests snapshot_take on a empty array.
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_empty_span");
+        let program = get_compiled_program("programs/libfuncs/array_empty_span");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1238,8 +1215,7 @@ mod test {
     #[test]
     fn array_span_modify_span() {
         // Tests pop_back on a span.
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_span_modify_span");
+        let program = get_compiled_program("programs/libfuncs/array_span_modify_span");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1250,8 +1226,7 @@ mod test {
     #[test]
     fn array_span_check_array() {
         // Tests pop back on a span not modifying the original array.
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_span_check_array");
+        let program = get_compiled_program("programs/libfuncs/array_span_check_array");
 
         assert_eq!(
             run_program(&program, "run_test", &[]).return_value,
@@ -1261,8 +1236,7 @@ mod test {
 
     #[test]
     fn tuple_from_span() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_tuple_from_span");
+        let program = get_compiled_program("programs/libfuncs/array_tuple_from_span");
 
         assert_eq!(
             run_program(
@@ -1295,9 +1269,7 @@ mod test {
 
     #[test]
     fn tuple_from_span_failed() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_tuple_from_span_failed",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_tuple_from_span_failed");
 
         assert_eq!(
             run_program(
@@ -1315,9 +1287,7 @@ mod test {
 
     #[test]
     fn snapshot_multi_pop_front() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_multi_pop_front",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_snapshot_multi_pop_front");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1348,9 +1318,8 @@ mod test {
 
     #[test]
     fn snapshot_failed_multi_pop_front() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_failed_multi_pop_front",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/array_snapshot_failed_multi_pop_front");
 
         let result = run_program(&program, "run_test", &[]).return_value;
 
@@ -1372,9 +1341,7 @@ mod test {
 
     #[test]
     fn snapshot_multi_pop_back() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_multi_pop_back",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_snapshot_multi_pop_back");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1405,9 +1372,8 @@ mod test {
 
     #[test]
     fn snapshot_failed_multi_pop_back() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_failed_multi_pop_back",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/array_snapshot_failed_multi_pop_back");
 
         let result = run_program(&program, "run_test", &[]).return_value;
 
@@ -1429,9 +1395,7 @@ mod test {
 
     #[test]
     fn snapshot_multi_pop_back_front() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_multi_pop_back_front",
-        );
+        let program = get_compiled_program("programs/libfuncs/array_snapshot_multi_pop_back_front");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1460,8 +1424,7 @@ mod test {
     /// Test to ensure that the returned element in `array_get` does NOT get dropped.
     #[test]
     fn array_get_avoid_dropping_element() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/array_get_avoid_dropping");
+        let program = get_compiled_program("programs/libfuncs/array_get_avoid_dropping");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(result, jit_enum!(0, jit_struct!(Value::Felt252(42.into()))));
@@ -1469,9 +1432,8 @@ mod test {
 
     #[test]
     fn array_snapshot_pop_front_clone_offset() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_pop_front_clone_offset",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/array_snapshot_pop_front_clone_offset");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -1488,9 +1450,8 @@ mod test {
 
     #[test]
     fn array_snapshot_pop_back_clone_offset() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/array_snapshot_pop_back_clone_offset",
-        );
+        let program =
+            get_compiled_program("programs/libfuncs/array_snapshot_pop_back_clone_offset");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(

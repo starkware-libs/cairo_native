@@ -9,7 +9,7 @@ use starknet_types_core::felt::Felt;
 
 #[test]
 fn array_get_test() {
-    let program = &load_program_and_runner("test_data_artifacts/programs/array_get");
+    let program = &load_program_and_runner("programs/array_get");
     let result_vm = run_vm_program(
         program,
         "run_test",
@@ -37,7 +37,7 @@ fn array_get_test() {
 proptest! {
     #[test]
     fn array_get_test_proptest(value in any_felt(), idx in 0u32..26) {
-        let program = &load_program_and_runner("test_data_artifacts/programs/array_get");
+        let program = &load_program_and_runner("programs/array_get");
         let result_vm = run_vm_program(program, "run_test", vec![
             Arg::Value(Felt::from_bytes_be(&value.to_bytes_be())),
             Arg::Value(Felt::from(idx))
@@ -62,7 +62,7 @@ proptest! {
 
 #[test]
 fn array_slice_u32_overflow() {
-    let program = &load_program_and_runner("test_data_artifacts/programs/array_slice_overflow");
+    let program = &load_program_and_runner("programs/array_slice_overflow");
     let user_len = u32::MAX;
 
     let result_vm = run_vm_program(

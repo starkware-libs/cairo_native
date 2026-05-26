@@ -215,7 +215,7 @@ mod test {
 
     #[test]
     fn run_not() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bool_not");
+        let program = get_compiled_program("programs/libfuncs/bool_not");
 
         let result = run_program(&program, "run_test", &[jit_enum!(0, jit_struct!())]).return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
@@ -226,7 +226,7 @@ mod test {
 
     #[test]
     fn run_and() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bool_and");
+        let program = get_compiled_program("programs/libfuncs/bool_and");
 
         let result = run_program(
             &program,
@@ -263,7 +263,7 @@ mod test {
 
     #[test]
     fn run_xor() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bool_xor");
+        let program = get_compiled_program("programs/libfuncs/bool_xor");
 
         let result = run_program(
             &program,
@@ -300,7 +300,7 @@ mod test {
 
     #[test]
     fn run_or() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bool_or");
+        let program = get_compiled_program("programs/libfuncs/bool_or");
 
         let result = run_program(
             &program,
@@ -337,7 +337,7 @@ mod test {
 
     #[test]
     fn bool_to_felt252() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bool_to_felt252");
+        let program = get_compiled_program("programs/libfuncs/bool_to_felt252");
 
         let result = run_program(&program, "run_test", &[jit_enum!(1, jit_struct!())]).return_value;
         assert_eq!(result, Value::Felt252(1.into()));

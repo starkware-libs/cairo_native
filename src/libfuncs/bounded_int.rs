@@ -817,7 +817,7 @@ mod test {
     #[test_case("bi_m3x5_times_bi_m3x5", -3, -3, 9)]
     #[test_case("bi_m3x5_times_bi_m3x5", 5, -3, -15)]
     fn test_mul(entry_point: &str, lhs: i32, rhs: i32, expected_result: i32) {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_mul");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_mul");
         let result = run_program(
             &program,
             entry_point,
@@ -913,8 +913,7 @@ mod test {
     #[test_case("test_0_8_max", 4, None)]
     #[test_case("test_0_8_max", 8, Some("boundary"))]
     fn test_trim(entry_point: &str, argument: i32, expected_error: Option<&str>) {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_trim");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_trim");
         let arguments = &[Felt252::from(argument).into()];
         let expected_result = match expected_error {
             Some(error_message) => jit_panic_byte_array!(error_message),
@@ -929,7 +928,7 @@ mod test {
     #[test_case("bi_m6xm3_minus_bi_1x3", -6, 3, -9)]
     #[test_case("bi_m6xm2_minus_bi_m20xm10", -2, -20, 18)]
     fn test_sub(entry_point: &str, lhs: i32, rhs: i32, expected_result: i32) {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_sub");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_sub");
         let result = run_program(
             &program,
             entry_point,
@@ -961,7 +960,7 @@ mod test {
     #[test_case("bi_m5xm5_plus_ui_m1", -5, -1, -6)]
     #[test_case("ui_m1_plus_bi_m5xm5", 1, -5, -4)]
     fn test_add(entry_point: &str, lhs: i32, rhs: i32, expected_result: i32) {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_add");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_add");
         let result = run_program(
             &program,
             entry_point,
@@ -998,8 +997,7 @@ mod test {
 
     #[test]
     fn test_is_zero() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_is_zero");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_is_zero");
 
         let result =
             run_program(&program, "run_test_1", &[Value::Felt252(Felt252::from(0))]).return_value;
@@ -1033,8 +1031,7 @@ mod test {
     #[test_case("constrain_bi_m30_31_lt_0", -5, -5)]
     #[test_case("constrain_bi_m30_31_gt_0", 5, 5)]
     fn test_constrain(entry_point: &str, input: i32, expected_result: i32) {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_constrain");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_constrain");
         let result = run_program(
             &program,
             entry_point,
@@ -1058,8 +1055,7 @@ mod test {
     #[test_case("test_10_100_10_40", 100, 30, 3, 10)]
     #[test_case("test_50_100_20_40", 100, 30, 3, 10)]
     fn test_div_rem(entry_point: &str, a: i32, b: i32, expected_q: u32, expected_r: u32) {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/bounded_int_div_rem");
+        let program = get_compiled_program("programs/libfuncs/bounded_int_div_rem");
         let arguments = &[Felt252::from(a).into(), Felt252::from(b).into()];
         let expected_result = jit_enum!(
             0,

@@ -484,7 +484,7 @@ mod test {
 
     #[test]
     fn run_unpack() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_unpack");
+        let program = get_compiled_program("programs/libfuncs/qm31_unpack");
 
         let result = run_program(&program, "run_test_1", &[]).return_value;
         let m31_range = Range::closed(0, BigInt::from(2147483646));
@@ -542,7 +542,7 @@ mod test {
 
     #[test]
     fn run_pack() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_pack");
+        let program = get_compiled_program("programs/libfuncs/qm31_pack");
         // With small coefficients
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, Value::QM31(1, 2, 3, 4));
@@ -566,7 +566,7 @@ mod test {
 
     #[test]
     fn run_const() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_const");
+        let program = get_compiled_program("programs/libfuncs/qm31_const");
 
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, Value::QM31(1, 2, 3, 4));
@@ -580,7 +580,7 @@ mod test {
 
     #[test]
     fn run_is_zero() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_is_zero");
+        let program = get_compiled_program("programs/libfuncs/qm31_is_zero");
 
         let result = run_program(&program, "run_test", &[Value::QM31(0, 0, 0, 0)]).return_value;
         assert_eq!(result, jit_enum!(0, jit_struct!()));
@@ -608,7 +608,7 @@ mod test {
 
     #[test]
     fn run_qm31_add() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_add");
+        let program = get_compiled_program("programs/libfuncs/qm31_add");
 
         let a = starknet_types_core::qm31::QM31::from_coefficients(
             0x544b2fba, 0x673cff77, 0x60713d44, 0x499602d2,
@@ -646,7 +646,7 @@ mod test {
 
     #[test]
     fn run_qm31_sub() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_sub");
+        let program = get_compiled_program("programs/libfuncs/qm31_sub");
 
         let a = starknet_types_core::qm31::QM31::from_coefficients(
             0x544b2fba, 0x673cff77, 0x60713d44, 0x499602d2,
@@ -676,7 +676,7 @@ mod test {
 
     #[test]
     fn run_qm31_mul() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_mul");
+        let program = get_compiled_program("programs/libfuncs/qm31_mul");
 
         let a = starknet_types_core::qm31::QM31::from_coefficients(
             0x544b2fba, 0x673cff77, 0x60713d44, 0x499602d2,
@@ -712,7 +712,7 @@ mod test {
 
     #[test]
     fn run_qm31_div() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_div");
+        let program = get_compiled_program("programs/libfuncs/qm31_div");
 
         let a = starknet_types_core::qm31::QM31::from_coefficients(
             0x544b2fba, 0x673cff77, 0x60713d44, 0x499602d2,
@@ -760,7 +760,7 @@ mod test {
 
     #[test]
     fn run_from_m31() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/qm31_from_m31");
+        let program = get_compiled_program("programs/libfuncs/qm31_from_m31");
 
         let result = run_program(&program, "run_test_with_0", &[]).return_value;
         assert_eq!(result, Value::QM31(0, 0, 0, 0));
@@ -776,7 +776,7 @@ mod test {
     fn run_m31_add() {
         // TODO: Refactor cairo functions to receive m31 as parameters so we don't need different ones
         // to test different cases and we can unify them into one. This can be done when issue #1217 gets closed.
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/m31_add");
+        let program = get_compiled_program("programs/libfuncs/m31_add");
         let expected_range = Range {
             lower: 0.into(),
             upper: M31_PRIME.into(),
@@ -813,7 +813,7 @@ mod test {
     fn run_m31_sub() {
         // TODO: Refactor cairo functions to receive m31 as parameters so we don't need different ones
         // to test different cases and we can unify them into one. This can be done when issue #1217 gets closed.
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/m31_sub");
+        let program = get_compiled_program("programs/libfuncs/m31_sub");
         let expected_range = Range {
             lower: 0.into(),
             upper: M31_PRIME.into(),
@@ -850,7 +850,7 @@ mod test {
     fn run_m31_mul() {
         // TODO: Refactor cairo functions to receive m31 as parameters so we don't need different ones
         // to test different cases and we can unify them into one. This can be done when issue #1217 gets closed.
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/m31_mul");
+        let program = get_compiled_program("programs/libfuncs/m31_mul");
         let expected_range = Range {
             lower: 0.into(),
             upper: M31_PRIME.into(),
@@ -887,7 +887,7 @@ mod test {
     fn run_m31_div() {
         // TODO: Refactor cairo functions to receive m31 as parameters so we don't need different ones
         // to test different cases and we can unify them into one. This can be done when issue #1217 gets closed.
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/m31_div");
+        let program = get_compiled_program("programs/libfuncs/m31_div");
         let expected_range = Range {
             lower: 0.into(),
             upper: M31_PRIME.into(),

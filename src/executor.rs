@@ -727,12 +727,12 @@ mod tests {
 
     #[fixture]
     fn program() -> Program {
-        load_program("test_data_artifacts/programs/executor_program")
+        load_program("programs/executor_program")
     }
 
     #[fixture]
     fn starknet_program() -> Program {
-        include_contract!("test_data_artifacts/contracts/simple_storage_42.contract.json")
+        include_contract!("contracts/simple_storage_42.contract.json")
             .extract_sierra_program(true)
             .unwrap()
             .program

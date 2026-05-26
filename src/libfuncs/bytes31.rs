@@ -169,8 +169,7 @@ mod test {
 
     #[test]
     fn bytes31_roundtrip() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/bytes31_roundtrip");
+        let program = get_compiled_program("programs/libfuncs/bytes31_roundtrip");
 
         run_program_assert_output(
             &program,

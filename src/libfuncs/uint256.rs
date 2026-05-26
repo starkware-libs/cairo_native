@@ -1000,7 +1000,7 @@ mod test {
 
     #[test]
     fn u256_is_zero() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/u256_is_zero");
+        let program = get_compiled_program("programs/libfuncs/u256_is_zero");
         run_program_assert_output(
             &program,
             "run_test",
@@ -1029,8 +1029,7 @@ mod test {
 
     #[test]
     fn u256_safe_divmod() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/u256_safe_divmod");
+        let program = get_compiled_program("programs/libfuncs/u256_safe_divmod");
         #[track_caller]
         fn run(
             program: &(String, cairo_lang_sierra::program::Program),
@@ -1138,7 +1137,7 @@ mod test {
 
     #[test]
     fn u256_sqrt() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/u256_sqrt");
+        let program = get_compiled_program("programs/libfuncs/u256_sqrt");
         #[track_caller]
         fn run(
             program: &(String, cairo_lang_sierra::program::Program),
@@ -1181,7 +1180,7 @@ mod test {
 
     #[test]
     fn u256_inv_mod_n() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/u256_inv_mod_n");
+        let program = get_compiled_program("programs/libfuncs/u256_inv_mod_n");
         #[track_caller]
         fn run(
             program: &(String, cairo_lang_sierra::program::Program),

@@ -176,22 +176,21 @@ mod test {
 
     #[test]
     fn run_box_unbox() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/box_unbox");
+        let program = get_compiled_program("programs/libfuncs/box_unbox");
 
         run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
     }
 
     #[test]
     fn run_box() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/box");
+        let program = get_compiled_program("programs/libfuncs/box");
 
         run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
     }
 
     #[test]
     fn box_unbox_stack_allocated_enum_single() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/box_unbox_enum_single");
+        let program = get_compiled_program("programs/libfuncs/box_unbox_enum_single");
 
         run_program_assert_output(
             &program,
@@ -207,8 +206,7 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum_c() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/box_unbox_enum_c");
+        let program = get_compiled_program("programs/libfuncs/box_unbox_enum_c");
 
         run_program_assert_output(
             &program,
@@ -227,8 +225,7 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum_c2() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/box_unbox_enum_c2");
+        let program = get_compiled_program("programs/libfuncs/box_unbox_enum_c2");
 
         run_program_assert_output(
             &program,
@@ -247,8 +244,7 @@ mod test {
 
     #[test]
     fn run_local_into_box_for_option() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/box_local_into_option");
+        let program = get_compiled_program("programs/libfuncs/box_local_into_option");
 
         run_program_assert_output(
             &program,
@@ -260,8 +256,7 @@ mod test {
 
     #[test]
     fn run_local_into_box_for_tuple() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/box_local_into_tuple");
+        let program = get_compiled_program("programs/libfuncs/box_local_into_tuple");
 
         run_program_assert_output(
             &program,
@@ -273,7 +268,7 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/box_unbox_enum");
+        let program = get_compiled_program("programs/libfuncs/box_unbox_enum");
 
         run_program_assert_output(
             &program,

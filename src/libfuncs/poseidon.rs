@@ -127,7 +127,7 @@ mod test {
 
     #[test]
     fn run_hades_permutation() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/poseidon_hades");
+        let program = get_compiled_program("programs/libfuncs/poseidon_hades");
 
         run_program_assert_output(
             &program,

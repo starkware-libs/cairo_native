@@ -148,8 +148,7 @@ mod test {
 
     #[test]
     fn int_range_try_new() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/int_range_try_new");
+        let program = get_compiled_program("programs/libfuncs/int_range_try_new");
         run_program_assert_output(
             &program,
             "run_test",

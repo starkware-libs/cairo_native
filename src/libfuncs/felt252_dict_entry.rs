@@ -200,26 +200,21 @@ mod test {
 
     #[test]
     fn run_dict_insert() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_entry_insert");
 
         run_program_assert_output(&program, "run_test", &[], 1u32.into());
     }
 
     #[test]
     fn run_dict_insert_big() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_big",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_entry_insert_big");
 
         run_program_assert_output(&program, "run_test", &[], 4u64.into());
     }
 
     #[test]
     fn run_dict_insert_ret_dict() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_ret_dict",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_entry_insert_ret_dict");
 
         run_program_assert_output(
             &program,
@@ -233,18 +228,14 @@ mod test {
 
     #[test]
     fn run_dict_insert_multiple() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_entry_insert_multiple",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_entry_insert_multiple");
 
         run_program_assert_output(&program, "run_test", &[], 1345432_u32.into());
     }
 
     #[test]
     fn run_dict_clone_ptr_update() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_entry_clone_ptr_update",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_entry_clone_ptr_update");
 
         run_program(&program, "run_test", &[]);
     }
