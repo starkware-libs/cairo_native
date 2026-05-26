@@ -1,9 +1,10 @@
+import argparse
 import os
 import subprocess
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", help="Defines which cairo files to compile")
+parser.add_argument("--filter", help="Only process file paths containing this string")
 args = parser.parse_args()
 
 subprocess.run(
@@ -75,24 +76,32 @@ def walk(subdir, f):
     for dirpath, dirnames, filenames in os.walk(
         os.path.join(src_root, subdir), followlinks=True
     ):
-        if os.path.isfile(os.path.join(dirpath, "cairo_project.toml")):
-            f(dirpath)
+        if "cairo_project.toml" in filenames:
+            if args.filter is None or args.filter in dirpath:
+                f(dirpath)
             dirnames.clear()
         else:
             for filename in filenames:
                 if filename.endswith(".cairo"):
                     filepath = os.path.join(dirpath, filename)
-                    f(filepath)
+                    if args.filter is None or args.filter in filepath:
+                        f(filepath)
 
- 
+
 if args.mode == "sierra-emu":
     src_root = "../../test_data"
     dst_root = "../../test_data_artifacts"
-    walk("programs/debug_utils", lambda p: compile_cairo_project(p, "../../target/debug/compile-cairo-project"))
+    walk(
+        "programs/debug_utils",
+        lambda p: compile_cairo_project(p, "../../target/debug/compile-cairo-project"),
+    )
 else:
     src_root = "test_data"
     dst_root = "test_data_artifacts"
-    walk("programs", lambda p: compile_cairo_project(p, "target/debug/compile-cairo-project"))
+    walk(
+        "programs",
+        lambda p: compile_cairo_project(p, "target/debug/compile-cairo-project"),
+    )
     walk("contracts", lambda p: compile_cairo_contract(p))
     walk("tests", lambda p: compile_cairo_tests(p, starknet=False))
     walk("tests_starknet", lambda p: compile_cairo_tests(p, starknet=True))
