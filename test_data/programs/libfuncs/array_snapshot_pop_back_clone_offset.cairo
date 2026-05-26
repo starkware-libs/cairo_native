@@ -3,7 +3,7 @@ fn run_test() -> Span<felt252> {
     let mut data = data.span();
 
     assert(*data.pop_front().unwrap() == 7, 0);
-    let data2 = data.clone();
+    let _data2 = data.clone();
 
     assert(*data.pop_back().unwrap() == 193827, 1);
 
