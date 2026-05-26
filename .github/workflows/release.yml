@@ -45,6 +45,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: cairo-native-compile
+          manifest_path: binaries/cairo-native-compile/Cargo.toml
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
@@ -53,6 +54,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: cairo-native-dump
+          manifest_path: binaries/cairo-native-dump/Cargo.toml
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
@@ -61,6 +63,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: cairo-native-run
+          manifest_path: binaries/cairo-native-run/Cargo.toml
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
@@ -78,6 +81,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: cairo-native-test
+          manifest_path: binaries/cairo-native-test/Cargo.toml
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
@@ -86,6 +90,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: starknet-native-compile
+          manifest_path: binaries/starknet-native-compile/Cargo.toml
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
