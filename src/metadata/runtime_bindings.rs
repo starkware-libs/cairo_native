@@ -1121,19 +1121,39 @@ fn build_egcd_function<'ctx>(
     ]));
 
     let modulus = entry_block.arg(1)?;
+    let zero = entry_block.const_int_from_type(context, location, 0, integer_type)?;
+    let one = entry_block.const_int_from_type(context, location, 1, integer_type)?;
+
+    // `a` is not constrained to be non-zero by every caller (e.g. the circuit INV gate,
+    // where the inverted value is unconstrained). The loop body divides `old_r` by `new_r`
+    // (= `a` on the first iteration), so `a == 0` would be a udiv-by-zero — UB at the LLVM
+    // IR level. Check it once here and skip the loop entirely: gcd(0, b) = b, so we branch
+    // straight to the end block with gcd = b and Bézout coefficient 0. The caller's
+    // `gcd == 1` check then correctly reports "not invertible" (b is a prime modulus > 1).
+    let a_is_zero = entry_block.cmpi(
+        context,
+        CmpiPredicate::Eq,
+        entry_block.arg(0)?,
+        zero,
+        location,
+    )?;
 
     // Jump to loop block from entry block, with initial values.
     // - old_r = b
     // - new_r = a
     // - old_s = 0
     // - new_s = 1
-    entry_block.append_operation(cf::br(
+    entry_block.append_operation(cf::cond_br(
+        context,
+        a_is_zero,
+        &end_block,
         &loop_block,
+        &[modulus, zero], // a == 0: gcd = b, Bézout coefficient = 0
         &[
             modulus, // b
             entry_block.arg(0)?,
-            entry_block.const_int_from_type(context, location, 0, integer_type)?,
-            entry_block.const_int_from_type(context, location, 1, integer_type)?,
+            zero,
+            one,
         ],
         location,
     ));
@@ -1145,7 +1165,10 @@ fn build_egcd_function<'ctx>(
         let old_s = loop_block.arg(2)?;
         let new_s = loop_block.arg(3)?;
 
-        // First calculate quotient of old_r/new_r.
+        // First calculate quotient of old_r/new_r. `new_r` is guaranteed non-zero here:
+        // it is `a` on the first iteration (and the entry block skips straight to the end
+        // block when `a == 0`), and on every later iteration it is the previous remainder,
+        // which the cond_br below only forwards when it is non-zero.
         let quotient = loop_block.append_op_result(arith::divui(old_r, new_r, location))?;
 
         // Multiply quotient by new_r and new_s.

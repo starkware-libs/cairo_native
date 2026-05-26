@@ -761,67 +761,106 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
         .result(0)?
         .into();
 
-    let result = entry.append_operation(scf::r#while(
-        &[lhs, rhs, k1, k0],
+    // `a` (= lhs) is not constrained to be non-zero by the signature
+    // `u256_guarantee_inv_mod_n(a, n: NonZero<u256>)`, and the extended Euclidean loop
+    // below divides by the current divisor (initially `a`) on its first iteration.
+    // `a == 0` would therefore be a udiv-by-zero, which is UB at the LLVM IR level.
+    // Check it once here and skip the loop entirely: gcd(0, n) = n has no inverse, so we
+    // hand the post-loop code a synthetic state with the gcd slot = n and the inverse
+    // slot = 0. That makes `result.1 == 1` false for n > 1 and `inv != 0` false for
+    // n == 1, so both branches report "no inverse" — matching casm_vm's U256InvModN hint.
+    let lhs_is_zero = entry
+        .append_operation(arith::cmpi(context, CmpiPredicate::Eq, lhs, k0, location))
+        .result(0)?
+        .into();
+    let result = entry.append_operation(scf::r#if(
+        lhs_is_zero,
         &[i256_ty, i256_ty, i256_ty, i256_ty],
         {
+            // a == 0: no inverse. Synthetic state: gcd slot = n, inverse slot = 0.
             let region = Region::new();
-            let block = region.append_block(Block::new(&[
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-            ]));
-
-            let q = block
-                .append_operation(arith::divui(block.arg(1)?, block.arg(0)?, location))
-                .result(0)?
-                .into();
-
-            let q_c = block
-                .append_operation(arith::muli(q, block.arg(0)?, location))
-                .result(0)?
-                .into();
-            let c = block
-                .append_operation(arith::subi(block.arg(1)?, q_c, location))
-                .result(0)?
-                .into();
-
-            let q_uc = block
-                .append_operation(arith::muli(q, block.arg(2)?, location))
-                .result(0)?
-                .into();
-            let u_c = block
-                .append_operation(arith::subi(block.arg(3)?, q_uc, location))
-                .result(0)?
-                .into();
-
-            let should_continue = block
-                .append_operation(arith::cmpi(context, CmpiPredicate::Ne, c, k0, location))
-                .result(0)?
-                .into();
-            block.append_operation(scf::condition(
-                should_continue,
-                &[c, block.arg(0)?, u_c, block.argument(2)?.into()],
-                location,
-            ));
-
+            let block = region.append_block(Block::new(&[]));
+            block.append_operation(scf::r#yield(&[k0, rhs, k0, k0], location));
             region
         },
         {
+            // a != 0: run the extended Euclidean algorithm.
             let region = Region::new();
-            let block = region.append_block(Block::new(&[
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-            ]));
+            let block = region.append_block(Block::new(&[]));
+            let euclid = block.append_operation(scf::r#while(
+                &[lhs, rhs, k1, k0],
+                &[i256_ty, i256_ty, i256_ty, i256_ty],
+                {
+                    let region = Region::new();
+                    let block = region.append_block(Block::new(&[
+                        (i256_ty, location),
+                        (i256_ty, location),
+                        (i256_ty, location),
+                        (i256_ty, location),
+                    ]));
 
-            block.append_operation(scf::r#yield(
-                &[block.arg(0)?, block.arg(1)?, block.arg(2)?, block.arg(3)?],
+                    let q = block
+                        .append_operation(arith::divui(block.arg(1)?, block.arg(0)?, location))
+                        .result(0)?
+                        .into();
+
+                    let q_c = block
+                        .append_operation(arith::muli(q, block.arg(0)?, location))
+                        .result(0)?
+                        .into();
+                    let c = block
+                        .append_operation(arith::subi(block.arg(1)?, q_c, location))
+                        .result(0)?
+                        .into();
+
+                    let q_uc = block
+                        .append_operation(arith::muli(q, block.arg(2)?, location))
+                        .result(0)?
+                        .into();
+                    let u_c = block
+                        .append_operation(arith::subi(block.arg(3)?, q_uc, location))
+                        .result(0)?
+                        .into();
+
+                    let should_continue = block
+                        .append_operation(arith::cmpi(context, CmpiPredicate::Ne, c, k0, location))
+                        .result(0)?
+                        .into();
+                    block.append_operation(scf::condition(
+                        should_continue,
+                        &[c, block.arg(0)?, u_c, block.argument(2)?.into()],
+                        location,
+                    ));
+
+                    region
+                },
+                {
+                    let region = Region::new();
+                    let block = region.append_block(Block::new(&[
+                        (i256_ty, location),
+                        (i256_ty, location),
+                        (i256_ty, location),
+                        (i256_ty, location),
+                    ]));
+
+                    block.append_operation(scf::r#yield(
+                        &[block.arg(0)?, block.arg(1)?, block.arg(2)?, block.arg(3)?],
+                        location,
+                    ));
+
+                    region
+                },
                 location,
             ));
-
+            block.append_operation(scf::r#yield(
+                &[
+                    euclid.result(0)?.into(),
+                    euclid.result(1)?.into(),
+                    euclid.result(2)?.into(),
+                    euclid.result(3)?.into(),
+                ],
+                location,
+            ));
             region
         },
         location,
