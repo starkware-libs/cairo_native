@@ -118,7 +118,7 @@ compiled sierra programs from an entrypoint. Programs and JIT states can be
 cached in contexts where their execution will be done multiple times.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>cairo_native::{
-    context::NativeContext, executor::JitNativeExecutor, utils::cairo_to_sierra, Value,
+    context::NativeContext, executor::JitNativeExecutor, utils::testing::cairo_to_sierra, Value,
 };
 <span class="kw">use </span>starknet_types_core::felt::Felt;
 <span class="kw">use </span>std::path::Path;
@@ -174,7 +174,7 @@ execute a program using the JIT.</p>
     <span class="kw">let </span>program_path = Path::new(<span class="string">"programs/echo.cairo"</span>);
 
     <span class="comment">// Compile the cairo program to sierra.
-    </span><span class="kw">let </span>sierra_program = cairo_native::utils::cairo_to_sierra(program_path).unwrap();
+    </span><span class="kw">let </span>sierra_program = cairo_native::utils::testing::cairo_to_sierra(program_path).unwrap();
 
     <span class="comment">// Instantiate a Cairo Native MLIR context. This data structure is responsible for the MLIR
     // initialization and compilation of sierra programs into a MLIR module.
@@ -512,6 +512,15 @@ execute a program using the JIT.</p>
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _state: <span class="kw-2">&amp;mut </span>[u32; <span class="number">8</span>],
         _block: <span class="kw-2">&amp;</span>[u32; <span class="number">16</span>],
+        _remaining_gas: <span class="kw-2">&amp;mut </span>u64,
+    ) -&gt; SyscallResult&lt;()&gt; {
+        <span class="macro">unimplemented!</span>()
+    }
+
+    <span class="kw">fn </span>sha512_process_block(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _state: <span class="kw-2">&amp;mut </span>[u64; <span class="number">8</span>],
+        _block: <span class="kw-2">&amp;</span>[u64; <span class="number">16</span>],
         _remaining_gas: <span class="kw-2">&amp;mut </span>u64,
     ) -&gt; SyscallResult&lt;()&gt; {
         <span class="macro">unimplemented!</span>()
