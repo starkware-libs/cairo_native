@@ -155,25 +155,21 @@ mod test {
 
     #[test]
     fn run_dict_new() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_new");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_new");
 
         run_program_assert_output(&program, "run_test", &[], jit_struct!());
     }
 
     #[test]
     fn run_dict_insert() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_insert");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_insert");
 
         run_program_assert_output(&program, "run_test", &[], 1u32.into());
     }
 
     #[test]
     fn run_dict_insert_ret_dict() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_insert_ret_dict",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_insert_ret_dict");
 
         run_program_assert_output(
             &program,
@@ -191,8 +187,7 @@ mod test {
 
     #[test]
     fn run_dict_deserialize() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_deserialize");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_deserialize");
 
         run_program_assert_output(
             &program,
@@ -216,8 +211,7 @@ mod test {
 
     #[test]
     fn run_dict_deserialize2() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_deserialize2");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_deserialize2");
 
         run_program_assert_output(
             &program,
@@ -244,9 +238,7 @@ mod test {
 
     #[test]
     fn run_dict_deserialize_struct() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_deserialize_struct",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_deserialize_struct");
 
         run_program_assert_output(
             &program,
@@ -274,9 +266,7 @@ mod test {
 
     #[test]
     fn run_dict_deserialize_enum() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/libfuncs/felt252_dict_deserialize_enum",
-        );
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_deserialize_enum");
 
         run_program_assert_output(
             &program,
@@ -292,8 +282,7 @@ mod test {
 
     #[test]
     fn run_dict_squash() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_dict_squash");
+        let program = get_compiled_program("programs/libfuncs/felt252_dict_squash");
 
         let result = run_program(&program, "main", &[]);
         assert_eq!(result.builtin_stats.range_check, 100);

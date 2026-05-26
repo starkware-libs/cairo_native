@@ -811,17 +811,17 @@ mod tests {
 
     #[fixture]
     fn starknet_program() -> ContractClass {
-        include_contract!("test_data_artifacts/contracts/simple_storage_dup.contract.json")
+        include_contract!("contracts/simple_storage_dup.contract.json")
     }
 
     #[fixture]
     fn starknet_program_factorial() -> ContractClass {
-        include_contract!("test_data_artifacts/contracts/simple_storage_factorial.contract.json")
+        include_contract!("contracts/simple_storage_factorial.contract.json")
     }
 
     #[fixture]
     fn starknet_program_empty() -> ContractClass {
-        include_contract!("test_data_artifacts/contracts/simple_storage_empty.contract.json")
+        include_contract!("contracts/simple_storage_empty.contract.json")
     }
 
     #[rstest]

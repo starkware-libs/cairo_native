@@ -5,7 +5,7 @@ use starknet_types_core::felt::Felt;
 
 #[test]
 fn u256_test() {
-    let contract = load_contract("test_data_artifacts/contracts/u256_order.contract.json");
+    let contract = load_contract("contracts/u256_order.contract.json");
 
     let entry_point = contract.entry_points_by_type.external.first().unwrap();
 

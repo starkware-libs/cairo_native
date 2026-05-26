@@ -1036,7 +1036,7 @@ mod test {
 
     #[test]
     fn ensure_padded_layouts() {
-        let program = load_program("test_data_artifacts/programs/types/ensure_padded_layouts");
+        let program = load_program("programs/types/ensure_padded_layouts");
 
         let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();
         for ty in &program.type_declarations {

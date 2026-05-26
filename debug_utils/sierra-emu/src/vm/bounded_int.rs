@@ -341,14 +341,14 @@ mod tests {
 
     #[test]
     fn test_bounded_int_sub() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/bounded_int_sub");
+        let program = load_program("programs/debug_utils/bounded_int_sub");
 
         run_test_program(program);
     }
 
     #[test]
     fn test_trim_i8() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/bounded_int_trim_i8");
+        let program = load_program("programs/debug_utils/bounded_int_trim_i8");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_trim_u32() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/bounded_int_trim_u32");
+        let program = load_program("programs/debug_utils/bounded_int_trim_u32");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();
@@ -376,8 +376,7 @@ mod tests {
 
     #[test]
     fn test_trim_none() {
-        let program =
-            load_program("test_data_artifacts/programs/debug_utils/bounded_int_trim_none");
+        let program = load_program("programs/debug_utils/bounded_int_trim_none");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();

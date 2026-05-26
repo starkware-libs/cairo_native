@@ -207,8 +207,7 @@ mod test {
 
     #[test]
     fn boxed_deconstruct_3_fields() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/struct_boxed_deconstruct");
+        let program = get_compiled_program("programs/libfuncs/struct_boxed_deconstruct");
         run_program_assert_output(
             &program,
             "deconstruct_struct_3_fields",
@@ -219,8 +218,7 @@ mod test {
 
     #[test]
     fn boxed_deconstruct_1_field() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/struct_boxed_deconstruct");
+        let program = get_compiled_program("programs/libfuncs/struct_boxed_deconstruct");
         run_program_assert_output(
             &program,
             "deconstruct_struct_1_field",
@@ -231,15 +229,13 @@ mod test {
 
     #[test]
     fn boxed_deconstruct_empty_struct() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/struct_boxed_deconstruct");
+        let program = get_compiled_program("programs/libfuncs/struct_boxed_deconstruct");
         run_program_assert_output(&program, "deconstruct_empty_struct", &[], jit_struct!());
     }
 
     #[test]
     fn boxed_deconstruct_struct_snapshot() {
-        let program =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/struct_boxed_deconstruct");
+        let program = get_compiled_program("programs/libfuncs/struct_boxed_deconstruct");
         run_program_assert_output(
             &program,
             "deconstruct_struct_snapshot",

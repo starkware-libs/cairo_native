@@ -439,7 +439,7 @@ mod test {
 
     #[test]
     fn test_diff_14_m2() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/int_diff_14_m2");
+        let program = load_program("programs/debug_utils/int_diff_14_m2");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();
@@ -453,7 +453,7 @@ mod test {
 
     #[test]
     fn test_diff_m14_m2() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/int_diff_m14_m2");
+        let program = load_program("programs/debug_utils/int_diff_m14_m2");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();
@@ -467,7 +467,7 @@ mod test {
 
     #[test]
     fn test_diff_m2_0() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/int_diff_m2_0");
+        let program = load_program("programs/debug_utils/int_diff_m2_0");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();
@@ -481,7 +481,7 @@ mod test {
 
     #[test]
     fn test_diff_2_10() {
-        let program = load_program("test_data_artifacts/programs/debug_utils/int_diff_2_10");
+        let program = load_program("programs/debug_utils/int_diff_2_10");
 
         let result = run_test_program(program);
         let result = result.last().unwrap();

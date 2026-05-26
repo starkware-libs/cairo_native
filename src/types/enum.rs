@@ -278,8 +278,7 @@ mod test {
 
     #[test]
     fn enum_type_single_variant_no_i0() {
-        let program =
-            load_program("test_data_artifacts/programs/types/enum_type_single_variant_no_i0");
+        let program = load_program("programs/types/enum_type_single_variant_no_i0");
         let context = Context::new();
         let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();
 

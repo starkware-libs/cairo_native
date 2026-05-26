@@ -75,11 +75,9 @@ mod test {
 
     #[test]
     fn test_cache() {
-        let (_, program1) =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_add");
+        let (_, program1) = get_compiled_program("programs/libfuncs/felt252_add");
 
-        let (_, program2) =
-            get_compiled_program("test_data_artifacts/programs/libfuncs/felt252_sub");
+        let (_, program2) = get_compiled_program("programs/libfuncs/felt252_sub");
 
         let context = NativeContext::new();
         let mut cache: JitProgramCache<&'static str> = JitProgramCache::new(&context);

@@ -8,7 +8,7 @@ pub fn compile_library() -> Result<(), Box<dyn Error>> {
     // Load the program.
     let context = NativeContext::new();
 
-    let program = load_program_and_runner("test_data_artifacts/programs/felt252_add");
+    let program = load_program_and_runner("programs/felt252_add");
 
     let module = context.compile(&program.1, false, Some(Default::default()), None)?;
 

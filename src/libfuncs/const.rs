@@ -307,7 +307,7 @@ pub mod test {
 
     #[test]
     fn run_const_as_box() {
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/const_as_box");
+        let program = get_compiled_program("programs/libfuncs/const_as_box");
 
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, jit_struct!(Value::Sint32(-2)));
@@ -316,7 +316,7 @@ pub mod test {
     #[test]
     fn run_ec_point_const() {
         // Tests const_as_box on EcPoint type (Const<EcPoint, x, y>).
-        let program = get_compiled_program("test_data_artifacts/programs/libfuncs/ec_point_const");
+        let program = get_compiled_program("programs/libfuncs/ec_point_const");
 
         // Just verify it compiles and runs without panicking.
         let _ = run_program(&program, "run_test", &[]);

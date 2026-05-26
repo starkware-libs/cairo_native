@@ -62,7 +62,7 @@ mod test {
 
     #[test]
     fn test_array_snapshot_deep_clone() {
-        let program = get_compiled_program("test_data_artifacts/programs/types/nested_arrays");
+        let program = get_compiled_program("programs/types/nested_arrays");
         let result = run_program(&program, "run_test", &[]).return_value;
 
         assert_eq!(
@@ -84,9 +84,7 @@ mod test {
 
     #[test]
     fn test_dup_snapshots_of_dictionary_array() {
-        let program = get_compiled_program(
-            "test_data_artifacts/programs/types/dup_snapshots_of_dictionary_array",
-        );
+        let program = get_compiled_program("programs/types/dup_snapshots_of_dictionary_array");
         let result = run_program(&program, "run_test", &[]).return_value;
         assert_eq!(result, Value::Felt252(6.into()));
     }
