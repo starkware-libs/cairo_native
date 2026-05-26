@@ -26,7 +26,10 @@ use cairo_lang_sierra::{
 };
 use itertools::Itertools;
 use melior::{
-    dialect::{arith, cf, llvm, ods},
+    dialect::{
+        arith::{self},
+        cf, llvm, ods,
+    },
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
     ir::{
         attribute::{FlatSymbolRefAttribute, StringAttribute, TypeAttribute},
@@ -544,6 +547,19 @@ fn increment_builtin_counter_conditionally_by<'ctx: 'a, 'a>(
         false_incremented,
         location,
     ))?)
+}
+
+/// Whether the operand's stored representation is two's-complement signed,
+/// so callers know to pick the signed `cmpi` variant over the unsigned one.
+///
+/// Plain Sierra signed ints (`i8`..`i128`) live as two's complement.
+/// Everything else — `u*` and `BoundedInt<L, U>`, which is biased to start at
+/// zero regardless of `L`'s sign — is stored as a non-negative integer.
+fn is_signed_repr(
+    ty: &CoreTypeConcrete,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+) -> Result<bool> {
+    Ok(ty.integer_range(registry)?.lower < BigInt::ZERO && !ty.is_bounded_int(registry)?)
 }
 
 fn build_noop<'ctx, 'this, const N: usize, const PROCESS_BUILTINS: bool>(
