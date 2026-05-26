@@ -152,7 +152,7 @@ cached in contexts where their execution will be done multiple times.
 
 ```rust
 use cairo_native::{
-    context::NativeContext, executor::JitNativeExecutor, utils::cairo_to_sierra, Value,
+    context::NativeContext, executor::JitNativeExecutor, utils::testing::cairo_to_sierra, Value,
 };
 use starknet_types_core::felt::Felt;
 use std::path::Path;
@@ -213,7 +213,7 @@ fn main() {
     let program_path = Path::new("programs/echo.cairo");
 
     // Compile the cairo program to sierra.
-    let sierra_program = cairo_native::utils::cairo_to_sierra(program_path).unwrap();
+    let sierra_program = cairo_native::utils::testing::cairo_to_sierra(program_path).unwrap();
 
     // Instantiate a Cairo Native MLIR context. This data structure is responsible for the MLIR
     // initialization and compilation of sierra programs into a MLIR module.
@@ -555,6 +555,15 @@ impl StarknetSyscallHandler for SyscallHandler {
         &mut self,
         _state: &mut [u32; 8],
         _block: &[u32; 16],
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<()> {
+        unimplemented!()
+    }
+
+    fn sha512_process_block(
+        &mut self,
+        _state: &mut [u64; 8],
+        _block: &[u64; 16],
         _remaining_gas: &mut u64,
     ) -> SyscallResult<()> {
         unimplemented!()
