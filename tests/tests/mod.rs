@@ -8,6 +8,7 @@ pub mod dict;
 pub mod e2e_libfuncs;
 pub mod ec;
 pub mod felt252;
+pub mod int_range;
 pub mod libfuncs;
 pub mod programs;
 pub mod result;

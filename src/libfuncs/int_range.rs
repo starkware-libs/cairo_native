@@ -1,9 +1,7 @@
 //! # Int range libfuncs
 
 use super::LibfuncHelper;
-use crate::{
-    error::Result, metadata::MetadataStorage, types::TypeBuilder, utils::ProgramRegistryExt,
-};
+use crate::{error::Result, metadata::MetadataStorage, utils::ProgramRegistryExt};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -15,14 +13,13 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::{
-        arith::{self, CmpiPredicate},
+        arith::{self},
         ods,
     },
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
-    ir::{Block, Location},
+    ir::{Block, Location, ValueLike},
     Context,
 };
-use num_bigint::BigInt;
 
 /// Select and call the correct libfunc builder function from the selector.
 pub fn build<'ctx, 'this>(
@@ -66,14 +63,10 @@ pub fn build_int_range_try_new<'ctx, 'this>(
         &info.branch_signatures()[0].vars[1].ty,
     )?;
     let inner = registry.get_type(&info.param_signatures()[1].ty)?;
-    // to know if it is signed
-    let inner_range = inner.integer_range(registry)?;
-
-    let is_valid = if inner_range.lower < BigInt::ZERO {
-        entry.cmpi(context, CmpiPredicate::Sle, x, y, location)?
-    } else {
-        entry.cmpi(context, CmpiPredicate::Ule, x, y, location)?
-    };
+    let k1 = entry.const_int_from_type(context, location, 1, y.r#type())?;
+    let y_p_1 = entry.addi(y, k1, location)?;
+    let predicate = super::compare_predicate(inner, registry)?;
+    let is_valid = entry.cmpi(context, predicate, x, y_p_1, location)?;
 
     let range =
         entry.append_op_result(ods::llvm::mlir_undef(context, range_ty, location).into())?;
@@ -118,14 +111,8 @@ pub fn build_int_range_pop_front<'ctx, 'this>(
     let x_p_1 = entry.addi(x, k1, location)?;
     let y = entry.extract_value(context, location, range, inner_ty, 1)?;
 
-    // to know if it is signed
-    let inner_range = inner.integer_range(registry)?;
-
-    let is_valid = if inner_range.lower < BigInt::ZERO {
-        entry.cmpi(context, CmpiPredicate::Slt, x, y, location)?
-    } else {
-        entry.cmpi(context, CmpiPredicate::Ult, x, y, location)?
-    };
+    let predicate = super::compare_predicate(inner, registry)?;
+    let is_valid = entry.cmpi(context, predicate, x, y, location)?;
     let range = entry.insert_value(context, location, range, x_p_1, 0)?;
 
     helper.cond_br(
