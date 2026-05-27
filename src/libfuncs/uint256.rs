@@ -1,6 +1,6 @@
 //! # `u256`-related libfuncs
 
-use super::{increment_builtin_counter_conditionally_by, LibfuncHelper};
+use super::{increment_builtin_counter_by, LibfuncHelper};
 use crate::{error::Result, metadata::MetadataStorage, utils::ProgramRegistryExt};
 use cairo_lang_sierra::{
     extensions::{
@@ -14,7 +14,7 @@ use cairo_lang_sierra::{
 use melior::{
     dialect::{
         arith::{self, CmpiPredicate},
-        llvm, ods, scf,
+        cf, llvm, ods, scf,
     },
     helpers::BuiltinBlockExt,
     ir::{
@@ -761,6 +761,61 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
         .result(0)?
         .into();
 
+    // `a` (= lhs) is not constrained to be non-zero by the signature
+    // `u256_guarantee_inv_mod_n(a, n: NonZero<u256>)`, and the extended Euclidean loop
+    // below divides by the current divisor (initially `a`) on its first iteration, so
+    // `a == 0` would be a udiv-by-zero (UB at the LLVM IR level). Since gcd(0, n) = n has
+    // no inverse, short-circuit the whole calculation when `a == 0` and branch straight to
+    // the "no inverse" output, matching casm_vm's U256InvModN hint. The range check builtin
+    // is incremented 7 times on this path, same as the regular not-invertible branch.
+    let guarantee_type = registry.build_type(
+        context,
+        helper,
+        metadata,
+        info.output_types().next().unwrap().nth(2).unwrap(),
+    )?;
+    let range_check = entry.arg(0)?;
+
+    // The "no inverse" branch (output index 1) is reached from two places: the `a == 0`
+    // short-circuit below and the regular `gcd != 1` exit of the Euclidean loop. The
+    // LibfuncHelper reuses the values passed to `br`/`cond_br` directly in the shared
+    // landing block, so they must dominate it. We therefore build them here in the entry
+    // block (a common dominator of both predecessors): an `undef` guarantee and the range
+    // check incremented 7 times.
+    let guarantee = entry
+        .append_operation(llvm::undef(guarantee_type, location))
+        .result(0)?
+        .into();
+    let range_check_no_inverse =
+        increment_builtin_counter_by(context, entry, location, range_check, 7)?;
+
+    let lhs_is_zero = entry
+        .append_operation(arith::cmpi(context, CmpiPredicate::Eq, lhs, k0, location))
+        .result(0)?
+        .into();
+    let no_inverse_block = helper.append_block(Block::new(&[]));
+    let compute_block = helper.append_block(Block::new(&[]));
+    entry.append_operation(cf::cond_br(
+        context,
+        lhs_is_zero,
+        no_inverse_block,
+        compute_block,
+        &[],
+        &[],
+        location,
+    ));
+
+    helper.br(
+        no_inverse_block,
+        1,
+        &[range_check_no_inverse, guarantee, guarantee],
+        location,
+    )?;
+
+    // `a != 0`: the inverse may exist, so run the extended Euclidean algorithm. From here
+    // on everything is emitted into `compute_block` instead of the original entry block.
+    let entry = compute_block;
+
     let result = entry.append_operation(scf::r#while(
         &[lhs, rhs, k1, k0],
         &[i256_ty, i256_ty, i256_ty, i256_ty],
@@ -932,27 +987,12 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
         .result(0)?
         .into();
 
-    let guarantee_type = registry.build_type(
-        context,
-        helper,
-        metadata,
-        info.output_types().next().unwrap().nth(2).unwrap(),
-    )?;
-    let op = entry.append_operation(llvm::undef(guarantee_type, location));
-    let guarantee = op.result(0)?.into();
-
     // The sierra-to-casm compiler uses the range check builtin a total of 9 times if the inverse is
-    // not equal to 0 and lhs is invertible. Otherwise it will be used 7 times.
+    // not equal to 0 and lhs is invertible. Otherwise it will be used 7 times (handled by
+    // `range_check_no_inverse`, computed in the entry block).
     // https://github.com/starkware-libs/cairo/blob/v2.12.0-dev.1/crates/cairo-lang-sierra-to-casm/src/invocations/int/unsigned256.rs#L21
-    let range_check = increment_builtin_counter_conditionally_by(
-        context,
-        entry,
-        location,
-        entry.arg(0)?,
-        9,
-        7,
-        inverse_exists_and_is_not_zero,
-    )?;
+    let range_check_inverse =
+        increment_builtin_counter_by(context, entry, location, range_check, 9)?;
 
     helper.cond_br(
         context,
@@ -961,7 +1001,7 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
         [0, 1],
         [
             &[
-                range_check,
+                range_check_inverse,
                 result_inv,
                 guarantee,
                 guarantee,
@@ -972,7 +1012,7 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
                 guarantee,
                 guarantee,
             ],
-            &[range_check, guarantee, guarantee],
+            &[range_check_no_inverse, guarantee, guarantee],
         ],
         location,
     )
