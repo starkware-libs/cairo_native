@@ -573,12 +573,11 @@ fn build_constrain<'ctx, 'this>(
         src_value.r#type(),
     )?;
 
-    let cmpi_predicate =
-        if src.ty.is_bounded_int(registry)? || src.range.lower.sign() != Sign::Minus {
-            CmpiPredicate::Ult
-        } else {
-            CmpiPredicate::Slt
-        };
+    let cmpi_predicate = if super::is_signed_repr(src.ty, registry)? {
+        CmpiPredicate::Slt
+    } else {
+        CmpiPredicate::Ult
+    };
     let is_lower = entry.cmpi(context, cmpi_predicate, src_value, boundary, location)?;
 
     let lower_block = helper.append_block(Block::new(&[]));
