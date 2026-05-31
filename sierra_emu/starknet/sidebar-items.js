@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BlockInfo","ContractLogs","ExecutionInfo","ExecutionInfoV2","ResourceBounds","Secp256k1Point","Secp256r1Point","StubEvent","StubSyscallHandler","TxInfo","TxV2Info","U256"],"trait":["StarknetSyscallHandler"],"type":["SyscallResult"]};
+window.SIDEBAR_ITEMS = {"struct":["BlockInfo","ContractLogs","ExecutionInfo","ExecutionInfoV2","ExecutionInfoV3","ResourceBounds","Secp256k1Point","Secp256r1Point","StubEvent","StubSyscallHandler","TxInfo","TxV2Info","TxV3Info","U256"],"trait":["StarknetSyscallHandler"],"type":["SyscallResult"]};

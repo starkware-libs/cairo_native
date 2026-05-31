@@ -773,167 +773,169 @@
 <a href=#773 id=773 data-nosnippet>773</a>                                lo: point.y.lo,
 <a href=#774 id=774 data-nosnippet>774</a>                                hi: point.y.hi,
 <a href=#775 id=775 data-nosnippet>775</a>                            },
-<a href=#776 id=776 data-nosnippet>776</a>                        };
-<a href=#777 id=777 data-nosnippet>777</a>                        emu_point.into_value()
-<a href=#778 id=778 data-nosnippet>778</a>                    }
-<a href=#779 id=779 data-nosnippet>779</a>                    Secp256PointTypeConcrete::R1(<span class="kw">_</span>) =&gt; {
-<a href=#780 id=780 data-nosnippet>780</a>                        <span class="kw">let </span>point: Secp256Point = value_ptr.cast().read();
-<a href=#781 id=781 data-nosnippet>781</a>                        <span class="kw">let </span>emu_point = EmuSecp256r1Point {
-<a href=#782 id=782 data-nosnippet>782</a>                            x: EmuU256 {
-<a href=#783 id=783 data-nosnippet>783</a>                                lo: point.x.lo,
-<a href=#784 id=784 data-nosnippet>784</a>                                hi: point.x.hi,
-<a href=#785 id=785 data-nosnippet>785</a>                            },
-<a href=#786 id=786 data-nosnippet>786</a>                            y: EmuU256 {
-<a href=#787 id=787 data-nosnippet>787</a>                                lo: point.y.lo,
-<a href=#788 id=788 data-nosnippet>788</a>                                hi: point.y.hi,
-<a href=#789 id=789 data-nosnippet>789</a>                            },
-<a href=#790 id=790 data-nosnippet>790</a>                        };
-<a href=#791 id=791 data-nosnippet>791</a>                        emu_point.into_value()
-<a href=#792 id=792 data-nosnippet>792</a>                    }
-<a href=#793 id=793 data-nosnippet>793</a>                },
-<a href=#794 id=794 data-nosnippet>794</a>                StarknetTypeConcrete::Sha256StateHandle(<span class="kw">_</span>) =&gt; {
-<a href=#795 id=795 data-nosnippet>795</a>                    <span class="kw">let </span>raw_data = value_ptr.cast::&lt;NonNull&lt;[u32; <span class="number">8</span>]&gt;&gt;().read().read();
-<a href=#796 id=796 data-nosnippet>796</a>                    <span class="kw">let </span>data = raw_data.into_iter().map(Value::U32).collect_vec();
-<a href=#797 id=797 data-nosnippet>797</a>                    Value::Struct(data)
-<a href=#798 id=798 data-nosnippet>798</a>                }
-<a href=#799 id=799 data-nosnippet>799</a>                StarknetTypeConcrete::Sha512StateHandle(<span class="kw">_</span>) =&gt; {
-<a href=#800 id=800 data-nosnippet>800</a>                    <span class="kw">let </span>raw_data = value_ptr.cast::&lt;NonNull&lt;[u64; <span class="number">8</span>]&gt;&gt;().read().read();
-<a href=#801 id=801 data-nosnippet>801</a>                    <span class="kw">let </span>data = raw_data.into_iter().map(Value::U64).collect_vec();
-<a href=#802 id=802 data-nosnippet>802</a>                    Value::Struct(data)
-<a href=#803 id=803 data-nosnippet>803</a>                }
-<a href=#804 id=804 data-nosnippet>804</a>                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-<a href=#805 id=805 data-nosnippet>805</a>            },
-<a href=#806 id=806 data-nosnippet>806</a>            CoreTypeConcrete::Bytes31(<span class="kw">_</span>) =&gt; {
-<a href=#807 id=807 data-nosnippet>807</a>                <span class="kw">let </span>original_data: [u8; <span class="number">31</span>] = value_ptr.cast().read();
-<a href=#808 id=808 data-nosnippet>808</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = [<span class="number">0u8</span>; <span class="number">32</span>];
-<a href=#809 id=809 data-nosnippet>809</a>                <span class="kw">for </span>(i, v) <span class="kw">in </span>original_data.into_iter().enumerate() {
-<a href=#810 id=810 data-nosnippet>810</a>                    data[i] = v
-<a href=#811 id=811 data-nosnippet>811</a>                }
-<a href=#812 id=812 data-nosnippet>812</a>
-<a href=#813 id=813 data-nosnippet>813</a>                Value::Bytes31(Felt::from_bytes_le(<span class="kw-2">&amp;</span>data))
-<a href=#814 id=814 data-nosnippet>814</a>            }
-<a href=#815 id=815 data-nosnippet>815</a>            CoreTypeConcrete::IntRange(info) =&gt; {
-<a href=#816 id=816 data-nosnippet>816</a>                <span class="kw">let </span>type_info = registry.get_type(<span class="kw-2">&amp;</span>info.ty).unwrap();
-<a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a>                <span class="kw">match </span>type_info {
-<a href=#819 id=819 data-nosnippet>819</a>                    CoreTypeConcrete::Sint8(<span class="kw">_</span>) =&gt; {
-<a href=#820 id=820 data-nosnippet>820</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i8&gt;&gt;().read();
-<a href=#821 id=821 data-nosnippet>821</a>                        Value::IntRange {
-<a href=#822 id=822 data-nosnippet>822</a>                            x: Box::new(value.x.into()),
-<a href=#823 id=823 data-nosnippet>823</a>                            y: Box::new(value.y.into()),
-<a href=#824 id=824 data-nosnippet>824</a>                        }
-<a href=#825 id=825 data-nosnippet>825</a>                    }
-<a href=#826 id=826 data-nosnippet>826</a>                    CoreTypeConcrete::Sint16(<span class="kw">_</span>) =&gt; {
-<a href=#827 id=827 data-nosnippet>827</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i16&gt;&gt;().read();
-<a href=#828 id=828 data-nosnippet>828</a>                        Value::IntRange {
-<a href=#829 id=829 data-nosnippet>829</a>                            x: Box::new(value.x.into()),
-<a href=#830 id=830 data-nosnippet>830</a>                            y: Box::new(value.y.into()),
-<a href=#831 id=831 data-nosnippet>831</a>                        }
-<a href=#832 id=832 data-nosnippet>832</a>                    }
-<a href=#833 id=833 data-nosnippet>833</a>                    CoreTypeConcrete::Sint32(<span class="kw">_</span>) =&gt; {
-<a href=#834 id=834 data-nosnippet>834</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i32&gt;&gt;().read();
-<a href=#835 id=835 data-nosnippet>835</a>                        Value::IntRange {
-<a href=#836 id=836 data-nosnippet>836</a>                            x: Box::new(value.x.into()),
-<a href=#837 id=837 data-nosnippet>837</a>                            y: Box::new(value.y.into()),
-<a href=#838 id=838 data-nosnippet>838</a>                        }
-<a href=#839 id=839 data-nosnippet>839</a>                    }
-<a href=#840 id=840 data-nosnippet>840</a>                    CoreTypeConcrete::Sint64(<span class="kw">_</span>) =&gt; {
-<a href=#841 id=841 data-nosnippet>841</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i64&gt;&gt;().read();
-<a href=#842 id=842 data-nosnippet>842</a>                        Value::IntRange {
-<a href=#843 id=843 data-nosnippet>843</a>                            x: Box::new(value.x.into()),
-<a href=#844 id=844 data-nosnippet>844</a>                            y: Box::new(value.y.into()),
-<a href=#845 id=845 data-nosnippet>845</a>                        }
-<a href=#846 id=846 data-nosnippet>846</a>                    }
-<a href=#847 id=847 data-nosnippet>847</a>                    CoreTypeConcrete::Sint128(<span class="kw">_</span>) =&gt; {
-<a href=#848 id=848 data-nosnippet>848</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i128&gt;&gt;().read();
-<a href=#849 id=849 data-nosnippet>849</a>                        Value::IntRange {
-<a href=#850 id=850 data-nosnippet>850</a>                            x: Box::new(value.x.into()),
-<a href=#851 id=851 data-nosnippet>851</a>                            y: Box::new(value.y.into()),
-<a href=#852 id=852 data-nosnippet>852</a>                        }
-<a href=#853 id=853 data-nosnippet>853</a>                    }
-<a href=#854 id=854 data-nosnippet>854</a>                    CoreTypeConcrete::Uint8(<span class="kw">_</span>) =&gt; {
-<a href=#855 id=855 data-nosnippet>855</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u8&gt;&gt;().read();
-<a href=#856 id=856 data-nosnippet>856</a>                        Value::IntRange {
-<a href=#857 id=857 data-nosnippet>857</a>                            x: Box::new(value.x.into()),
-<a href=#858 id=858 data-nosnippet>858</a>                            y: Box::new(value.y.into()),
-<a href=#859 id=859 data-nosnippet>859</a>                        }
-<a href=#860 id=860 data-nosnippet>860</a>                    }
-<a href=#861 id=861 data-nosnippet>861</a>                    CoreTypeConcrete::Uint16(<span class="kw">_</span>) =&gt; {
-<a href=#862 id=862 data-nosnippet>862</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u16&gt;&gt;().read();
-<a href=#863 id=863 data-nosnippet>863</a>                        Value::IntRange {
-<a href=#864 id=864 data-nosnippet>864</a>                            x: Box::new(value.x.into()),
-<a href=#865 id=865 data-nosnippet>865</a>                            y: Box::new(value.y.into()),
-<a href=#866 id=866 data-nosnippet>866</a>                        }
-<a href=#867 id=867 data-nosnippet>867</a>                    }
-<a href=#868 id=868 data-nosnippet>868</a>                    CoreTypeConcrete::Uint32(<span class="kw">_</span>) =&gt; {
-<a href=#869 id=869 data-nosnippet>869</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u32&gt;&gt;().read();
-<a href=#870 id=870 data-nosnippet>870</a>                        Value::IntRange {
-<a href=#871 id=871 data-nosnippet>871</a>                            x: Box::new(value.x.into()),
-<a href=#872 id=872 data-nosnippet>872</a>                            y: Box::new(value.y.into()),
-<a href=#873 id=873 data-nosnippet>873</a>                        }
-<a href=#874 id=874 data-nosnippet>874</a>                    }
-<a href=#875 id=875 data-nosnippet>875</a>                    CoreTypeConcrete::Uint64(<span class="kw">_</span>) =&gt; {
-<a href=#876 id=876 data-nosnippet>876</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u64&gt;&gt;().read();
-<a href=#877 id=877 data-nosnippet>877</a>                        Value::IntRange {
-<a href=#878 id=878 data-nosnippet>878</a>                            x: Box::new(value.x.into()),
-<a href=#879 id=879 data-nosnippet>879</a>                            y: Box::new(value.y.into()),
-<a href=#880 id=880 data-nosnippet>880</a>                        }
-<a href=#881 id=881 data-nosnippet>881</a>                    }
-<a href=#882 id=882 data-nosnippet>882</a>                    CoreTypeConcrete::Uint128(<span class="kw">_</span>) =&gt; {
-<a href=#883 id=883 data-nosnippet>883</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u128&gt;&gt;().read();
-<a href=#884 id=884 data-nosnippet>884</a>                        Value::IntRange {
-<a href=#885 id=885 data-nosnippet>885</a>                            x: Box::new(value.x.into()),
-<a href=#886 id=886 data-nosnippet>886</a>                            y: Box::new(value.y.into()),
-<a href=#887 id=887 data-nosnippet>887</a>                        }
-<a href=#888 id=888 data-nosnippet>888</a>                    }
-<a href=#889 id=889 data-nosnippet>889</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-<a href=#890 id=890 data-nosnippet>890</a>                }
-<a href=#891 id=891 data-nosnippet>891</a>            }
-<a href=#892 id=892 data-nosnippet>892</a>            CoreTypeConcrete::Blake(<span class="kw">_</span>)
-<a href=#893 id=893 data-nosnippet>893</a>            | CoreTypeConcrete::GasReserve(<span class="kw">_</span>)
-<a href=#894 id=894 data-nosnippet>894</a>            | CoreTypeConcrete::QM31(<span class="kw">_</span>) =&gt; {
-<a href=#895 id=895 data-nosnippet>895</a>                <span class="macro">todo!</span>()
-<a href=#896 id=896 data-nosnippet>896</a>            }
-<a href=#897 id=897 data-nosnippet>897</a>        }
-<a href=#898 id=898 data-nosnippet>898</a>    }
-<a href=#899 id=899 data-nosnippet>899</a>
-<a href=#900 id=900 data-nosnippet>900</a>    <span class="kw">unsafe fn </span>u384_struct_to_bigint(value_ptr: NonNull&lt;[u8; <span class="number">12</span>]&gt;, limbs_count: usize) -&gt; BigUint {
-<a href=#901 id=901 data-nosnippet>901</a>        <span class="kw">let </span>u96_layout = get_integer_layout(<span class="number">96</span>);
-<a href=#902 id=902 data-nosnippet>902</a>        <span class="kw">let </span>(<span class="kw">_</span>, elem_stride) = layout_repeat(<span class="kw-2">&amp;</span>u96_layout, <span class="number">4</span>).unwrap();
-<a href=#903 id=903 data-nosnippet>903</a>
-<a href=#904 id=904 data-nosnippet>904</a>        <span class="kw">let </span>output_limbs = (<span class="number">0</span>..limbs_count)
-<a href=#905 id=905 data-nosnippet>905</a>            .flat_map(|i| {
-<a href=#906 id=906 data-nosnippet>906</a>                <span class="kw">let </span>offset = elem_stride * i;
-<a href=#907 id=907 data-nosnippet>907</a>                <span class="kw-2">*</span>value_ptr.byte_add(offset).as_ref()
-<a href=#908 id=908 data-nosnippet>908</a>            })
-<a href=#909 id=909 data-nosnippet>909</a>            .collect::&lt;Vec&lt;u8&gt;&gt;();
-<a href=#910 id=910 data-nosnippet>910</a>
-<a href=#911 id=911 data-nosnippet>911</a>        BigUint::from_bytes_le(<span class="kw-2">&amp;</span>output_limbs)
-<a href=#912 id=912 data-nosnippet>912</a>    }
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a>    <span class="attr">#[derive(Debug)]
-<a href=#915 id=915 data-nosnippet>915</a>    #[repr(C)]
-<a href=#916 id=916 data-nosnippet>916</a>    </span><span class="kw">struct </span>IntRange&lt;T&gt; {
-<a href=#917 id=917 data-nosnippet>917</a>        x: T,
-<a href=#918 id=918 data-nosnippet>918</a>        y: T,
-<a href=#919 id=919 data-nosnippet>919</a>    }
-<a href=#920 id=920 data-nosnippet>920</a>
-<a href=#921 id=921 data-nosnippet>921</a>    <span class="attr">#[derive(Debug)]
-<a href=#922 id=922 data-nosnippet>922</a>    </span><span class="kw">struct </span>FeltDictEntry&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#923 id=923 data-nosnippet>923</a>        dict: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FeltDict,
-<a href=#924 id=924 data-nosnippet>924</a>        key: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Felt,
-<a href=#925 id=925 data-nosnippet>925</a>    }
-<a href=#926 id=926 data-nosnippet>926</a>
-<a href=#927 id=927 data-nosnippet>927</a>    <span class="attr">#[repr(C, align(<span class="number">16</span>))]
-<a href=#928 id=928 data-nosnippet>928</a>    </span><span class="kw">pub struct </span>Secp256Point {
-<a href=#929 id=929 data-nosnippet>929</a>        <span class="kw">pub </span>x: U256,
-<a href=#930 id=930 data-nosnippet>930</a>        <span class="kw">pub </span>y: U256,
-<a href=#931 id=931 data-nosnippet>931</a>        <span class="kw">pub </span>is_infinity: bool,
-<a href=#932 id=932 data-nosnippet>932</a>    }
-<a href=#933 id=933 data-nosnippet>933</a>
-<a href=#934 id=934 data-nosnippet>934</a>    <span class="attr">#[repr(C, align(<span class="number">16</span>))]
-<a href=#935 id=935 data-nosnippet>935</a>    </span><span class="kw">pub struct </span>U256 {
-<a href=#936 id=936 data-nosnippet>936</a>        <span class="kw">pub </span>lo: u128,
-<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">pub </span>hi: u128,
-<a href=#938 id=938 data-nosnippet>938</a>    }
-<a href=#939 id=939 data-nosnippet>939</a>}</code></pre></div></section></main></body></html>
+<a href=#776 id=776 data-nosnippet>776</a>                            is_infinity: point.is_infinity,
+<a href=#777 id=777 data-nosnippet>777</a>                        };
+<a href=#778 id=778 data-nosnippet>778</a>                        emu_point.into_value()
+<a href=#779 id=779 data-nosnippet>779</a>                    }
+<a href=#780 id=780 data-nosnippet>780</a>                    Secp256PointTypeConcrete::R1(<span class="kw">_</span>) =&gt; {
+<a href=#781 id=781 data-nosnippet>781</a>                        <span class="kw">let </span>point: Secp256Point = value_ptr.cast().read();
+<a href=#782 id=782 data-nosnippet>782</a>                        <span class="kw">let </span>emu_point = EmuSecp256r1Point {
+<a href=#783 id=783 data-nosnippet>783</a>                            x: EmuU256 {
+<a href=#784 id=784 data-nosnippet>784</a>                                lo: point.x.lo,
+<a href=#785 id=785 data-nosnippet>785</a>                                hi: point.x.hi,
+<a href=#786 id=786 data-nosnippet>786</a>                            },
+<a href=#787 id=787 data-nosnippet>787</a>                            y: EmuU256 {
+<a href=#788 id=788 data-nosnippet>788</a>                                lo: point.y.lo,
+<a href=#789 id=789 data-nosnippet>789</a>                                hi: point.y.hi,
+<a href=#790 id=790 data-nosnippet>790</a>                            },
+<a href=#791 id=791 data-nosnippet>791</a>                            is_infinity: point.is_infinity,
+<a href=#792 id=792 data-nosnippet>792</a>                        };
+<a href=#793 id=793 data-nosnippet>793</a>                        emu_point.into_value()
+<a href=#794 id=794 data-nosnippet>794</a>                    }
+<a href=#795 id=795 data-nosnippet>795</a>                },
+<a href=#796 id=796 data-nosnippet>796</a>                StarknetTypeConcrete::Sha256StateHandle(<span class="kw">_</span>) =&gt; {
+<a href=#797 id=797 data-nosnippet>797</a>                    <span class="kw">let </span>raw_data = value_ptr.cast::&lt;NonNull&lt;[u32; <span class="number">8</span>]&gt;&gt;().read().read();
+<a href=#798 id=798 data-nosnippet>798</a>                    <span class="kw">let </span>data = raw_data.into_iter().map(Value::U32).collect_vec();
+<a href=#799 id=799 data-nosnippet>799</a>                    Value::Struct(data)
+<a href=#800 id=800 data-nosnippet>800</a>                }
+<a href=#801 id=801 data-nosnippet>801</a>                StarknetTypeConcrete::Sha512StateHandle(<span class="kw">_</span>) =&gt; {
+<a href=#802 id=802 data-nosnippet>802</a>                    <span class="kw">let </span>raw_data = value_ptr.cast::&lt;NonNull&lt;[u64; <span class="number">8</span>]&gt;&gt;().read().read();
+<a href=#803 id=803 data-nosnippet>803</a>                    <span class="kw">let </span>data = raw_data.into_iter().map(Value::U64).collect_vec();
+<a href=#804 id=804 data-nosnippet>804</a>                    Value::Struct(data)
+<a href=#805 id=805 data-nosnippet>805</a>                }
+<a href=#806 id=806 data-nosnippet>806</a>                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#807 id=807 data-nosnippet>807</a>            },
+<a href=#808 id=808 data-nosnippet>808</a>            CoreTypeConcrete::Bytes31(<span class="kw">_</span>) =&gt; {
+<a href=#809 id=809 data-nosnippet>809</a>                <span class="kw">let </span>original_data: [u8; <span class="number">31</span>] = value_ptr.cast().read();
+<a href=#810 id=810 data-nosnippet>810</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = [<span class="number">0u8</span>; <span class="number">32</span>];
+<a href=#811 id=811 data-nosnippet>811</a>                <span class="kw">for </span>(i, v) <span class="kw">in </span>original_data.into_iter().enumerate() {
+<a href=#812 id=812 data-nosnippet>812</a>                    data[i] = v
+<a href=#813 id=813 data-nosnippet>813</a>                }
+<a href=#814 id=814 data-nosnippet>814</a>
+<a href=#815 id=815 data-nosnippet>815</a>                Value::Bytes31(Felt::from_bytes_le(<span class="kw-2">&amp;</span>data))
+<a href=#816 id=816 data-nosnippet>816</a>            }
+<a href=#817 id=817 data-nosnippet>817</a>            CoreTypeConcrete::IntRange(info) =&gt; {
+<a href=#818 id=818 data-nosnippet>818</a>                <span class="kw">let </span>type_info = registry.get_type(<span class="kw-2">&amp;</span>info.ty).unwrap();
+<a href=#819 id=819 data-nosnippet>819</a>
+<a href=#820 id=820 data-nosnippet>820</a>                <span class="kw">match </span>type_info {
+<a href=#821 id=821 data-nosnippet>821</a>                    CoreTypeConcrete::Sint8(<span class="kw">_</span>) =&gt; {
+<a href=#822 id=822 data-nosnippet>822</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i8&gt;&gt;().read();
+<a href=#823 id=823 data-nosnippet>823</a>                        Value::IntRange {
+<a href=#824 id=824 data-nosnippet>824</a>                            x: Box::new(value.x.into()),
+<a href=#825 id=825 data-nosnippet>825</a>                            y: Box::new(value.y.into()),
+<a href=#826 id=826 data-nosnippet>826</a>                        }
+<a href=#827 id=827 data-nosnippet>827</a>                    }
+<a href=#828 id=828 data-nosnippet>828</a>                    CoreTypeConcrete::Sint16(<span class="kw">_</span>) =&gt; {
+<a href=#829 id=829 data-nosnippet>829</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i16&gt;&gt;().read();
+<a href=#830 id=830 data-nosnippet>830</a>                        Value::IntRange {
+<a href=#831 id=831 data-nosnippet>831</a>                            x: Box::new(value.x.into()),
+<a href=#832 id=832 data-nosnippet>832</a>                            y: Box::new(value.y.into()),
+<a href=#833 id=833 data-nosnippet>833</a>                        }
+<a href=#834 id=834 data-nosnippet>834</a>                    }
+<a href=#835 id=835 data-nosnippet>835</a>                    CoreTypeConcrete::Sint32(<span class="kw">_</span>) =&gt; {
+<a href=#836 id=836 data-nosnippet>836</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i32&gt;&gt;().read();
+<a href=#837 id=837 data-nosnippet>837</a>                        Value::IntRange {
+<a href=#838 id=838 data-nosnippet>838</a>                            x: Box::new(value.x.into()),
+<a href=#839 id=839 data-nosnippet>839</a>                            y: Box::new(value.y.into()),
+<a href=#840 id=840 data-nosnippet>840</a>                        }
+<a href=#841 id=841 data-nosnippet>841</a>                    }
+<a href=#842 id=842 data-nosnippet>842</a>                    CoreTypeConcrete::Sint64(<span class="kw">_</span>) =&gt; {
+<a href=#843 id=843 data-nosnippet>843</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i64&gt;&gt;().read();
+<a href=#844 id=844 data-nosnippet>844</a>                        Value::IntRange {
+<a href=#845 id=845 data-nosnippet>845</a>                            x: Box::new(value.x.into()),
+<a href=#846 id=846 data-nosnippet>846</a>                            y: Box::new(value.y.into()),
+<a href=#847 id=847 data-nosnippet>847</a>                        }
+<a href=#848 id=848 data-nosnippet>848</a>                    }
+<a href=#849 id=849 data-nosnippet>849</a>                    CoreTypeConcrete::Sint128(<span class="kw">_</span>) =&gt; {
+<a href=#850 id=850 data-nosnippet>850</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;i128&gt;&gt;().read();
+<a href=#851 id=851 data-nosnippet>851</a>                        Value::IntRange {
+<a href=#852 id=852 data-nosnippet>852</a>                            x: Box::new(value.x.into()),
+<a href=#853 id=853 data-nosnippet>853</a>                            y: Box::new(value.y.into()),
+<a href=#854 id=854 data-nosnippet>854</a>                        }
+<a href=#855 id=855 data-nosnippet>855</a>                    }
+<a href=#856 id=856 data-nosnippet>856</a>                    CoreTypeConcrete::Uint8(<span class="kw">_</span>) =&gt; {
+<a href=#857 id=857 data-nosnippet>857</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u8&gt;&gt;().read();
+<a href=#858 id=858 data-nosnippet>858</a>                        Value::IntRange {
+<a href=#859 id=859 data-nosnippet>859</a>                            x: Box::new(value.x.into()),
+<a href=#860 id=860 data-nosnippet>860</a>                            y: Box::new(value.y.into()),
+<a href=#861 id=861 data-nosnippet>861</a>                        }
+<a href=#862 id=862 data-nosnippet>862</a>                    }
+<a href=#863 id=863 data-nosnippet>863</a>                    CoreTypeConcrete::Uint16(<span class="kw">_</span>) =&gt; {
+<a href=#864 id=864 data-nosnippet>864</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u16&gt;&gt;().read();
+<a href=#865 id=865 data-nosnippet>865</a>                        Value::IntRange {
+<a href=#866 id=866 data-nosnippet>866</a>                            x: Box::new(value.x.into()),
+<a href=#867 id=867 data-nosnippet>867</a>                            y: Box::new(value.y.into()),
+<a href=#868 id=868 data-nosnippet>868</a>                        }
+<a href=#869 id=869 data-nosnippet>869</a>                    }
+<a href=#870 id=870 data-nosnippet>870</a>                    CoreTypeConcrete::Uint32(<span class="kw">_</span>) =&gt; {
+<a href=#871 id=871 data-nosnippet>871</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u32&gt;&gt;().read();
+<a href=#872 id=872 data-nosnippet>872</a>                        Value::IntRange {
+<a href=#873 id=873 data-nosnippet>873</a>                            x: Box::new(value.x.into()),
+<a href=#874 id=874 data-nosnippet>874</a>                            y: Box::new(value.y.into()),
+<a href=#875 id=875 data-nosnippet>875</a>                        }
+<a href=#876 id=876 data-nosnippet>876</a>                    }
+<a href=#877 id=877 data-nosnippet>877</a>                    CoreTypeConcrete::Uint64(<span class="kw">_</span>) =&gt; {
+<a href=#878 id=878 data-nosnippet>878</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u64&gt;&gt;().read();
+<a href=#879 id=879 data-nosnippet>879</a>                        Value::IntRange {
+<a href=#880 id=880 data-nosnippet>880</a>                            x: Box::new(value.x.into()),
+<a href=#881 id=881 data-nosnippet>881</a>                            y: Box::new(value.y.into()),
+<a href=#882 id=882 data-nosnippet>882</a>                        }
+<a href=#883 id=883 data-nosnippet>883</a>                    }
+<a href=#884 id=884 data-nosnippet>884</a>                    CoreTypeConcrete::Uint128(<span class="kw">_</span>) =&gt; {
+<a href=#885 id=885 data-nosnippet>885</a>                        <span class="kw">let </span>value = value_ptr.cast::&lt;IntRange&lt;u128&gt;&gt;().read();
+<a href=#886 id=886 data-nosnippet>886</a>                        Value::IntRange {
+<a href=#887 id=887 data-nosnippet>887</a>                            x: Box::new(value.x.into()),
+<a href=#888 id=888 data-nosnippet>888</a>                            y: Box::new(value.y.into()),
+<a href=#889 id=889 data-nosnippet>889</a>                        }
+<a href=#890 id=890 data-nosnippet>890</a>                    }
+<a href=#891 id=891 data-nosnippet>891</a>                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#892 id=892 data-nosnippet>892</a>                }
+<a href=#893 id=893 data-nosnippet>893</a>            }
+<a href=#894 id=894 data-nosnippet>894</a>            CoreTypeConcrete::Blake(<span class="kw">_</span>)
+<a href=#895 id=895 data-nosnippet>895</a>            | CoreTypeConcrete::GasReserve(<span class="kw">_</span>)
+<a href=#896 id=896 data-nosnippet>896</a>            | CoreTypeConcrete::QM31(<span class="kw">_</span>) =&gt; {
+<a href=#897 id=897 data-nosnippet>897</a>                <span class="macro">todo!</span>()
+<a href=#898 id=898 data-nosnippet>898</a>            }
+<a href=#899 id=899 data-nosnippet>899</a>        }
+<a href=#900 id=900 data-nosnippet>900</a>    }
+<a href=#901 id=901 data-nosnippet>901</a>
+<a href=#902 id=902 data-nosnippet>902</a>    <span class="kw">unsafe fn </span>u384_struct_to_bigint(value_ptr: NonNull&lt;[u8; <span class="number">12</span>]&gt;, limbs_count: usize) -&gt; BigUint {
+<a href=#903 id=903 data-nosnippet>903</a>        <span class="kw">let </span>u96_layout = get_integer_layout(<span class="number">96</span>);
+<a href=#904 id=904 data-nosnippet>904</a>        <span class="kw">let </span>(<span class="kw">_</span>, elem_stride) = layout_repeat(<span class="kw-2">&amp;</span>u96_layout, <span class="number">4</span>).unwrap();
+<a href=#905 id=905 data-nosnippet>905</a>
+<a href=#906 id=906 data-nosnippet>906</a>        <span class="kw">let </span>output_limbs = (<span class="number">0</span>..limbs_count)
+<a href=#907 id=907 data-nosnippet>907</a>            .flat_map(|i| {
+<a href=#908 id=908 data-nosnippet>908</a>                <span class="kw">let </span>offset = elem_stride * i;
+<a href=#909 id=909 data-nosnippet>909</a>                <span class="kw-2">*</span>value_ptr.byte_add(offset).as_ref()
+<a href=#910 id=910 data-nosnippet>910</a>            })
+<a href=#911 id=911 data-nosnippet>911</a>            .collect::&lt;Vec&lt;u8&gt;&gt;();
+<a href=#912 id=912 data-nosnippet>912</a>
+<a href=#913 id=913 data-nosnippet>913</a>        BigUint::from_bytes_le(<span class="kw-2">&amp;</span>output_limbs)
+<a href=#914 id=914 data-nosnippet>914</a>    }
+<a href=#915 id=915 data-nosnippet>915</a>
+<a href=#916 id=916 data-nosnippet>916</a>    <span class="attr">#[derive(Debug)]
+<a href=#917 id=917 data-nosnippet>917</a>    #[repr(C)]
+<a href=#918 id=918 data-nosnippet>918</a>    </span><span class="kw">struct </span>IntRange&lt;T&gt; {
+<a href=#919 id=919 data-nosnippet>919</a>        x: T,
+<a href=#920 id=920 data-nosnippet>920</a>        y: T,
+<a href=#921 id=921 data-nosnippet>921</a>    }
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>    <span class="attr">#[derive(Debug)]
+<a href=#924 id=924 data-nosnippet>924</a>    </span><span class="kw">struct </span>FeltDictEntry&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#925 id=925 data-nosnippet>925</a>        dict: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FeltDict,
+<a href=#926 id=926 data-nosnippet>926</a>        key: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Felt,
+<a href=#927 id=927 data-nosnippet>927</a>    }
+<a href=#928 id=928 data-nosnippet>928</a>
+<a href=#929 id=929 data-nosnippet>929</a>    <span class="attr">#[repr(C, align(<span class="number">16</span>))]
+<a href=#930 id=930 data-nosnippet>930</a>    </span><span class="kw">pub struct </span>Secp256Point {
+<a href=#931 id=931 data-nosnippet>931</a>        <span class="kw">pub </span>x: U256,
+<a href=#932 id=932 data-nosnippet>932</a>        <span class="kw">pub </span>y: U256,
+<a href=#933 id=933 data-nosnippet>933</a>        <span class="kw">pub </span>is_infinity: bool,
+<a href=#934 id=934 data-nosnippet>934</a>    }
+<a href=#935 id=935 data-nosnippet>935</a>
+<a href=#936 id=936 data-nosnippet>936</a>    <span class="attr">#[repr(C, align(<span class="number">16</span>))]
+<a href=#937 id=937 data-nosnippet>937</a>    </span><span class="kw">pub struct </span>U256 {
+<a href=#938 id=938 data-nosnippet>938</a>        <span class="kw">pub </span>lo: u128,
+<a href=#939 id=939 data-nosnippet>939</a>        <span class="kw">pub </span>hi: u128,
+<a href=#940 id=940 data-nosnippet>940</a>    }
+<a href=#941 id=941 data-nosnippet>941</a>}</code></pre></div></section></main></body></html>
