@@ -138,8 +138,46 @@ pub fn eval(
         },
         StarknetConcreteLibfunc::GetClassHashAt(info) => eval_get_class_hash_at(registry, info, args, syscall_handler),
         StarknetConcreteLibfunc::MetaTxV0(info) => eval_meta_tx_v0(registry, info, args, syscall_handler),
-        StarknetConcreteLibfunc::GetExecutionInfoV3(_) => todo!(),
+        StarknetConcreteLibfunc::GetExecutionInfoV3(info) => {
+            eval_get_execution_info_v3(registry, info, args)
+        }
     }
+}
+
+/// Soft-fail for `get_execution_info_v3`.
+///
+/// The trait surface includes `get_execution_info_v3` (mirroring cairo-native), but the
+/// Sierra `Value` lowering for `ExecutionInfoV3` / `TxV3Info` is not yet wired in the
+/// VM. Rather than panic the host on every v3 invocation, return the syscall's error
+/// branch with a descriptive felt so the contract sees a normal syscall failure.
+fn eval_get_execution_info_v3(
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    info: &SignatureOnlyConcreteLibfunc,
+    args: Vec<Value>,
+) -> EvalAction {
+    let [Value::U64(gas), system]: [Value; 2] = args.try_into().unwrap() else {
+        panic!()
+    };
+    let felt_ty = match registry
+        .get_type(&info.branch_signatures()[1].vars[2].ty)
+        .unwrap()
+    {
+        CoreTypeConcrete::Array(info) => info.ty.clone(),
+        _ => unreachable!(),
+    };
+    EvalAction::NormalBranch(
+        1,
+        smallvec![
+            Value::U64(gas),
+            system,
+            Value::Array {
+                ty: felt_ty,
+                data: vec![Value::Felt(Felt::from_bytes_be_slice(
+                    b"get_execution_info_v3 not yet wired in sierra-emu"
+                ))],
+            }
+        ],
+    )
 }
 
 fn eval_secp256_new(
@@ -613,7 +651,7 @@ fn eval_call_contract(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     // get felt type from the error branch array
     let felt_ty = {
@@ -626,7 +664,7 @@ fn eval_call_contract(
         }
     };
 
-    let result = syscall_handler.call_contract(address, entry_point_selector, calldata, &mut gas);
+    let result = syscall_handler.call_contract(address, entry_point_selector, &calldata, &mut gas);
 
     match result {
         Ok(return_values) => EvalAction::NormalBranch(
@@ -772,16 +810,16 @@ fn eval_emit_event(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
     let data = data
         .into_iter()
         .map(|x| match x {
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    let result = syscall_handler.emit_event(keys, data, &mut gas);
+    let result = syscall_handler.emit_event(&keys, &data, &mut gas);
 
     match result {
         Ok(_) => EvalAction::NormalBranch(0, smallvec![Value::U64(gas), system]),
@@ -994,7 +1032,7 @@ fn eval_deploy(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     // get felt type from the error branch array
     let felt_ty = {
@@ -1010,7 +1048,7 @@ fn eval_deploy(
     let result = syscall_handler.deploy(
         class_hash,
         contract_address_salt,
-        calldata,
+        &calldata,
         deploy_from_zero,
         &mut gas,
     );
@@ -1066,9 +1104,9 @@ fn eval_keccak(
             Value::U64(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    let result = syscall_handler.keccak(input, &mut gas);
+    let result = syscall_handler.keccak(&input, &mut gas);
 
     // get felt type from the error branch array
     let felt_ty = {
@@ -1125,7 +1163,7 @@ fn eval_library_call(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     // get felt type from the error branch array
     let felt_ty = {
@@ -1138,7 +1176,7 @@ fn eval_library_call(
         }
     };
 
-    let result = syscall_handler.library_call(class_hash, function_selector, calldata, &mut gas);
+    let result = syscall_handler.library_call(class_hash, function_selector, &calldata, &mut gas);
 
     match result {
         Ok(return_values) => EvalAction::NormalBranch(
@@ -1235,7 +1273,7 @@ fn eval_send_message_to_l1(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     // get felt type from the error branch array
     let felt_ty = {
@@ -1248,7 +1286,7 @@ fn eval_send_message_to_l1(
         }
     };
 
-    let result = syscall_handler.send_message_to_l1(address, payload, &mut gas);
+    let result = syscall_handler.send_message_to_l1(address, &payload, &mut gas);
 
     match result {
         Ok(()) => EvalAction::NormalBranch(0, smallvec![Value::U64(gas), system]),
@@ -1298,7 +1336,7 @@ fn eval_sha256_process_block(
         panic!()
     };
 
-    let prev_state: [u32; 8] = prev_state
+    let mut prev_state: [u32; 8] = prev_state
         .into_iter()
         .map(|v| {
             let Value::U32(v) = v else { panic!() };
@@ -1328,9 +1366,9 @@ fn eval_sha256_process_block(
         }
     };
 
-    match syscall_handler.sha256_process_block(prev_state, current_block, &mut gas) {
-        Ok(payload) => {
-            let payload = payload.into_iter().map(Value::U32).collect::<Vec<_>>();
+    match syscall_handler.sha256_process_block(&mut prev_state, &current_block, &mut gas) {
+        Ok(()) => {
+            let payload = prev_state.into_iter().map(Value::U32).collect::<Vec<_>>();
             EvalAction::NormalBranch(
                 0,
                 smallvec![Value::U64(gas), system, Value::Struct(payload)],
@@ -1501,7 +1539,7 @@ fn eval_meta_tx_v0(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     let signature = signature
         .into_iter()
@@ -1509,7 +1547,7 @@ fn eval_meta_tx_v0(
             Value::Felt(x) => x,
             _ => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     let felt_ty = {
         match registry
@@ -1521,7 +1559,13 @@ fn eval_meta_tx_v0(
         }
     };
 
-    match syscall_handler.meta_tx_v0(address, entry_point_selector, calldata, signature, &mut gas) {
+    match syscall_handler.meta_tx_v0(
+        address,
+        entry_point_selector,
+        &calldata,
+        &signature,
+        &mut gas,
+    ) {
         Ok(res) => EvalAction::NormalBranch(
             0,
             smallvec![
