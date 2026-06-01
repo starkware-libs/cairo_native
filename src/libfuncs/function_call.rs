@@ -248,6 +248,7 @@ pub fn build<'ctx, 'this>(
                 // Complex return type. Just extract the values from the struct, since LLVM will
                 // handle the rest.
 
+                let mut count = 0;
                 for (idx, type_id) in info.function.signature.ret_types.iter().enumerate() {
                     let type_info = registry.get_type(type_id)?;
 
@@ -258,9 +259,10 @@ pub fn build<'ctx, 'this>(
                             context,
                             location,
                             function_call_result,
-                            result_types[idx],
-                            idx,
+                            result_types[count],
+                            count,
                         )?;
+                        count += 1;
 
                         results.push(val);
                     }

@@ -4,6 +4,7 @@ pub mod boolean;
 pub mod cases;
 pub mod circuit;
 pub mod compile_library;
+pub mod coupon;
 pub mod dict;
 pub mod e2e_libfuncs;
 pub mod ec;

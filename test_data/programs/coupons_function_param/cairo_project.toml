@@ -1,0 +1,10 @@
+[crate_roots]
+coupons_function_param = "."
+
+[config.global]
+edition = "2023_01"
+
+[config.global.experimental_features]
+negative_impls = false
+associated_item_constraints = false
+coupons = true
