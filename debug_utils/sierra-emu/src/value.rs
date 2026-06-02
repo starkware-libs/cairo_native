@@ -55,10 +55,8 @@ pub enum Value {
         y: Felt,
     },
     EcState {
-        x0: Felt,
-        y0: Felt,
-        x1: Felt,
-        y1: Felt,
+        x: Felt,
+        y: Felt,
     },
     I128(i128),
     I64(i64),

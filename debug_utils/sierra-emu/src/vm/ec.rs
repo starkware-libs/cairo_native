@@ -9,7 +9,6 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use num_traits::identities::Zero;
-use rand::Rng;
 use smallvec::smallvec;
 use starknet_crypto::Felt;
 use starknet_curve::curve_params::BETA;
@@ -113,15 +112,11 @@ fn eval_state_init(
     _info: &SignatureOnlyConcreteLibfunc,
     _args: Vec<Value>,
 ) -> EvalAction {
-    let state = random_ec_point();
-
     EvalAction::NormalBranch(
         0,
         smallvec![Value::EcState {
-            x0: state.x(),
-            y0: state.y(),
-            x1: state.x(),
-            y1: state.y(),
+            x: 0.into(),
+            y: 0.into()
         }],
     )
 }
@@ -131,27 +126,24 @@ fn eval_state_add(
     _info: &SignatureOnlyConcreteLibfunc,
     args: Vec<Value>,
 ) -> EvalAction {
-    let [Value::EcState { x0, y0, x1, y1 }, Value::EcPoint { x, y }]: [Value; 2] =
+    let [Value::EcState { x: s_x, y: s_y }, Value::EcPoint { x, y }]: [Value; 2] =
         args.try_into().unwrap()
     else {
         panic!()
     };
 
-    let mut state = ProjectivePoint::from_affine(x0, y0).unwrap();
+    if s_x.is_zero() && s_y.is_zero() {
+        return EvalAction::NormalBranch(0, smallvec![Value::EcState { x, y }]);
+    }
+    let mut state = ProjectivePoint::from_affine(s_x, s_y).unwrap();
     let point = AffinePoint::new(x, y).unwrap();
 
     state += &point;
-    let state = state.to_affine().unwrap();
-
-    EvalAction::NormalBranch(
-        0,
-        smallvec![Value::EcState {
-            x0: state.x(),
-            y0: state.y(),
-            x1,
-            y1
-        }],
-    )
+    let (x, y) = match state.to_affine() {
+        Ok(state) => (state.x(), state.y()),
+        Err(_) => (Felt::ZERO, Felt::ZERO),
+    };
+    EvalAction::NormalBranch(0, smallvec![Value::EcState { x, y }])
 }
 
 fn eval_state_add_mul(
@@ -159,30 +151,25 @@ fn eval_state_add_mul(
     _info: &SignatureOnlyConcreteLibfunc,
     args: Vec<Value>,
 ) -> EvalAction {
-    let [ec @ Value::Unit, Value::EcState { x0, y0, x1, y1 }, Value::Felt(scalar), Value::EcPoint { x, y }]: [Value; 4] =
+    let [ec @ Value::Unit, Value::EcState { x: s_x, y: s_y }, Value::Felt(scalar), Value::EcPoint { x, y }]: [Value; 4] =
         args.try_into().unwrap()
     else {
         panic!()
     };
 
-    let mut state = ProjectivePoint::from_affine(x0, y0).unwrap();
+    let mut state = if s_x.is_zero() && s_y.is_zero() {
+        ProjectivePoint::identity()
+    } else {
+        ProjectivePoint::from_affine(s_x, s_y).unwrap()
+    };
     let point = ProjectivePoint::from_affine(x, y).unwrap();
 
     state += &point.mul(scalar);
-    let state = state.to_affine().unwrap();
-
-    EvalAction::NormalBranch(
-        0,
-        smallvec![
-            ec,
-            Value::EcState {
-                x0: state.x(),
-                y0: state.y(),
-                x1,
-                y1
-            }
-        ],
-    )
+    let (x, y) = match state.to_affine() {
+        Ok(state) => (state.x(), state.y()),
+        Err(_) => (Felt::ZERO, Felt::ZERO),
+    };
+    EvalAction::NormalBranch(0, smallvec![ec, Value::EcState { x, y }])
 }
 
 fn eval_state_finalize(
@@ -190,25 +177,14 @@ fn eval_state_finalize(
     _info: &SignatureOnlyConcreteLibfunc,
     args: Vec<Value>,
 ) -> EvalAction {
-    let [Value::EcState { x0, y0, x1, y1 }]: [Value; 1] = args.try_into().unwrap() else {
+    let [Value::EcState { x, y }]: [Value; 1] = args.try_into().unwrap() else {
         panic!()
     };
 
-    let state = ProjectivePoint::from_affine(x0, y0).unwrap();
-    let random_point = ProjectivePoint::from_affine(x1, y1).unwrap();
-
-    if state.x() == random_point.x() && state.y() == random_point.y() {
+    if x.is_zero() && y.is_zero() {
         EvalAction::NormalBranch(1, smallvec![])
     } else {
-        let point = &state - &random_point;
-        let point = point.to_affine().unwrap();
-        EvalAction::NormalBranch(
-            0,
-            smallvec![Value::EcPoint {
-                x: point.x(),
-                y: point.y(),
-            }],
-        )
+        EvalAction::NormalBranch(0, smallvec![Value::EcPoint { x, y }])
     }
 }
 
@@ -242,22 +218,6 @@ fn eval_point_from_x(
         ),
         Err(_) => EvalAction::NormalBranch(1, smallvec![range_check]),
     }
-}
-
-fn random_ec_point() -> AffinePoint {
-    // https://github.com/starkware-libs/cairo/blob/aaad921bba52e729dc24ece07fab2edf09ccfa15/crates/cairo-lang-runner/src/casm_run/mod.rs#L1802
-    let mut rng = rand::rng();
-    let (random_x, random_y) = loop {
-        // Randominzing 31 bytes to make sure is in range.
-        let x_bytes: [u8; 31] = rng.random();
-        let random_x = Felt::from_bytes_be_slice(&x_bytes);
-        let random_y_squared = random_x * random_x * random_x + random_x + BETA;
-        if let Some(random_y) = random_y_squared.sqrt() {
-            break (random_x, random_y);
-        }
-    };
-
-    AffinePoint::new(random_x, random_y).unwrap()
 }
 
 fn eval_zero(
