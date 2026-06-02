@@ -1,10 +1,18 @@
 import argparse
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", help="Defines which cairo files to compile")
 parser.add_argument("--filter", help="Only process file paths containing this string")
+parser.add_argument(
+    "-j",
+    "--jobs",
+    type=int,
+    default=os.cpu_count() or 1,
+    help="Number of parallel jobs",
+)
 args = parser.parse_args()
 
 subprocess.run(
@@ -48,14 +56,14 @@ def compile_cairo_tests(src_path, starknet=False):
     dst_path = get_dst_path(src_path)
 
     print(f"compiling tests {src_path} into {dst_path}")
-    args = [
+    cmd = [
         "target/debug/compile-cairo-tests",
         src_path,
         dst_path + ".tests.json",
     ]
     if starknet:
-        args.append("--starknet")
-    subprocess.run(args, check=True)
+        cmd.append("--starknet")
+    subprocess.run(cmd, check=True)
 
 
 def compile_cairo_contract(src_path):
@@ -88,20 +96,42 @@ def walk(subdir, f):
                         f(filepath)
 
 
+tasks = []
+
 if args.mode == "sierra-emu":
     src_root = "../../test_data"
     dst_root = "../../test_data_artifacts"
     walk(
         "programs/debug_utils",
-        lambda p: compile_cairo_project(p, "../../target/debug/compile-cairo-project"),
+        lambda p: tasks.append(
+            lambda p=p: compile_cairo_project(
+                p, "../../target/debug/compile-cairo-project"
+            )
+        ),
     )
 else:
     src_root = "test_data"
     dst_root = "test_data_artifacts"
     walk(
-        "programs",
-        lambda p: compile_cairo_project(p, "target/debug/compile-cairo-project"),
+        "tests",
+        lambda p: tasks.append(lambda p=p: compile_cairo_tests(p, starknet=False)),
     )
-    walk("contracts", lambda p: compile_cairo_contract(p))
-    walk("tests", lambda p: compile_cairo_tests(p, starknet=False))
-    walk("tests_starknet", lambda p: compile_cairo_tests(p, starknet=True))
+    walk(
+        "tests_starknet",
+        lambda p: tasks.append(lambda p=p: compile_cairo_tests(p, starknet=True)),
+    )
+    walk(
+        "programs",
+        lambda p: tasks.append(
+            lambda p=p: compile_cairo_project(p, "target/debug/compile-cairo-project")
+        ),
+    )
+    walk(
+        "contracts",
+        lambda p: tasks.append(lambda p=p: compile_cairo_contract(p)),
+    )
+
+with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+    futures = [executor.submit(task) for task in tasks]
+    for future in as_completed(futures):
+        future.result()
