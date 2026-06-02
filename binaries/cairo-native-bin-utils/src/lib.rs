@@ -152,11 +152,8 @@ fn jitvalue_to_felt(value: &Value) -> Vec<Felt> {
         Value::Sint64(x) => vec![(*x).into()],
         Value::Sint128(x) => vec![(*x).into()],
         Value::Bytes31(bytes) => vec![Felt::from_bytes_le_slice(bytes)],
-        Value::EcPoint(x, y) => {
+        Value::EcPoint(x, y) | Value::EcState(x, y) => {
             vec![*x, *y]
-        }
-        Value::EcState(a, b, c, d) => {
-            vec![*a, *b, *c, *d]
         }
         Value::QM31(a, b, c, d) => vec![
             Felt::from(*a),
@@ -551,13 +548,8 @@ mod tests {
     #[test]
     fn test_jitvalue_to_felt_ec_state() {
         assert_eq!(
-            jitvalue_to_felt(&Value::EcState(
-                Felt::ONE,
-                Felt::TWO,
-                Felt::THREE,
-                Felt::from(4)
-            )),
-            vec![Felt::ONE, Felt::TWO, Felt::THREE, Felt::from(4)]
+            jitvalue_to_felt(&Value::EcState(Felt::ONE, Felt::TWO,)),
+            vec![Felt::ONE, Felt::TWO,]
         );
     }
 

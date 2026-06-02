@@ -73,7 +73,7 @@ pub enum Value {
     Sint64(i64),
     Sint128(i128),
     EcPoint(Felt, Felt),
-    EcState(Felt, Felt, Felt, Felt),
+    EcState(Felt, Felt),
     QM31(u32, u32, u32, u32),
     Secp256K1Point(Secp256k1Point),
     Secp256R1Point(Secp256r1Point),
@@ -468,7 +468,7 @@ impl Value {
 
                     ptr
                 }
-                Self::EcPoint(a, b) => {
+                Self::EcPoint(a, b) | Self::EcState(a, b) => {
                     let ptr = arena
                         .alloc_layout(layout_repeat(&get_integer_layout(252), 2)?.0.pad_to_align())
                         .cast();
@@ -478,21 +478,6 @@ impl Value {
                     let data = [a, b];
 
                     ptr.cast::<[[u8; 32]; 2]>().as_mut().copy_from_slice(&data);
-
-                    ptr
-                }
-                Self::EcState(a, b, c, d) => {
-                    let ptr = arena
-                        .alloc_layout(layout_repeat(&get_integer_layout(252), 4)?.0.pad_to_align())
-                        .cast();
-
-                    let a = felt252_bigint(a.to_bigint()).to_bytes_le();
-                    let b = felt252_bigint(b.to_bigint()).to_bytes_le();
-                    let c = felt252_bigint(c.to_bigint()).to_bytes_le();
-                    let d = felt252_bigint(d.to_bigint()).to_bytes_le();
-                    let data = [a, b, c, d];
-
-                    ptr.cast::<[[u8; 32]; 4]>().as_mut().copy_from_slice(&data);
 
                     ptr
                 }
@@ -615,19 +600,12 @@ impl Value {
                     Self::EcPoint(Felt::from_bytes_le(&data[0]), Felt::from_bytes_le(&data[1]))
                 }
                 CoreTypeConcrete::EcState(_) => {
-                    let data = ptr.cast::<[[u8; 32]; 4]>().as_mut();
+                    let data = ptr.cast::<[[u8; 32]; 2]>().as_mut();
 
                     data[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
                     data[1][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-                    data[2][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-                    data[3][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
 
-                    Self::EcState(
-                        Felt::from_bytes_le(&data[0]),
-                        Felt::from_bytes_le(&data[1]),
-                        Felt::from_bytes_le(&data[2]),
-                        Felt::from_bytes_le(&data[3]),
-                    )
+                    Self::EcState(Felt::from_bytes_le(&data[0]), Felt::from_bytes_le(&data[1]))
                 }
                 CoreTypeConcrete::QM31(_) => {
                     let data = ptr.cast::<[u32; 4]>().as_mut();
@@ -1300,23 +1278,13 @@ mod test {
 
         assert_eq!(
             unsafe {
-                *Value::EcState(
-                    Felt::from(1234),
-                    Felt::from(4321),
-                    Felt::from(3333),
-                    Felt::from(4444),
-                )
-                .to_ptr(&Bump::new(), &registry, &program.type_declarations[0].id)
-                .unwrap()
-                .cast::<[[u32; 8]; 4]>()
-                .as_ptr()
+                *Value::EcState(Felt::from(1234), Felt::from(4321))
+                    .to_ptr(&Bump::new(), &registry, &program.type_declarations[0].id)
+                    .unwrap()
+                    .cast::<[[u32; 8]; 2]>()
+                    .as_ptr()
             },
-            [
-                [1234, 0, 0, 0, 0, 0, 0, 0],
-                [4321, 0, 0, 0, 0, 0, 0, 0],
-                [3333, 0, 0, 0, 0, 0, 0, 0],
-                [4444, 0, 0, 0, 0, 0, 0, 0]
-            ]
+            [[1234, 0, 0, 0, 0, 0, 0, 0], [4321, 0, 0, 0, 0, 0, 0, 0],]
         );
     }
 
