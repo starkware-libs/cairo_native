@@ -375,7 +375,7 @@ fn process_profile(
                         .iter()
                         .copied()
                         .map(|x| x as f64)
-                        .map(|x| (x - average))
+                        .map(|x| x - average)
                         .map(|x| x * x)
                         .sum::<f64>();
                     sum / (deltas.len() as u64 + extra_counts) as f64

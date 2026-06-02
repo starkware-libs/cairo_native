@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use clap::{command, Parser};
+use clap::Parser;
 
 /// Extracts sierra program from contract
 #[derive(Parser, Debug)]

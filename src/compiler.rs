@@ -697,9 +697,8 @@ fn compile_func(
                                 );
 
                                 let mut new_state = state.clone();
-                                new_state.put_vars(
-                                    branch_info.results.iter().zip(result_values.into_iter()),
-                                )?;
+                                new_state
+                                    .put_vars(branch_info.results.iter().zip(result_values))?;
                                 Ok(new_state)
                             })
                             .collect::<Result<_, Error>>()?,
