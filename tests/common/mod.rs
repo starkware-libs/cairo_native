@@ -703,13 +703,11 @@ pub fn compare_outputs(
                 )
             }
             CoreTypeConcrete::EcState(_) => {
-                assert_eq!(values.len(), 4);
+                assert_eq!(values.len(), 2);
 
                 Value::EcState(
                     Felt::from_bytes_le(&values[0].to_bytes_le()),
                     Felt::from_bytes_le(&values[1].to_bytes_le()),
-                    Felt::from_bytes_le(&values[2].to_bytes_le()),
-                    Felt::from_bytes_le(&values[3].to_bytes_le()),
                 )
             }
             CoreTypeConcrete::Bytes31(_) => {

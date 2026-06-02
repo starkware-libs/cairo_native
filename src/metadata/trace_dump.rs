@@ -358,28 +358,14 @@ pub mod trace_dump_runtime {
             }
             CoreTypeConcrete::EcState(_) => {
                 let layout = Layout::new::<()>();
-                let (x0, layout) = {
+                let (x, layout) = {
                     let (layout, offset) = layout.extend(Layout::new::<[u128; 2]>()).unwrap();
                     (
                         Felt::from_bytes_le(value_ptr.byte_add(offset).cast().as_ref()),
                         layout,
                     )
                 };
-                let (y0, layout) = {
-                    let (layout, offset) = layout.extend(Layout::new::<[u128; 2]>()).unwrap();
-                    (
-                        Felt::from_bytes_le(value_ptr.byte_add(offset).cast().as_ref()),
-                        layout,
-                    )
-                };
-                let (x1, layout) = {
-                    let (layout, offset) = layout.extend(Layout::new::<[u128; 2]>()).unwrap();
-                    (
-                        Felt::from_bytes_le(value_ptr.byte_add(offset).cast().as_ref()),
-                        layout,
-                    )
-                };
-                let (y1, _) = {
+                let (y, _) = {
                     let (layout, offset) = layout.extend(Layout::new::<[u128; 2]>()).unwrap();
                     (
                         Felt::from_bytes_le(value_ptr.byte_add(offset).cast().as_ref()),
@@ -387,7 +373,7 @@ pub mod trace_dump_runtime {
                     )
                 };
 
-                Value::EcState { x0, y0, x1, y1 }
+                Value::EcState { x, y }
             }
 
             CoreTypeConcrete::Uninitialized(info) => Value::Uninitialized {

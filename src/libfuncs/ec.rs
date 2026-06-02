@@ -245,8 +245,6 @@ pub fn build_state_add<'ctx, 'this>(
         &[
             IntegerType::new(context, 252).into(),
             IntegerType::new(context, 252).into(),
-            IntegerType::new(context, 252).into(),
-            IntegerType::new(context, 252).into(),
         ],
         false,
     );
@@ -298,11 +296,7 @@ pub fn build_state_add_mul<'ctx, 'this>(
     )?;
 
     let felt252_ty = IntegerType::new(context, 252).into();
-    let ec_state_ty = llvm::r#type::r#struct(
-        context,
-        &[felt252_ty, felt252_ty, felt252_ty, felt252_ty],
-        false,
-    );
+    let ec_state_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
     let ec_point_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
 
     let state_ptr = helper.init_block().alloca1(
@@ -351,11 +345,7 @@ pub fn build_state_finalize<'ctx, 'this>(
     _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
     let felt252_ty = IntegerType::new(context, 252).into();
-    let ec_state_ty = llvm::r#type::r#struct(
-        context,
-        &[felt252_ty, felt252_ty, felt252_ty, felt252_ty],
-        false,
-    );
+    let ec_state_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
     let ec_point_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
 
     let point_ptr = helper.init_block().alloca1(
@@ -392,33 +382,16 @@ pub fn build_state_init<'ctx, 'this>(
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
+    _metadata: &mut MetadataStorage,
     _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
-    let ec_state_ty = llvm::r#type::r#struct(
-        context,
-        &[
-            IntegerType::new(context, 252).into(),
-            IntegerType::new(context, 252).into(),
-            IntegerType::new(context, 252).into(),
-            IntegerType::new(context, 252).into(),
-        ],
-        false,
-    );
+    let felt252_ty = IntegerType::new(context, 252).into();
+    let ec_state_ty = llvm::r#type::r#struct(context, &[felt252_ty, felt252_ty], false);
 
-    let state_ptr = helper.init_block().alloca1(
-        context,
-        location,
-        ec_state_ty,
-        get_integer_layout(252).align(),
-    )?;
-
-    metadata
-        .get_mut::<RuntimeBindingsMeta>()
-        .ok_or(Error::MissingMetadata)?
-        .libfunc_ec_state_init(context, helper, entry, state_ptr, location)?;
-
-    let state = entry.load(context, location, state_ptr, ec_state_ty)?;
+    let k0 = entry.const_int(context, location, 0, 252)?;
+    let state = entry.append_op_result(llvm::undef(ec_state_ty, location))?;
+    let state = entry.insert_value(context, location, state, k0, 0)?;
+    let state = entry.insert_value(context, location, state, k0, 1)?;
 
     helper.br(entry, 0, &[state], location)
 }
@@ -542,7 +515,7 @@ mod test {
         },
         values::Value,
     };
-    use starknet_types_core::felt::Felt;
+    use starknet_types_core::{curve::AffinePoint, felt::Felt};
     use std::ops::Neg;
 
     #[test]
@@ -629,8 +602,6 @@ mod test {
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
             ),
             Value::EcPoint(
                 Felt::from_dec_str("1234").unwrap(),
@@ -640,8 +611,6 @@ mod test {
         Value::EcState(
             Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
             Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-            Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-            Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
         ));
     }
 
@@ -652,8 +621,6 @@ mod test {
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
             ),
             Felt::ONE.into(), // scalar
             Value::EcPoint(
@@ -664,8 +631,6 @@ mod test {
             Value::EcState(
                 Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
                 Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
             )
         );
 
@@ -673,8 +638,6 @@ mod test {
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
             ),
             Felt::from(2).into(), // scalar
             Value::EcPoint(
@@ -685,8 +648,6 @@ mod test {
             Value::EcState(
                 Felt::from_dec_str("3016674370847061744386893405108272070153695046160622325692702034987910716850").unwrap(),
                 Felt::from_dec_str("898133181809473419542838028331350248951548889944002871647069130998202992502").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
             )
         );
     }
@@ -697,39 +658,15 @@ mod test {
         run_program_assert_output(
             &program,
             "run_test",
-            &[Value::EcState(
-                Felt::from_dec_str(
-                    "3151312365169595090315724863753927489909436624354740709748557281394568342450",
-                )
-                .unwrap(),
-                Felt::from_dec_str(
-                    "2835232394579952276045648147338966184268723952674536708929458753792035266179",
-                )
-                .unwrap(),
-                Felt::from_dec_str(
-                    "3151312365169595090315724863753927489909436624354740709748557281394568342450",
-                )
-                .unwrap(),
-                Felt::from_dec_str(
-                    "2835232394579952276045648147338966184268723952674536708929458753792035266179",
-                )
-                .unwrap(),
-            )],
+            &[Value::EcState(Felt::ZERO, Felt::ZERO)],
             jit_enum!(1, jit_struct!()),
         );
-        run_program_assert_output(&program, "run_test", &[
-            Value::EcState(
-                Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-                Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            ),
-        ],
-            jit_enum!(0, Value::EcPoint(
-                    Felt::from(1234),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
-                )
-            )
+        let g = AffinePoint::generator();
+        run_program_assert_output(
+            &program,
+            "run_test",
+            &[Value::EcState(g.x(), g.y())],
+            jit_enum!(0, Value::EcPoint(g.x(), g.y())),
         );
     }
 
@@ -737,8 +674,7 @@ mod test {
     fn ec_state_init() {
         let program = get_compiled_program("programs/libfuncs/ec_state_init");
         let result = run_program(&program, "run_test", &[]);
-        // cant match the values because the state init is a random point
-        assert!(matches!(result.return_value, Value::EcState(_, _, _, _)));
+        assert_eq!(result.return_value, Value::EcState(Felt::ZERO, Felt::ZERO));
     }
 
     #[test]
@@ -747,10 +683,7 @@ mod test {
         run_program_assert_output(
             &program,
             "run_test",
-            &[
-                Felt::from_dec_str("0").unwrap().into(),
-                Felt::from_dec_str("0").unwrap().into(),
-            ],
+            &[Felt::ZERO.into(), Felt::ZERO.into()],
             jit_enum!(1, jit_struct!()),
         );
         run_program_assert_output(

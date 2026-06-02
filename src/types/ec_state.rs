@@ -29,7 +29,7 @@ pub fn build<'ctx>(
 
     Ok(llvm::r#type::r#struct(
         context,
-        &[felt252_ty, felt252_ty, felt252_ty, felt252_ty],
+        &[felt252_ty, felt252_ty],
         false,
     ))
 }

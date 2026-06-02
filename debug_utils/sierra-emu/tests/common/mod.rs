@@ -29,11 +29,8 @@ pub fn value_to_felt(value: &Value) -> Vec<Felt> {
             felts.push(modulus.into());
             felts
         }
-        Value::EcPoint { x, y } => {
+        Value::EcPoint { x, y } | Value::EcState { x, y } => {
             vec![*x, *y]
-        }
-        Value::EcState { x0, y0, x1, y1 } => {
-            vec![*x0, *y0, *x1, *y1]
         }
         Value::Enum {
             self_ty,

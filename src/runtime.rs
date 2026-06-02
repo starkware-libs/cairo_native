@@ -12,7 +12,6 @@ use itertools::Itertools;
 use lambdaworks_math::field::fields::mersenne31::extensions::Degree4ExtensionField;
 use lazy_static::lazy_static;
 use num_traits::{ToPrimitive, Zero};
-use rand::Rng;
 use starknet_curve::curve_params::BETA;
 use starknet_types_core::{
     curve::{AffinePoint, ProjectivePoint},
@@ -492,34 +491,6 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_point_try_new_nz(
     }
 }
 
-/// Compute `ec_state_init()` and store the state back.
-///
-/// # Safety
-///
-/// This function is intended to be called from MLIR, deals with pointers, and is therefore
-/// definitely unsafe to use manually.
-pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_init(state_ptr: &mut [[u8; 32]; 4]) {
-    // https://github.com/starkware-libs/cairo/blob/aaad921bba52e729dc24ece07fab2edf09ccfa15/crates/cairo-lang-runner/src/casm_run/mod.rs#L1802
-    let mut rng = rand::rng();
-    let (random_x, random_y) = loop {
-        // Randominzing 31 bytes to make sure is in range.
-        let x_bytes: [u8; 31] = rng.random();
-        let random_x = Felt::from_bytes_be_slice(&x_bytes);
-        let random_y_squared = random_x * random_x * random_x + random_x + BETA;
-        if let Some(random_y) = random_y_squared.sqrt() {
-            break (random_x, random_y);
-        }
-    };
-
-    // We already made sure its a valid point.
-    let state = AffinePoint::new_unchecked(random_x, random_y);
-
-    state_ptr[0] = state.x().to_bytes_le();
-    state_ptr[1] = state.y().to_bytes_le();
-    state_ptr[2] = state_ptr[0];
-    state_ptr[3] = state_ptr[1];
-}
-
 /// Compute `ec_state_add(state, point)` and store the state back.
 ///
 /// # Panics
@@ -531,31 +502,37 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_init(state_ptr: &mu
 /// This function is intended to be called from MLIR, deals with pointers, and is therefore
 /// definitely unsafe to use manually.
 pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add(
-    state_ptr: &mut [[u8; 32]; 4],
+    state_ptr: &mut [[u8; 32]; 2],
     point_ptr: &[[u8; 32]; 2],
 ) {
     state_ptr[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
     state_ptr[1][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
 
+    let x = Felt::from_bytes_le(&state_ptr[0]);
+    let y = Felt::from_bytes_le(&state_ptr[1]);
+    if x.is_zero() && y.is_zero() {
+        *state_ptr = *point_ptr;
+        return;
+    }
+
     let mut point_ptr = *point_ptr;
     point_ptr[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
     point_ptr[1][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-
-    // We use unchecked methods because the inputs must already be valid points.
-    let mut state = ProjectivePoint::from_affine_unchecked(
-        Felt::from_bytes_le(&state_ptr[0]),
-        Felt::from_bytes_le(&state_ptr[1]),
-    );
+                              // We use unchecked methods because the inputs must already be valid points.
+    let mut state = ProjectivePoint::from_affine_unchecked(x, y);
     let point = AffinePoint::new_unchecked(
         Felt::from_bytes_le(&point_ptr[0]),
         Felt::from_bytes_le(&point_ptr[1]),
     );
 
     state += &point;
-    let state = state.to_affine().unwrap();
-
-    state_ptr[0] = state.x().to_bytes_le();
-    state_ptr[1] = state.y().to_bytes_le();
+    match state.to_affine() {
+        Ok(state) => {
+            state_ptr[0] = state.x().to_bytes_le();
+            state_ptr[1] = state.y().to_bytes_le();
+        }
+        Err(_) => *state_ptr = [[0u8; 32]; 2],
+    }
 }
 
 /// Compute `ec_state_add_mul(state, scalar, point)` and store the state back.
@@ -569,12 +546,14 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add(
 /// This function is intended to be called from MLIR, deals with pointers, and is therefore
 /// definitely unsafe to use manually.
 pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add_mul(
-    state_ptr: &mut [[u8; 32]; 4],
+    state_ptr: &mut [[u8; 32]; 2],
     scalar_ptr: &[u8; 32],
     point_ptr: &[[u8; 32]; 2],
 ) {
     state_ptr[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
     state_ptr[1][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
+    let x = Felt::from_bytes_le(&state_ptr[0]);
+    let y = Felt::from_bytes_le(&state_ptr[1]);
 
     let mut point_ptr = *point_ptr;
     point_ptr[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
@@ -584,10 +563,11 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add_mul(
     scalar_ptr[31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
 
     // Here the points should already be checked as valid, so we can use unchecked.
-    let mut state = ProjectivePoint::from_affine_unchecked(
-        Felt::from_bytes_le(&state_ptr[0]),
-        Felt::from_bytes_le(&state_ptr[1]),
-    );
+    let mut state = if x.is_zero() && y.is_zero() {
+        ProjectivePoint::identity()
+    } else {
+        ProjectivePoint::from_affine_unchecked(x, y)
+    };
     let point = ProjectivePoint::from_affine_unchecked(
         Felt::from_bytes_le(&point_ptr[0]),
         Felt::from_bytes_le(&point_ptr[1]),
@@ -595,10 +575,13 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add_mul(
     let scalar = Felt::from_bytes_le(&scalar_ptr);
 
     state += &point.mul(scalar);
-    let state = state.to_affine().unwrap();
-
-    state_ptr[0] = state.x().to_bytes_le();
-    state_ptr[1] = state.y().to_bytes_le();
+    match state.to_affine() {
+        Ok(state) => {
+            state_ptr[0] = state.x().to_bytes_le();
+            state_ptr[1] = state.y().to_bytes_le();
+        }
+        Err(_) => *state_ptr = [[0u8; 32]; 2],
+    }
 }
 
 /// Compute `ec_state_try_finalize_nz(state)` and store the result.
@@ -613,33 +596,17 @@ pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_add_mul(
 /// definitely unsafe to use manually.
 pub unsafe extern "C" fn cairo_native__libfunc__ec__ec_state_try_finalize_nz(
     point_ptr: &mut [[u8; 32]; 2],
-    state_ptr: &[[u8; 32]; 4],
+    state_ptr: &[[u8; 32]; 2],
 ) -> bool {
     let mut state_ptr = *state_ptr;
     state_ptr[0][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
     state_ptr[1][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-    state_ptr[2][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-    state_ptr[3][31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-
-    // We use unchecked methods because the inputs must already be valid points.
-    let state = ProjectivePoint::from_affine_unchecked(
-        Felt::from_bytes_le(&state_ptr[0]),
-        Felt::from_bytes_le(&state_ptr[1]),
-    );
-    let random = ProjectivePoint::from_affine_unchecked(
-        Felt::from_bytes_le(&state_ptr[2]),
-        Felt::from_bytes_le(&state_ptr[3]),
-    );
-
-    if state.x() == random.x() && state.y() == random.y() {
+    let x = Felt::from_bytes_le(&state_ptr[0]);
+    let y = Felt::from_bytes_le(&state_ptr[1]);
+    if x.is_zero() && y.is_zero() {
         false
     } else {
-        let point = &state - &random;
-        let point = point.to_affine().unwrap();
-
-        point_ptr[0] = point.x().to_bytes_le();
-        point_ptr[1] = point.y().to_bytes_le();
-
+        *point_ptr = state_ptr;
         true
     }
 }
@@ -1091,37 +1058,84 @@ mod tests {
 
     #[test]
     fn test_ec__ec_point() {
-        let mut state = [
-            Felt::ZERO.to_bytes_le(),
-            Felt::ZERO.to_bytes_le(),
-            Felt::ZERO.to_bytes_le(),
-            Felt::ZERO.to_bytes_le(),
-        ];
-
-        unsafe { cairo_native__libfunc__ec__ec_state_init(&mut state) };
-
-        let points: &mut [[u8; 32]; 2] = (&mut state[..2]).try_into().unwrap();
-
-        let result = unsafe { cairo_native__libfunc__ec__ec_point_try_new_nz(points) };
-
-        // point should be valid since it was made with state init
+        let mut point = [Felt::ZERO.to_bytes_le(), Felt::ZERO.to_bytes_le()];
+        let result = unsafe { cairo_native__libfunc__ec__ec_point_try_new_nz(&mut point) };
+        // The inifinity point isn't valid.
+        assert!(!result);
+        let point = AffinePoint::generator();
+        let mut point = [point.x().to_bytes_le(), point.y().to_bytes_le()];
+        let result = unsafe { cairo_native__libfunc__ec__ec_point_try_new_nz(&mut point) };
         assert!(result);
+    }
+
+    #[test]
+    fn test_ec__ec_state_add__from_zero() {
+        let g = AffinePoint::generator();
+        let mut state = [[0u8; 32]; 2];
+        let point = [g.x().to_bytes_le(), g.y().to_bytes_le()];
+        unsafe { cairo_native__libfunc__ec__ec_state_add(&mut state, &point) };
+        assert_eq!(state[0], g.x().to_bytes_le());
+        assert_eq!(state[1], g.y().to_bytes_le());
+    }
+
+    #[test]
+    fn test_ec__ec_state_add__to_zero() {
+        let g = AffinePoint::generator();
+        let neg_g = AffinePoint::new_unchecked(g.x(), -g.y());
+        let mut state = [g.x().to_bytes_le(), g.y().to_bytes_le()];
+        let point = [neg_g.x().to_bytes_le(), neg_g.y().to_bytes_le()];
+        unsafe { cairo_native__libfunc__ec__ec_state_add(&mut state, &point) };
+        assert_eq!(state, [[0u8; 32]; 2]);
+    }
+
+    #[test]
+    fn test_ec__ec_state_add_mul__from_zero() {
+        let g = AffinePoint::generator();
+        let mut state = [[0u8; 32]; 2];
+        let scalar = Felt::ONE.to_bytes_le();
+        let point = [g.x().to_bytes_le(), g.y().to_bytes_le()];
+        unsafe { cairo_native__libfunc__ec__ec_state_add_mul(&mut state, &scalar, &point) };
+        assert_eq!(state[0], g.x().to_bytes_le());
+        assert_eq!(state[1], g.y().to_bytes_le());
+    }
+
+    #[test]
+    fn test_ec__ec_state_add_mul__to_zero() {
+        // (-G) + 1*G = identity
+        let g = AffinePoint::generator();
+        let neg_g = AffinePoint::new_unchecked(g.x(), -g.y());
+        let mut state = [neg_g.x().to_bytes_le(), neg_g.y().to_bytes_le()];
+        let scalar = Felt::ONE.to_bytes_le();
+        let point = [g.x().to_bytes_le(), g.y().to_bytes_le()];
+        unsafe { cairo_native__libfunc__ec__ec_state_add_mul(&mut state, &scalar, &point) };
+        assert_eq!(state, [[0u8; 32]; 2]);
+    }
+
+    #[test]
+    fn test_ec__ec_state_finalize__zero() {
+        let state = [[0u8; 32]; 2];
+        let mut point = [[0u8; 32]; 2];
+        let result =
+            unsafe { cairo_native__libfunc__ec__ec_state_try_finalize_nz(&mut point, &state) };
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_ec__ec_state_finalize__non_zero() {
+        let g = AffinePoint::generator();
+        let state = [g.x().to_bytes_le(), g.y().to_bytes_le()];
+        let mut point = [[0u8; 32]; 2];
+        let result =
+            unsafe { cairo_native__libfunc__ec__ec_state_try_finalize_nz(&mut point, &state) };
+        assert!(result);
+        assert_eq!(point[0], g.x().to_bytes_le());
+        assert_eq!(point[1], g.y().to_bytes_le());
     }
 
     #[test]
     fn test_ec__ec_point_add() {
         // Test values taken from starknet-rs
         let mut state = [
-            Felt::from_dec_str(
-                "874739451078007766457464989774322083649278607533249481151382481072868806602",
-            )
-            .unwrap()
-            .to_bytes_le(),
-            Felt::from_dec_str(
-                "152666792071518830868575557812948353041420400780739481342941381225525861407",
-            )
-            .unwrap()
-            .to_bytes_le(),
             Felt::from_dec_str(
                 "874739451078007766457464989774322083649278607533249481151382481072868806602",
             )

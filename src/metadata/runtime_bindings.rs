@@ -37,7 +37,6 @@ enum RuntimeBinding {
     HadesPermutation,
     EcStateTryFinalizeNz,
     EcStateAddMul,
-    EcStateInit,
     EcStateAdd,
     EcPointTryNewNz,
     EcPointFromXNz,
@@ -71,7 +70,6 @@ impl RuntimeBinding {
                 "cairo_native__libfunc__ec__ec_state_try_finalize_nz"
             }
             RuntimeBinding::EcStateAddMul => "cairo_native__libfunc__ec__ec_state_add_mul",
-            RuntimeBinding::EcStateInit => "cairo_native__libfunc__ec__ec_state_init",
             RuntimeBinding::EcStateAdd => "cairo_native__libfunc__ec__ec_state_add",
             RuntimeBinding::EcPointTryNewNz => "cairo_native__libfunc__ec__ec_point_try_new_nz",
             RuntimeBinding::EcPointFromXNz => "cairo_native__libfunc__ec__ec_point_from_x_nz",
@@ -123,9 +121,6 @@ impl RuntimeBinding {
             }
             RuntimeBinding::EcStateAddMul => {
                 crate::runtime::cairo_native__libfunc__ec__ec_state_add_mul as *const ()
-            }
-            RuntimeBinding::EcStateInit => {
-                crate::runtime::cairo_native__libfunc__ec__ec_state_init as *const ()
             }
             RuntimeBinding::EcStateAdd => {
                 crate::runtime::cairo_native__libfunc__ec__ec_state_add as *const ()
@@ -593,34 +588,6 @@ impl RuntimeBindingsMeta {
         ))
     }
 
-    /// Register if necessary, then invoke the `ec_state_init()` function.
-    pub fn libfunc_ec_state_init<'c, 'a>(
-        &mut self,
-        context: &'c Context,
-        module: &Module,
-        block: &'a Block<'c>,
-        state_ptr: Value<'c, '_>,
-        location: Location<'c>,
-    ) -> Result<OperationRef<'c, 'a>>
-    where
-        'c: 'a,
-    {
-        let function = self.build_function(
-            context,
-            module,
-            block,
-            location,
-            RuntimeBinding::EcStateInit,
-        )?;
-
-        Ok(block.append_operation(
-            OperationBuilder::new("llvm.call", location)
-                .add_operands(&[function])
-                .add_operands(&[state_ptr])
-                .build()?,
-        ))
-    }
-
     /// Register if necessary, then invoke the `ec_state_add()` function.
     pub fn libfunc_ec_state_add<'c, 'a>(
         &mut self,
@@ -999,7 +966,6 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::HadesPermutation,
         RuntimeBinding::EcStateTryFinalizeNz,
         RuntimeBinding::EcStateAddMul,
-        RuntimeBinding::EcStateInit,
         RuntimeBinding::EcStateAdd,
         RuntimeBinding::EcPointTryNewNz,
         RuntimeBinding::EcPointFromXNz,
