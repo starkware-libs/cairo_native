@@ -236,7 +236,7 @@ impl StarknetSyscallHandler for StubSyscallHandler {
     fn keccak(&mut self, input: &[u64], gas: &mut u64) -> SyscallResult<U256> {
         let length = input.len();
 
-        if length % 17 != 0 {
+        if !length.is_multiple_of(17) {
             let error_msg = b"Invalid keccak input size";
             let felt_error = Felt::from_bytes_be_slice(error_msg);
             return Err(vec![felt_error]);
