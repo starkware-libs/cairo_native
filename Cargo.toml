@@ -74,7 +74,6 @@ num-traits = "0.2"
 p256 = "0.13.2"
 pretty_assertions_sorted = "1.2.3"
 proptest = "1.5.0"
-rand = "0.9.0"
 rayon = "1.10.0"
 rstest = "0.24.0"
 scarb-metadata = "1.12.0"
@@ -184,7 +183,6 @@ keccak.workspace = true
 sha2.workspace = true
 
 # Runtime library dependencies.
-rand.workspace = true
 starknet-curve.workspace = true
 lambdaworks-math.workspace = true
 

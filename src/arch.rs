@@ -112,11 +112,9 @@ impl AbiArgument for ValueWithInfoWrapper<'_> {
                 x.to_bytes(buffer)?;
                 y.to_bytes(buffer)?;
             }
-            (Value::EcState(x, y, x0, y0), CoreTypeConcrete::EcState(_)) => {
+            (Value::EcState(x, y), CoreTypeConcrete::EcState(_)) => {
                 x.to_bytes(buffer)?;
                 y.to_bytes(buffer)?;
-                x0.to_bytes(buffer)?;
-                y0.to_bytes(buffer)?;
             }
             (Value::QM31(a, b, c, d), CoreTypeConcrete::QM31(_)) => {
                 a.to_bytes(buffer)?;
