@@ -830,11 +830,10 @@ impl RuntimeBindingsMeta {
         Ok((is_present, value_ptr))
     }
 
-    /// Register if necessary, then invoke the `dict_gas_refund()` function.
+    /// Register if necessary, then invoke the `dict_squash()` function.
     ///
-    /// Compute the total gas refund for the dictionary.
-    ///
-    /// Returns a u64 of the result.
+    /// Squash the dictionary in place, updating the range check and gas
+    /// pointers.
     #[allow(clippy::too_many_arguments)]
     pub fn dict_squash<'c, 'a>(
         &mut self,
@@ -856,7 +855,6 @@ impl RuntimeBindingsMeta {
             OperationBuilder::new("llvm.call", location)
                 .add_operands(&[function])
                 .add_operands(&[dict_ptr, range_check_ptr, gas_ptr])
-                .add_results(&[IntegerType::new(context, 64).into()])
                 .build()?,
         ))
     }
