@@ -16,8 +16,7 @@ use cairo_lang_sierra::{
         starknet::StarknetTypeConcrete,
         utils::Range,
     },
-    ids::{ConcreteTypeId, UserTypeId},
-    program::GenericArg,
+    ids::ConcreteTypeId,
     program_registry::ProgramRegistry,
 };
 use melior::{
@@ -28,7 +27,7 @@ use melior::{
 };
 use num_bigint::{BigInt, Sign};
 use num_traits::{Bounded, One};
-use std::{alloc::Layout, error::Error, ops::Deref, sync::OnceLock};
+use std::{alloc::Layout, error::Error, ops::Deref};
 
 pub mod array;
 mod bitwise;
@@ -956,31 +955,25 @@ impl TypeBuilder for CoreTypeConcrete {
         _metadata: &mut MetadataStorage,
         _self_ty: &ConcreteTypeId,
     ) -> Result<Value<'ctx, 'this>, Self::Error> {
-        static BOOL_USER_TYPE_ID: OnceLock<UserTypeId> = OnceLock::new();
-        let bool_user_type_id =
-            BOOL_USER_TYPE_ID.get_or_init(|| UserTypeId::from_string("core::bool"));
-
         Ok(match self {
-            Self::Enum(info) => match &info.info.long_id.generic_args[0] {
-                GenericArg::UserType(id) if id == bool_user_type_id => {
-                    let tag = entry.const_int(context, location, 0, 1)?;
+            Self::Enum(_) => {
+                // Sierra validates that only enums with two or less values are allowed, and that they are zero size.
+                let tag = entry.const_int(context, location, 0, 1)?;
 
-                    let value = entry.append_op_result(llvm::undef(
-                        llvm::r#type::r#struct(
-                            context,
-                            &[
-                                IntegerType::new(context, 1).into(),
-                                llvm::r#type::array(IntegerType::new(context, 8).into(), 0),
-                            ],
-                            false,
-                        ),
-                        location,
-                    ))?;
+                let value = entry.append_op_result(llvm::undef(
+                    llvm::r#type::r#struct(
+                        context,
+                        &[
+                            IntegerType::new(context, 1).into(),
+                            llvm::r#type::array(IntegerType::new(context, 8).into(), 0),
+                        ],
+                        false,
+                    ),
+                    location,
+                ))?;
 
-                    entry.insert_value(context, location, value, tag, 0)?
-                }
-                _ => native_panic!("unsupported dict value type"),
-            },
+                entry.insert_value(context, location, value, tag, 0)?
+            }
             Self::Felt252(_) => entry.const_int(context, location, 0, 252)?,
             Self::Nullable(_) => {
                 entry.append_op_result(llvm::zero(llvm::r#type::pointer(context, 0), location))?
@@ -1028,11 +1021,19 @@ impl<T> Deref for WithSelf<'_, T> {
 #[cfg(test)]
 mod test {
     use super::TypeBuilder;
-    use crate::utils::testing::load_program;
+    use crate::{
+        context::initialize_mlir, libfuncs::LibfuncHelper, load_cairo, metadata::MetadataStorage,
+        utils::testing::load_program,
+    };
     use cairo_lang_sierra::{
-        extensions::core::{CoreLibfunc, CoreType},
+        extensions::core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         program_registry::ProgramRegistry,
     };
+    use melior::{
+        dialect::llvm,
+        ir::{r#type::IntegerType, Block, Location, Module, Region, ValueLike},
+    };
+    use std::cell::Cell;
 
     #[test]
     fn ensure_padded_layouts() {
@@ -1044,5 +1045,84 @@ mod test {
             let layout = ty.layout(&registry).unwrap();
             assert_eq!(layout, layout.pad_to_align());
         }
+    }
+
+    /// `build_default` produces the value used when a missing `Felt252Dict` key is accessed.
+    /// The Sierra spec allows any enum with two zero-sized-payload variants
+    /// as a dict value type (e.g. `Option<()>`, `Result<(), ()>`, or any user-defined unit enum).
+    #[test]
+    fn build_default_two_variant_unit_enum() {
+        // A user-defined enum with two unit (zero-sized) variants, just like `bool`.
+        let (_, program) = load_cairo! {
+            #[derive(Drop)]
+            enum Color {
+                Red,
+                Green,
+            }
+
+            fn run_test() -> Color {
+                Color::Red
+            }
+        };
+        let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();
+
+        // Find the user-defined enum with two zero-sized-payload variants (`Color`).
+        let (self_ty, enum_ty) = program
+            .type_declarations
+            .iter()
+            .map(|decl| (&decl.id, registry.get_type(&decl.id).unwrap()))
+            .find(|(_, ty)| {
+                matches!(ty, CoreTypeConcrete::Enum(info)
+                    if info.variants.len() == 2
+                        && info
+                            .variants
+                            .iter()
+                            .all(|v| registry.get_type(v).unwrap().is_zst(&registry).unwrap()))
+            })
+            .expect("the program must declare a two-variant unit enum");
+
+        let context = initialize_mlir();
+        let location = Location::unknown(&context);
+        let module = Module::new(location);
+
+        let region = Region::new();
+        let block = region.append_block(Block::new(&[]));
+        let blocks_arena = bumpalo::Bump::new();
+        let mut metadata = MetadataStorage::new();
+        let helper = LibfuncHelper {
+            module: &module,
+            init_block: &block,
+            region: &region,
+            blocks_arena: &blocks_arena,
+            last_block: Cell::new(&block),
+            branches: Vec::new(),
+            results: Vec::new(),
+
+            #[cfg(feature = "with-libfunc-profiling")]
+            profiler: None,
+        };
+
+        let value = enum_ty
+            .build_default(
+                &context,
+                &registry,
+                &block,
+                location,
+                &helper,
+                &mut metadata,
+                self_ty,
+            )
+            .expect("build_default must not panic for a two-variant unit enum");
+
+        // The default value matches the enum's `{ i1, [0 x i8] }` representation, with tag 0.
+        let expected_ty = llvm::r#type::r#struct(
+            &context,
+            &[
+                IntegerType::new(&context, 1).into(),
+                llvm::r#type::array(IntegerType::new(&context, 8).into(), 0),
+            ],
+            false,
+        );
+        assert_eq!(value.r#type(), expected_ty);
     }
 }
