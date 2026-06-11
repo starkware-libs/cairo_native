@@ -187,6 +187,8 @@ jobs:
           components: clippy
       - name: Rust `$PATH` workaround.
         run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Retreive cached dependecies
+        uses: Swatinem/rust-cache@v2
       - uses: Homebrew/actions/setup-homebrew@master
       - name: Install deps
         run: make deps
