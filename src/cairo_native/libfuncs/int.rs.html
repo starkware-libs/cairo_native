@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/libfuncs/int.rs`."><title>int.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/libfuncs/</div>int.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span><span class="kw">super</span>::LibfuncHelper;
-<a href=#2 id=2 data-nosnippet>2</a><span class="kw">use crate</span>::{
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/libfuncs/int.rs`."><title>int.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0 (4a4ef493e 2026-03-02)" data-channel="1.94.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/libfuncs/</div>int.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span><span class="kw">super</span>::LibfuncHelper;
+<a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>crate::{
 <a href=#3 id=3 data-nosnippet>3</a>    error::{panic::ToNativeAssertError, <span class="prelude-ty">Result</span>},
 <a href=#4 id=4 data-nosnippet>4</a>    execution_result::BITWISE_BUILTIN_SIZE,
 <a href=#5 id=5 data-nosnippet>5</a>    libfuncs::{increment_builtin_counter, increment_builtin_counter_by},
@@ -979,7 +979,7 @@
 <a href=#979 id=979 data-nosnippet>979</a>
 <a href=#980 id=980 data-nosnippet>980</a><span class="attr">#[cfg(test)]
 <a href=#981 id=981 data-nosnippet>981</a></span><span class="kw">mod </span>test {
-<a href=#982 id=982 data-nosnippet>982</a>    <span class="kw">use crate</span>::{
+<a href=#982 id=982 data-nosnippet>982</a>    <span class="kw">use </span>crate::{
 <a href=#983 id=983 data-nosnippet>983</a>        context::NativeContext, error::panic::ToNativeAssertError, executor::JitNativeExecutor,
 <a href=#984 id=984 data-nosnippet>984</a>        utils::HALF_PRIME, OptLevel, Value,
 <a href=#985 id=985 data-nosnippet>985</a>    };
@@ -1955,7 +1955,7 @@
 <a href=#1955 id=1955 data-nosnippet>1955</a>            <span class="macro">assert_eq!</span>(
 <a href=#1956 id=1956 data-nosnippet>1956</a>                result.return_value,
 <a href=#1957 id=1957 data-nosnippet>1957</a>                Value::Enum {
-<a href=#1958 id=1958 data-nosnippet>1958</a>                    tag: (hi != <span class="number">0</span>) <span class="kw">as </span>usize,
+<a href=#1958 id=1958 data-nosnippet>1958</a>                    tag: (<span class="macro">hi !</span>= <span class="number">0</span>) <span class="kw">as </span>usize,
 <a href=#1959 id=1959 data-nosnippet>1959</a>                    value: Box::new(<span class="kw">if </span>hi == <span class="number">0 </span>{
 <a href=#1960 id=1960 data-nosnippet>1960</a>                        Value::Uint128(lo)
 <a href=#1961 id=1961 data-nosnippet>1961</a>                    } <span class="kw">else </span>{
@@ -2057,7 +2057,7 @@
 <a href=#2057 id=2057 data-nosnippet>2057</a>            $( $(
 <a href=#2058 id=2058 data-nosnippet>2058</a>                <span class="attr">#[test]
 <a href=#2059 id=2059 data-nosnippet>2059</a>                </span><span class="kw">fn </span><span class="macro-nonterminal">$name</span>() {
-<a href=#2060 id=2060 data-nosnippet>2060</a>                    <span class="macro-nonterminal">$target</span>::&lt;<span class="macro-nonterminal">$ty</span>&gt;().unwrap();
+<a href=#2060 id=2060 data-nosnippet>2060</a>                    <span class="macro-nonterminal">$target:</span>:&lt;<span class="macro-nonterminal">$ty</span>&gt;().unwrap();
 <a href=#2061 id=2061 data-nosnippet>2061</a>                }
 <a href=#2062 id=2062 data-nosnippet>2062</a>            )+ )+
 <a href=#2063 id=2063 data-nosnippet>2063</a>        };
@@ -2177,4 +2177,5 @@
 <a href=#2177 id=2177 data-nosnippet>2177</a>    </span><span class="kw">fn </span>u128_guarantee_mul() {
 <a href=#2178 id=2178 data-nosnippet>2178</a>        test_guarantee_mul().unwrap();
 <a href=#2179 id=2179 data-nosnippet>2179</a>    }
-<a href=#2180 id=2180 data-nosnippet>2180</a>}</code></pre></div></section></main></body></html>
+<a href=#2180 id=2180 data-nosnippet>2180</a>}
+</code></pre></div></section></main></body></html>

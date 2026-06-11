@@ -1,1 +1,0 @@
-searchState.loadedDescShard("contract_to_sierra", 0, "Extracts sierra program from contract\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.")

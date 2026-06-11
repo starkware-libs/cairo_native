@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/starknet_stub.rs`."><title>starknet_stub.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/</div>starknet_stub.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! An usable implementation of the starknet syscall handler trait.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/starknet_stub.rs`."><title>starknet_stub.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0 (4a4ef493e 2026-03-02)" data-channel="1.94.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/</div>starknet_stub.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! An usable implementation of the starknet syscall handler trait.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! Based of cairo-lang-runner syscall handler implementation.
 <a href=#4 id=4 data-nosnippet>4</a>//! - https://github.com/starkware-libs/cairo/blob/v2.16.0/crates/cairo-lang-runner/src/casm_run/mod.rs
@@ -9,7 +9,7 @@
 <a href=#9 id=9 data-nosnippet>9</a>    sync::Arc,
 <a href=#10 id=10 data-nosnippet>10</a>};
 <a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use crate</span>::{
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>crate::{
 <a href=#13 id=13 data-nosnippet>13</a>    error::Error,
 <a href=#14 id=14 data-nosnippet>14</a>    execution_result::BuiltinStats,
 <a href=#15 id=15 data-nosnippet>15</a>    executor::AotNativeExecutor,
@@ -749,7 +749,7 @@
 <a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">let </span>length = input.len();
 <a href=#750 id=750 data-nosnippet>750</a>        <span class="kw">let </span>(_n_rounds, remainder) = num_integer::div_rem(length, KECCAK_FULL_RATE_IN_WORDS);
 <a href=#751 id=751 data-nosnippet>751</a>
-<a href=#752 id=752 data-nosnippet>752</a>        <span class="kw">if </span>remainder != <span class="number">0 </span>{
+<a href=#752 id=752 data-nosnippet>752</a>        <span class="kw">if </span><span class="macro">remainder !</span>= <span class="number">0 </span>{
 <a href=#753 id=753 data-nosnippet>753</a>            <span class="comment">// In VM this error is wrapped into `SyscallExecutionError::SyscallError`
 <a href=#754 id=754 data-nosnippet>754</a>            </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">vec!</span>[Felt::from_hex(
 <a href=#755 id=755 data-nosnippet>755</a>                <span class="string">"0x000000000000000000000000496e76616c696420696e707574206c656e677468"</span>,
@@ -1096,7 +1096,7 @@
 <a href=#1096 id=1096 data-nosnippet>1096</a>
 <a href=#1097 id=1097 data-nosnippet>1097</a><span class="attr">#[cfg(test)]
 <a href=#1098 id=1098 data-nosnippet>1098</a></span><span class="kw">mod </span>tests {
-<a href=#1099 id=1099 data-nosnippet>1099</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1099 id=1099 data-nosnippet>1099</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
 <a href=#1100 id=1100 data-nosnippet>1100</a>
 <a href=#1101 id=1101 data-nosnippet>1101</a>    <span class="attr">#[test]
 <a href=#1102 id=1102 data-nosnippet>1102</a>    </span><span class="kw">fn </span>test_secp256k1_get_xy() {
@@ -1540,4 +1540,5 @@
 <a href=#1540 id=1540 data-nosnippet>1540</a>            )
 <a href=#1541 id=1541 data-nosnippet>1541</a>        )
 <a href=#1542 id=1542 data-nosnippet>1542</a>    }
-<a href=#1543 id=1543 data-nosnippet>1543</a>}</code></pre></div></section></main></body></html>
+<a href=#1543 id=1543 data-nosnippet>1543</a>}
+</code></pre></div></section></main></body></html>

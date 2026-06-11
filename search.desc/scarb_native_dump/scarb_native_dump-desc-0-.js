@@ -1,1 +1,0 @@
-searchState.loadedDescShard("scarb_native_dump", 0, "Compiles all packages from a Scarb project on the current …")

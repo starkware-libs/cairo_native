@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/executor/contract.rs`."><title>contract.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/executor/</div>contract.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! A specialized executor for Starknet contracts, avoiding the overhead of storing the sierra program registry and
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/executor/contract.rs`."><title>contract.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cairo_native" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0 (4a4ef493e 2026-03-02)" data-channel="1.94.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cairo_native/executor/</div>contract.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! A specialized executor for Starknet contracts, avoiding the overhead of storing the sierra program registry and
 <a href=#2 id=2 data-nosnippet>2</a>//! enabling efficient serialization of the program/data once compiled.
 <a href=#3 id=3 data-nosnippet>3</a>//!
 <a href=#4 id=4 data-nosnippet>4</a>//! This executor heavily relies on the stability of the contract entry point argument order.
@@ -31,7 +31,7 @@
 <a href=#31 id=31 data-nosnippet>31</a>//! When loading, passing the "program.so" path will make it load the program and the "program.json" alongside it.
 <a href=#32 id=32 data-nosnippet>32</a>//!
 <a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">use crate</span>::{
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">use </span>crate::{
 <a href=#35 id=35 data-nosnippet>35</a>    arch::AbiArgument,
 <a href=#36 id=36 data-nosnippet>36</a>    clone_option_mut,
 <a href=#37 id=37 data-nosnippet>37</a>    context::NativeContext,
@@ -674,7 +674,7 @@
 <a href=#674 id=674 data-nosnippet>674</a>                        .iter()
 <a href=#675 id=675 data-nosnippet>675</a>                        .flat_map(|felt| felt.to_bytes_be().to_vec())
 <a href=#676 id=676 data-nosnippet>676</a>                        <span class="comment">// remove null chars
-<a href=#677 id=677 data-nosnippet>677</a>                        </span>.filter(|b| <span class="kw-2">*</span>b != <span class="number">0</span>)
+<a href=#677 id=677 data-nosnippet>677</a>                        </span>.filter(|b| <span class="kw-2">*</span><span class="macro">b !</span>= <span class="number">0</span>)
 <a href=#678 id=678 data-nosnippet>678</a>                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 <a href=#679 id=679 data-nosnippet>679</a>                ))
 <a href=#680 id=680 data-nosnippet>680</a>            }
@@ -690,7 +690,7 @@
 <a href=#690 id=690 data-nosnippet>690</a>
 <a href=#691 id=691 data-nosnippet>691</a>        <span class="prelude-val">Ok</span>(ContractExecutionResult {
 <a href=#692 id=692 data-nosnippet>692</a>            remaining_gas,
-<a href=#693 id=693 data-nosnippet>693</a>            failure_flag: tag != <span class="number">0</span>,
+<a href=#693 id=693 data-nosnippet>693</a>            failure_flag: <span class="macro">tag !</span>= <span class="number">0</span>,
 <a href=#694 id=694 data-nosnippet>694</a>            return_values: array_value,
 <a href=#695 id=695 data-nosnippet>695</a>            error_msg,
 <a href=#696 id=696 data-nosnippet>696</a>            builtin_stats,
@@ -800,8 +800,8 @@
 <a href=#800 id=800 data-nosnippet>800</a>
 <a href=#801 id=801 data-nosnippet>801</a><span class="attr">#[cfg(test)]
 <a href=#802 id=802 data-nosnippet>802</a></span><span class="kw">mod </span>tests {
-<a href=#803 id=803 data-nosnippet>803</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#804 id=804 data-nosnippet>804</a>    <span class="kw">use crate</span>::{starknet_stub::StubSyscallHandler, utils::testing::load_contract};
+<a href=#803 id=803 data-nosnippet>803</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#804 id=804 data-nosnippet>804</a>    <span class="kw">use </span>crate::{starknet_stub::StubSyscallHandler, utils::testing::load_contract};
 <a href=#805 id=805 data-nosnippet>805</a>    <span class="kw">use </span>cairo_lang_starknet_classes::contract_class::ContractClass;
 <a href=#806 id=806 data-nosnippet>806</a>    <span class="kw">use </span>rayon::iter::ParallelBridge;
 <a href=#807 id=807 data-nosnippet>807</a>    <span class="kw">use </span>rstest::<span class="kw-2">*</span>;
@@ -983,4 +983,5 @@
 <a href=#983 id=983 data-nosnippet>983</a>
 <a href=#984 id=984 data-nosnippet>984</a>        <span class="macro">assert_eq!</span>(result.return_values, <span class="macro">vec!</span>[]);
 <a href=#985 id=985 data-nosnippet>985</a>    }
-<a href=#986 id=986 data-nosnippet>986</a>}</code></pre></div></section></main></body></html>
+<a href=#986 id=986 data-nosnippet>986</a>}
+</code></pre></div></section></main></body></html>
