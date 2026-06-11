@@ -3,7 +3,10 @@
 use super::LibfuncHelper;
 use crate::{
     error::{panic::ToNativeAssertError, Result},
-    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
+    metadata::{
+        runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
+        MetadataStorage,
+    },
     utils::{felt_to_unsigned, ProgramRegistryExt, PRIME},
 };
 use cairo_lang_sierra::{
@@ -152,13 +155,13 @@ pub fn build_binary_operation<'ctx, 'this>(
             let prime = entry.const_int_from_type(context, location, PRIME.clone(), felt252_ty)?;
 
             // Find 1 / rhs.
-            let euclidean_result = runtime_bindings_meta.u252_extended_euclidean_algorithm(
+            let euclidean_result = runtime_bindings_meta.extended_euclidean_algorithm(
                 context,
                 helper.module,
                 entry,
                 location,
-                rhs,
-                prime,
+                [rhs, prime],
+                ExtendedEuclideanWidth::U252,
             )?;
 
             // Here we omit checking if inverse is actually the inverse,
