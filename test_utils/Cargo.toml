@@ -9,10 +9,10 @@ repository.workspace = true
 clap = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
-cairo-lang-compiler = "~2.19.0-rc.1"
-cairo-lang-filesystem = "~2.19.0-rc.1"
-cairo-lang-lowering = "~2.19.0-rc.1"
-cairo-lang-sierra = "~2.19.0-rc.1"
-cairo-lang-starknet = "~2.19.0-rc.1"
-cairo-lang-test-plugin = "~2.19.0-rc.1"
-cairo-lang-test-runner = "~2.19.0-rc.1"
+cairo-lang-compiler = "~2.19.0-rc.3"
+cairo-lang-filesystem = "~2.19.0-rc.3"
+cairo-lang-lowering = "~2.19.0-rc.3"
+cairo-lang-sierra = "~2.19.0-rc.3"
+cairo-lang-starknet = "~2.19.0-rc.3"
+cairo-lang-test-plugin = "~2.19.0-rc.3"
+cairo-lang-test-runner = "~2.19.0-rc.3"
