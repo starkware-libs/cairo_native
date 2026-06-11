@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CircuitArithOperationType"],"fn":["setup_runtime"],"struct":["RuntimeBindingsMeta"]};
+window.SIDEBAR_ITEMS = {"enum":["CircuitArithOperationType","ExtendedEuclideanWidth"],"fn":["setup_runtime"],"struct":["RuntimeBindingsMeta"]};
