@@ -1,6 +1,6 @@
 use crate::{
     error::{panic::ToNativeAssertError, Error, Result},
-    metadata::runtime_bindings::RuntimeBindingsMeta,
+    metadata::runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
     utils::{get_integer_layout, ProgramRegistryExt},
 };
 use crate::{libfuncs::LibfuncHelper, metadata::MetadataStorage};
@@ -347,13 +347,13 @@ fn m31_div<'ctx, 'this>(
     let runtime_bindings_meta = metadata
         .get_mut::<RuntimeBindingsMeta>()
         .to_native_assert_error("Unable to get the RuntimeBindingsMeta from MetadataStorage")?;
-    let euclidean_result = runtime_bindings_meta.u31_extended_euclidean_algorithm(
+    let euclidean_result = runtime_bindings_meta.extended_euclidean_algorithm(
         context,
         helper.module,
         entry,
         location,
-        rhs_value,
-        prime,
+        [rhs_value, prime],
+        ExtendedEuclideanWidth::U31,
     )?;
 
     // Here we omit checking if inverse is actually the inverse,

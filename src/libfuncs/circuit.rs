@@ -8,7 +8,9 @@ use crate::{
     execution_result::{ADD_MOD_BUILTIN_SIZE, MUL_MOD_BUILTIN_SIZE, RANGE_CHECK96_BUILTIN_SIZE},
     libfuncs::r#struct::build_struct_value,
     metadata::{
-        runtime_bindings::{CircuitArithOperationType, RuntimeBindingsMeta},
+        runtime_bindings::{
+            CircuitArithOperationType, ExtendedEuclideanWidth, RuntimeBindingsMeta,
+        },
         MetadataStorage,
     },
     native_panic,
@@ -572,15 +574,14 @@ fn build_gate_evaluation<'ctx, 'this>(
                 // INV: lhs = 1 / rhs
                 (None, Some(rhs_value), Some(_)) => {
                     // Apply egcd to find gcd and inverse
-                    let euclidean_result = runtime_bindings_meta
-                        .u384_extended_euclidean_algorithm(
-                            context,
-                            helper.module,
-                            block,
-                            location,
-                            rhs_value,
-                            circuit_modulus,
-                        )?;
+                    let euclidean_result = runtime_bindings_meta.extended_euclidean_algorithm(
+                        context,
+                        helper.module,
+                        block,
+                        location,
+                        [rhs_value, circuit_modulus],
+                        ExtendedEuclideanWidth::U384,
+                    )?;
                     // Extract the values from the result struct
                     let gcd =
                         block.extract_value(context, location, euclidean_result, u384_type, 0)?;
