@@ -162,6 +162,7 @@ impl RuntimeBinding {
 pub enum ExtendedEuclideanWidth {
     U31,
     U252,
+    U256,
     U384,
 }
 impl ExtendedEuclideanWidth {
@@ -170,6 +171,7 @@ impl ExtendedEuclideanWidth {
         match self {
             Self::U31 => "cairo_native__u31_extended_euclidean_algorithm",
             Self::U252 => "cairo_native__u252_extended_euclidean_algorithm",
+            Self::U256 => "cairo_native__u256_extended_euclidean_algorithm",
             Self::U384 => "cairo_native__u384_extended_euclidean_algorithm",
         }
     }
@@ -178,6 +180,7 @@ impl ExtendedEuclideanWidth {
         match self {
             Self::U31 => 31,
             Self::U252 => 252,
+            Self::U256 => 256,
             Self::U384 => 384,
         }
     }
