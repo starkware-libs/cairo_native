@@ -46,9 +46,7 @@ enum RuntimeBinding {
     GetCostsBuiltin,
     BlakeCompress,
     DebugPrint,
-    U31ExtendedEuclideanAlgorithm,
-    U252ExtendedEuclideanAlgorithm,
-    U384ExtendedEuclideanAlgorithm,
+    ExtendedEuclideanAlgorithm(ExtendedEuclideanWidth),
     CircuitArithOperation,
     DictIntoEntries,
     QM31Add,
@@ -78,15 +76,7 @@ impl RuntimeBinding {
             RuntimeBinding::DictSquash => "cairo_native__dict_squash",
             RuntimeBinding::GetCostsBuiltin => "cairo_native__get_costs_builtin",
             RuntimeBinding::BlakeCompress => "cairo_native__libfunc__blake_compress",
-            RuntimeBinding::U31ExtendedEuclideanAlgorithm => {
-                "cairo_native__u31_extended_euclidean_algorithm"
-            }
-            RuntimeBinding::U252ExtendedEuclideanAlgorithm => {
-                "cairo_native__u252_extended_euclidean_algorithm"
-            }
-            RuntimeBinding::U384ExtendedEuclideanAlgorithm => {
-                "cairo_native__u384_extended_euclidean_algorithm"
-            }
+            RuntimeBinding::ExtendedEuclideanAlgorithm(width) => width.symbol(),
             RuntimeBinding::CircuitArithOperation => "cairo_native__circuit_arith_operation",
             RuntimeBinding::DictIntoEntries => "cairo_native__dict_into_entries",
             RuntimeBinding::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
@@ -155,9 +145,7 @@ impl RuntimeBinding {
             RuntimeBinding::BlakeCompress => {
                 crate::runtime::cairo_native__libfunc__blake_compress as *const ()
             }
-            RuntimeBinding::U31ExtendedEuclideanAlgorithm
-            | RuntimeBinding::U252ExtendedEuclideanAlgorithm
-            | RuntimeBinding::U384ExtendedEuclideanAlgorithm => return None,
+            RuntimeBinding::ExtendedEuclideanAlgorithm(_) => return None,
             RuntimeBinding::CircuitArithOperation => return None,
             RuntimeBinding::ArenaAlloc => crate::runtime::cairo_native__arena_alloc as *const (),
             #[cfg(feature = "with-cheatcode")]
@@ -166,6 +154,32 @@ impl RuntimeBinding {
             }
         };
         Some(function_ptr)
+    }
+}
+
+/// Represents the width of the extended Euclidean algorithm.
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+pub enum ExtendedEuclideanWidth {
+    U31,
+    U252,
+    U384,
+}
+impl ExtendedEuclideanWidth {
+    /// Returns the symbol of the extended Euclidean algorithm for this width.
+    const fn symbol(self) -> &'static str {
+        match self {
+            Self::U31 => "cairo_native__u31_extended_euclidean_algorithm",
+            Self::U252 => "cairo_native__u252_extended_euclidean_algorithm",
+            Self::U384 => "cairo_native__u384_extended_euclidean_algorithm",
+        }
+    }
+    /// Returns the width of the extended Euclidean algorithm in bits.
+    const fn bits(self) -> u32 {
+        match self {
+            Self::U31 => 31,
+            Self::U252 => 252,
+            Self::U384 => 384,
+        }
     }
 }
 
@@ -231,115 +245,28 @@ impl RuntimeBindingsMeta {
         )?)
     }
 
-    /// Build if necessary the extended euclidean algorithm used in circuit inverse gates.
+    /// Build if necessary the extended euclidean algorithm for the given `width`.
     ///
     /// After checking, calls the MLIR function with arguments `a` and `b` which are the initial remainders
     /// used in the algorithm and returns a `Value` containing a struct where the first element is the
     /// greatest common divisor of `a` and `b` and the second element is the bezout coefficient x.
-    ///
-    /// This implementation is only for felt252, which uses u31 integers.
-    pub fn u31_extended_euclidean_algorithm<'c, 'a>(
+    pub fn extended_euclidean_algorithm<'c, 'a>(
         &mut self,
         context: &'c Context,
         module: &Module,
         block: &'a Block<'c>,
         location: Location<'c>,
-        a: Value<'c, '_>,
-        b: Value<'c, '_>,
+        [a, b]: [Value<'c, '_>; 2],
+        width: ExtendedEuclideanWidth,
     ) -> Result<Value<'c, 'a>>
     where
         'c: 'a,
     {
-        let integer_type = IntegerType::new(context, 31).into();
-        let func_symbol = RuntimeBinding::U31ExtendedEuclideanAlgorithm.symbol();
+        let integer_type = IntegerType::new(context, width.bits()).into();
+        let func_symbol = width.symbol();
         if self
             .active_map
-            .insert(RuntimeBinding::U31ExtendedEuclideanAlgorithm)
-        {
-            build_egcd_function(module, context, location, func_symbol, integer_type)?;
-        }
-        // The struct returned by the function that contains both of the results
-        let return_type = llvm::r#type::r#struct(context, &[integer_type, integer_type], false);
-        Ok(block
-            .append_operation(
-                OperationBuilder::new("llvm.call", location)
-                    .add_attributes(&[(
-                        Identifier::new(context, "callee"),
-                        FlatSymbolRefAttribute::new(context, func_symbol).into(),
-                    )])
-                    .add_operands(&[a, b])
-                    .add_results(&[return_type])
-                    .build()?,
-            )
-            .result(0)?
-            .into())
-    }
-
-    /// Build if necessary the extended euclidean algorithm used in circuit inverse gates.
-    ///
-    /// After checking, calls the MLIR function with arguments `a` and `b` which are the initial remainders
-    /// used in the algorithm and returns a `Value` containing a struct where the first element is the
-    /// greatest common divisor of `a` and `b` and the second element is the bezout coefficient x.
-    ///
-    /// This implementation is only for felt252, which uses u252 integers.
-    pub fn u252_extended_euclidean_algorithm<'c, 'a>(
-        &mut self,
-        context: &'c Context,
-        module: &Module,
-        block: &'a Block<'c>,
-        location: Location<'c>,
-        a: Value<'c, '_>,
-        b: Value<'c, '_>,
-    ) -> Result<Value<'c, 'a>>
-    where
-        'c: 'a,
-    {
-        let integer_type = IntegerType::new(context, 252).into();
-        let func_symbol = RuntimeBinding::U252ExtendedEuclideanAlgorithm.symbol();
-        if self
-            .active_map
-            .insert(RuntimeBinding::U252ExtendedEuclideanAlgorithm)
-        {
-            build_egcd_function(module, context, location, func_symbol, integer_type)?;
-        }
-        // The struct returned by the function that contains both of the results
-        let return_type = llvm::r#type::r#struct(context, &[integer_type, integer_type], false);
-        Ok(block
-            .append_operation(
-                OperationBuilder::new("llvm.call", location)
-                    .add_attributes(&[(
-                        Identifier::new(context, "callee"),
-                        FlatSymbolRefAttribute::new(context, func_symbol).into(),
-                    )])
-                    .add_operands(&[a, b])
-                    .add_results(&[return_type])
-                    .build()?,
-            )
-            .result(0)?
-            .into())
-    }
-
-    /// Similar to [felt252_extended_euclidean_algorithm](Self::felt252_extended_euclidean_algorithm).
-    ///
-    /// The difference with the other is that this function is meant to be used
-    /// with circuits, which use u384 integers.
-    pub fn u384_extended_euclidean_algorithm<'c, 'a>(
-        &mut self,
-        context: &'c Context,
-        module: &Module,
-        block: &'a Block<'c>,
-        location: Location<'c>,
-        a: Value<'c, '_>,
-        b: Value<'c, '_>,
-    ) -> Result<Value<'c, 'a>>
-    where
-        'c: 'a,
-    {
-        let integer_type = IntegerType::new(context, 384).into();
-        let func_symbol = RuntimeBinding::U384ExtendedEuclideanAlgorithm.symbol();
-        if self
-            .active_map
-            .insert(RuntimeBinding::U384ExtendedEuclideanAlgorithm)
+            .insert(RuntimeBinding::ExtendedEuclideanAlgorithm(width))
         {
             build_egcd_function(module, context, location, func_symbol, integer_type)?;
         }
