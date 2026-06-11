@@ -1,7 +1,14 @@
 //! # `u256`-related libfuncs
 
 use super::{increment_builtin_counter_by, LibfuncHelper};
-use crate::{error::Result, metadata::MetadataStorage, utils::ProgramRegistryExt};
+use crate::{
+    error::Result,
+    metadata::{
+        runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
+        MetadataStorage,
+    },
+    utils::ProgramRegistryExt,
+};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -16,7 +23,7 @@ use melior::{
         arith::{self, CmpiPredicate},
         cf, llvm, ods, scf,
     },
-    helpers::BuiltinBlockExt,
+    helpers::{BuiltinBlockExt, LlvmBlockExt},
     ir::{
         attribute::{DenseI64ArrayAttribute, IntegerAttribute},
         operation::OperationBuilder,
@@ -816,111 +823,30 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
     // on everything is emitted into `compute_block` instead of the original entry block.
     let entry = compute_block;
 
-    let result = entry.append_operation(scf::r#while(
-        &[lhs, rhs, k1, k0],
-        &[i256_ty, i256_ty, i256_ty, i256_ty],
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-            ]));
-
-            let q = block
-                .append_operation(arith::divui(block.arg(1)?, block.arg(0)?, location))
-                .result(0)?
-                .into();
-
-            let q_c = block
-                .append_operation(arith::muli(q, block.arg(0)?, location))
-                .result(0)?
-                .into();
-            let c = block
-                .append_operation(arith::subi(block.arg(1)?, q_c, location))
-                .result(0)?
-                .into();
-
-            let q_uc = block
-                .append_operation(arith::muli(q, block.arg(2)?, location))
-                .result(0)?
-                .into();
-            let u_c = block
-                .append_operation(arith::subi(block.arg(3)?, q_uc, location))
-                .result(0)?
-                .into();
-
-            let should_continue = block
-                .append_operation(arith::cmpi(context, CmpiPredicate::Ne, c, k0, location))
-                .result(0)?
-                .into();
-            block.append_operation(scf::condition(
-                should_continue,
-                &[c, block.arg(0)?, u_c, block.argument(2)?.into()],
-                location,
-            ));
-
-            region
-        },
-        {
-            let region = Region::new();
-            let block = region.append_block(Block::new(&[
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-                (i256_ty, location),
-            ]));
-
-            block.append_operation(scf::r#yield(
-                &[block.arg(0)?, block.arg(1)?, block.arg(2)?, block.arg(3)?],
-                location,
-            ));
-
-            region
-        },
+    // The extended Euclidean algorithm is built as a separate `no_inline` MLIR
+    // function (shared with the u31/u252/u384 variants) rather than inlined here.
+    // It returns a struct `{ gcd, inv }`, where `inv` is the Bézout coefficient of
+    // `lhs` already reduced into `[0, rhs)` — i.e. the modular inverse of `lhs`
+    // modulo `rhs` whenever the gcd is 1.
+    let runtime_bindings = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let egcd_result = runtime_bindings.extended_euclidean_algorithm(
+        context,
+        helper.module,
+        entry,
         location,
-    ));
+        [lhs, rhs],
+        ExtendedEuclideanWidth::U256,
+    )?;
 
-    let inv = result.result(3)?.into();
+    let gcd = entry.extract_value(context, location, egcd_result, i256_ty, 0)?;
+    let inv = entry.extract_value(context, location, egcd_result, i256_ty, 1)?;
 
+    // `build_egcd_function` reduces the Bézout coefficient into `[0, rhs)` relying on the
+    // invariant `|coeff| <= rhs / 2`, which holds for every modulus except `rhs == 1` (where
+    // the trivial coefficient `1` is not `< 1`). A final unsigned remainder reduces that case
+    // back to `0` (matching the VM, where everything is `0` modulo `1`) and is a no-op otherwise.
     let inv = entry
-        .append_operation(scf::r#if(
-            entry
-                .append_operation(arith::cmpi(context, CmpiPredicate::Slt, inv, k0, location))
-                .result(0)?
-                .into(),
-            &[i256_ty],
-            {
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                block.append_operation(scf::r#yield(
-                    &[entry
-                        .append_operation(arith::addi(inv, rhs, location))
-                        .result(0)?
-                        .into()],
-                    location,
-                ));
-
-                region
-            },
-            {
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                block.append_operation(scf::r#yield(
-                    &[entry
-                        .append_operation(arith::remui(inv, rhs, location))
-                        .result(0)?
-                        .into()],
-                    location,
-                ));
-
-                region
-            },
-            location,
-        ))
+        .append_operation(arith::remui(inv, rhs, location))
         .result(0)?
         .into();
 
@@ -969,13 +895,7 @@ pub fn build_u256_guarantee_inv_mod_n<'ctx, 'this>(
         .into();
 
     let lhs_is_invertible = entry
-        .append_operation(arith::cmpi(
-            context,
-            CmpiPredicate::Eq,
-            result.result(1)?.into(),
-            k1,
-            location,
-        ))
+        .append_operation(arith::cmpi(context, CmpiPredicate::Eq, gcd, k1, location))
         .result(0)?
         .into();
     let inv_not_zero = entry
@@ -1305,6 +1225,23 @@ mod test {
             (2, 0),
             (5, 0),
             jit_enum!(0, jit_struct!(3u128.into(), 0u128.into())),
+        );
+        // Modulus close to 2^255: the inverse spans the full u256 range, exercising the
+        // egcd reduction for large moduli.
+        run(
+            &program,
+            (3, 0),
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF67,
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
+            jit_enum!(
+                0,
+                jit_struct!(
+                    226854911280625642308916404954512140920u128.into(),
+                    56713727820156410577229101238628035242u128.into()
+                )
+            ),
         );
     }
 }
