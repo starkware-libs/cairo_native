@@ -13,11 +13,11 @@ use itertools::Itertools;
 use melior::{
     dialect::{
         arith::{self, CmpiPredicate},
-        cf, llvm, ods,
+        cf, llvm, ods, scf,
     },
     helpers::{ArithBlockExt, BuiltinBlockExt, LlvmBlockExt},
     ir::{
-        attribute::{FlatSymbolRefAttribute, StringAttribute, TypeAttribute},
+        attribute::{FlatSymbolRefAttribute, IntegerAttribute, StringAttribute, TypeAttribute},
         operation::OperationBuilder,
         r#type::IntegerType,
         Attribute, Block, BlockLike, Identifier, Location, Module, OperationRef, Region, Type,
@@ -47,6 +47,7 @@ enum RuntimeBinding {
     BlakeCompress,
     DebugPrint,
     ExtendedEuclideanAlgorithm(ExtendedEuclideanWidth),
+    SquareRoot(SquareRootType),
     CircuitArithOperation,
     DictIntoEntries,
     QM31Add,
@@ -77,6 +78,7 @@ impl RuntimeBinding {
             RuntimeBinding::GetCostsBuiltin => "cairo_native__get_costs_builtin",
             RuntimeBinding::BlakeCompress => "cairo_native__libfunc__blake_compress",
             RuntimeBinding::ExtendedEuclideanAlgorithm(width) => width.symbol(),
+            RuntimeBinding::SquareRoot(sqrt_type) => sqrt_type.symbol(),
             RuntimeBinding::CircuitArithOperation => "cairo_native__circuit_arith_operation",
             RuntimeBinding::DictIntoEntries => "cairo_native__dict_into_entries",
             RuntimeBinding::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
@@ -146,6 +148,7 @@ impl RuntimeBinding {
                 crate::runtime::cairo_native__libfunc__blake_compress as *const ()
             }
             RuntimeBinding::ExtendedEuclideanAlgorithm(_) => return None,
+            RuntimeBinding::SquareRoot(_) => return None,
             RuntimeBinding::CircuitArithOperation => return None,
             RuntimeBinding::ArenaAlloc => crate::runtime::cairo_native__arena_alloc as *const (),
             #[cfg(feature = "with-cheatcode")]
@@ -182,6 +185,53 @@ impl ExtendedEuclideanWidth {
             Self::U252 => 252,
             Self::U256 => 256,
             Self::U384 => 384,
+        }
+    }
+}
+
+/// Represents the integer type of an integer square root operation.
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+pub enum SquareRootType {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    U256,
+}
+impl SquareRootType {
+    /// Returns the symbol of the square root function for this type.
+    const fn symbol(self) -> &'static str {
+        match self {
+            Self::U8 => "cairo_native__u8_square_root",
+            Self::U16 => "cairo_native__u16_square_root",
+            Self::U32 => "cairo_native__u32_square_root",
+            Self::U64 => "cairo_native__u64_square_root",
+            Self::U128 => "cairo_native__u128_square_root",
+            Self::U256 => "cairo_native__u256_square_root",
+        }
+    }
+    /// Returns the bit width of the operand.
+    const fn input_bits(self) -> u32 {
+        match self {
+            Self::U8 => 8,
+            Self::U16 => 16,
+            Self::U32 => 32,
+            Self::U64 => 64,
+            Self::U128 => 128,
+            Self::U256 => 256,
+        }
+    }
+    /// Returns the bit width of the result, which is half the operand width
+    /// (except for `u8`, whose result still occupies a full byte).
+    const fn output_bits(self) -> u32 {
+        match self {
+            Self::U8 => 8,
+            Self::U16 => 8,
+            Self::U32 => 16,
+            Self::U64 => 32,
+            Self::U128 => 64,
+            Self::U256 => 128,
         }
     }
 }
@@ -284,6 +334,46 @@ impl RuntimeBindingsMeta {
                     )])
                     .add_operands(&[a, b])
                     .add_results(&[return_type])
+                    .build()?,
+            )
+            .result(0)?
+            .into())
+    }
+
+    /// Build if necessary the integer square root function for the given
+    /// `sqrt_type` and call it.
+    ///
+    /// Returns `floor(sqrt(value))`, already truncated to the result width of the
+    /// operation (`sqrt_type.output_bits()`).
+    pub fn integer_square_root<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        location: Location<'c>,
+        value: Value<'c, '_>,
+        sqrt_type: SquareRootType,
+    ) -> Result<Value<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let output_type = IntegerType::new(context, sqrt_type.output_bits()).into();
+        let func_symbol = sqrt_type.symbol();
+        if self
+            .active_map
+            .insert(RuntimeBinding::SquareRoot(sqrt_type))
+        {
+            build_sqrt_function(module, context, location, func_symbol, sqrt_type)?;
+        }
+        Ok(block
+            .append_operation(
+                OperationBuilder::new("llvm.call", location)
+                    .add_attributes(&[(
+                        Identifier::new(context, "callee"),
+                        FlatSymbolRefAttribute::new(context, func_symbol).into(),
+                    )])
+                    .add_operands(&[value])
+                    .add_results(&[output_type])
                     .build()?,
             )
             .result(0)?
@@ -1115,6 +1205,172 @@ fn build_egcd_function<'ctx>(
             &[integer_type, integer_type],
             false,
         )),
+        region,
+        &[(
+            Identifier::new(context, "no_inline"), // Adding this attribute significantly improves compilation
+            Attribute::unit(context),
+        )],
+        location,
+    ));
+
+    Ok(())
+}
+
+/// Builds the integer square root MLIR function for a given operation type.
+///
+/// It declares a MLIR function that, given an integer `value` of
+/// `sqrt_type.input_bits()` width, returns `floor(sqrt(value))` truncated to
+/// `sqrt_type.output_bits()` width.
+///
+/// The algorithm determines the result bit by bit, from the most significant to
+/// the least significant. For each candidate bit it tentatively sets it and
+/// checks whether the resulting candidate squared still fits below the (scaled
+/// down) input, keeping the bit only when it does.
+fn build_sqrt_function<'ctx>(
+    module: &Module,
+    context: &'ctx Context,
+    location: Location<'ctx>,
+    func_symbol: &str,
+    sqrt_type: SquareRootType,
+) -> Result<()> {
+    let bits = sqrt_type.input_bits();
+    let integer_type = IntegerType::new(context, bits).into();
+    let output_type = IntegerType::new(context, sqrt_type.output_bits()).into();
+
+    let region = Region::new();
+    let entry_block = region.append_block(Block::new(&[(integer_type, location)]));
+    let input = entry_block.arg(0)?;
+
+    let k1 = entry_block.const_int(context, location, 1, bits)?;
+
+    // Values lower than or equal to 1 are their own square root.
+    let is_small = entry_block.cmpi(context, CmpiPredicate::Ule, input, k1, location)?;
+
+    let result = entry_block.append_op_result(scf::r#if(
+        is_small,
+        &[integer_type],
+        {
+            let region = Region::new();
+            let block = region.append_block(Block::new(&[]));
+            block.append_operation(scf::r#yield(&[input], location));
+            region
+        },
+        {
+            let region = Region::new();
+            let block = region.append_block(Block::new(&[]));
+
+            // The first candidate bit is the most significant bit of the result,
+            // which sits at half the position of the most significant bit of the
+            // input. We round that position down to an even number so the loop,
+            // which steps two bits at a time, lands exactly on it.
+            let leading_zeros = block.append_op_result(
+                ods::llvm::intr_ctlz(
+                    context,
+                    integer_type,
+                    input,
+                    IntegerAttribute::new(IntegerType::new(context, 1).into(), 1),
+                    location,
+                )
+                .into(),
+            )?;
+
+            let k_bits = block.const_int(context, location, bits, bits)?;
+            let num_bits = block.append_op_result(arith::subi(k_bits, leading_zeros, location))?;
+            let shift_amount = block.addi(num_bits, k1, location)?;
+
+            let parity_mask = block.const_int(context, location, -2, bits)?;
+            let shift_amount =
+                block.append_op_result(arith::andi(shift_amount, parity_mask, location))?;
+
+            let k0 = block.const_int(context, location, 0, bits)?;
+            let result = block.append_op_result(scf::r#while(
+                &[k0, shift_amount],
+                &[integer_type, integer_type],
+                {
+                    let region = Region::new();
+                    let block = region.append_block(Block::new(&[
+                        (integer_type, location),
+                        (integer_type, location),
+                    ]));
+
+                    let result = block.shli(block.arg(0)?, k1, location)?;
+                    let large_candidate =
+                        block.append_op_result(arith::xori(result, k1, location))?;
+                    let large_candidate_squared =
+                        block.muli(large_candidate, large_candidate, location)?;
+
+                    let threshold = block.shrui(input, block.arg(1)?, location)?;
+                    // A shift by the full bit width is poison, so when that
+                    // happens we use 0 instead (no candidate fits below 0).
+                    let threshold_is_poison =
+                        block.cmpi(context, CmpiPredicate::Eq, block.arg(1)?, k_bits, location)?;
+                    let threshold = block.append_op_result(arith::select(
+                        threshold_is_poison,
+                        k0,
+                        threshold,
+                        location,
+                    ))?;
+
+                    let is_in_range = block.cmpi(
+                        context,
+                        CmpiPredicate::Ule,
+                        large_candidate_squared,
+                        threshold,
+                        location,
+                    )?;
+                    let result = block.append_op_result(arith::select(
+                        is_in_range,
+                        large_candidate,
+                        result,
+                        location,
+                    ))?;
+
+                    let k2 = block.const_int(context, location, 2, bits)?;
+                    let shift_amount =
+                        block.append_op_result(arith::subi(block.arg(1)?, k2, location))?;
+
+                    let should_continue =
+                        block.cmpi(context, CmpiPredicate::Sge, shift_amount, k0, location)?;
+                    block.append_operation(scf::condition(
+                        should_continue,
+                        &[result, shift_amount],
+                        location,
+                    ));
+
+                    region
+                },
+                {
+                    let region = Region::new();
+                    let block = region.append_block(Block::new(&[
+                        (integer_type, location),
+                        (integer_type, location),
+                    ]));
+
+                    block.append_operation(scf::r#yield(&[block.arg(0)?, block.arg(1)?], location));
+                    region
+                },
+                location,
+            ))?;
+
+            block.append_operation(scf::r#yield(&[result], location));
+            region
+        },
+        location,
+    ))?;
+
+    // The result always fits in the (smaller) output type.
+    let result = if bits == sqrt_type.output_bits() {
+        result
+    } else {
+        entry_block.trunci(result, output_type, location)?
+    };
+    entry_block.append_operation(llvm::r#return(Some(result), location));
+
+    let func_name = StringAttribute::new(context, func_symbol);
+    module.body().append_operation(llvm::func(
+        context,
+        func_name,
+        TypeAttribute::new(llvm::r#type::function(output_type, &[integer_type], false)),
         region,
         &[(
             Identifier::new(context, "no_inline"), // Adding this attribute significantly improves compilation

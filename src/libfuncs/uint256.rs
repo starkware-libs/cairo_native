@@ -4,7 +4,7 @@ use super::{increment_builtin_counter_by, LibfuncHelper};
 use crate::{
     error::Result,
     metadata::{
-        runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
+        runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta, SquareRootType},
         MetadataStorage,
     },
     utils::ProgramRegistryExt,
@@ -21,14 +21,13 @@ use cairo_lang_sierra::{
 use melior::{
     dialect::{
         arith::{self, CmpiPredicate},
-        cf, llvm, ods, scf,
+        cf, llvm,
     },
     helpers::{BuiltinBlockExt, LlvmBlockExt},
     ir::{
         attribute::{DenseI64ArrayAttribute, IntegerAttribute},
-        operation::OperationBuilder,
         r#type::IntegerType,
-        Block, BlockLike, Location, Region, Value,
+        Block, BlockLike, Location, Value,
     },
     Context,
 };
@@ -358,7 +357,7 @@ pub fn build_square_root<'ctx, 'this>(
     entry: &'this Block<'ctx>,
     location: Location<'ctx>,
     helper: &LibfuncHelper<'ctx, 'this>,
-    _metadata: &mut MetadataStorage,
+    metadata: &mut MetadataStorage,
     _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
     // The sierra-to-casm compiler uses the range check builtin a total of 7 times.
@@ -418,234 +417,18 @@ pub fn build_square_root<'ctx, 'this>(
         .result(0)?
         .into();
 
-    let k1 = entry
-        .append_operation(arith::constant(
-            context,
-            IntegerAttribute::new(i256_ty, 1).into(),
-            location,
-        ))
-        .result(0)?
-        .into();
-
-    let is_small = entry
-        .append_operation(arith::cmpi(
-            context,
-            CmpiPredicate::Ule,
-            arg_value,
-            k1,
-            location,
-        ))
-        .result(0)?
-        .into();
-
-    let result = entry
-        .append_operation(scf::r#if(
-            is_small,
-            &[i256_ty],
-            {
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                block.append_operation(scf::r#yield(&[arg_value], location));
-
-                region
-            },
-            {
-                let region = Region::new();
-                let block = region.append_block(Block::new(&[]));
-
-                let k128 = entry
-                    .append_operation(arith::constant(
-                        context,
-                        IntegerAttribute::new(i256_ty, 256).into(),
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-
-                let leading_zeros = block
-                    .append_operation(
-                        ods::llvm::intr_ctlz(
-                            context,
-                            i256_ty,
-                            arg_value,
-                            IntegerAttribute::new(IntegerType::new(context, 1).into(), 1),
-                            location,
-                        )
-                        .into(),
-                    )
-                    .result(0)?
-                    .into();
-
-                let num_bits = block
-                    .append_operation(arith::subi(k128, leading_zeros, location))
-                    .result(0)?
-                    .into();
-
-                let shift_amount = block
-                    .append_operation(arith::addi(num_bits, k1, location))
-                    .result(0)?
-                    .into();
-
-                let parity_mask = block
-                    .append_operation(arith::constant(
-                        context,
-                        IntegerAttribute::new(i256_ty, -2).into(),
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-                let shift_amount = block
-                    .append_operation(arith::andi(shift_amount, parity_mask, location))
-                    .result(0)?
-                    .into();
-
-                let k0 = block
-                    .append_operation(arith::constant(
-                        context,
-                        IntegerAttribute::new(i256_ty, 0).into(),
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-                let result = block
-                    .append_operation(scf::r#while(
-                        &[k0, shift_amount],
-                        &[i256_ty, i256_ty],
-                        {
-                            let region = Region::new();
-                            let block = region.append_block(Block::new(&[
-                                (i256_ty, location),
-                                (i256_ty, location),
-                            ]));
-
-                            let result = block
-                                .append_operation(arith::shli(block.arg(0)?, k1, location))
-                                .result(0)?
-                                .into();
-                            let large_candidate = block
-                                .append_operation(arith::xori(result, k1, location))
-                                .result(0)?
-                                .into();
-
-                            let large_candidate_squared = block
-                                .append_operation(arith::muli(
-                                    large_candidate,
-                                    large_candidate,
-                                    location,
-                                ))
-                                .result(0)?
-                                .into();
-
-                            let threshold = block
-                                .append_operation(arith::shrui(arg_value, block.arg(1)?, location))
-                                .result(0)?
-                                .into();
-                            let threshold_is_poison = block
-                                .append_operation(arith::cmpi(
-                                    context,
-                                    CmpiPredicate::Eq,
-                                    block.arg(1)?,
-                                    k128,
-                                    location,
-                                ))
-                                .result(0)?
-                                .into();
-                            let threshold = block
-                                .append_operation(
-                                    OperationBuilder::new("arith.select", location)
-                                        .add_operands(&[threshold_is_poison, k0, threshold])
-                                        .add_results(&[i256_ty])
-                                        .build()?,
-                                )
-                                .result(0)?
-                                .into();
-
-                            let is_in_range = block
-                                .append_operation(arith::cmpi(
-                                    context,
-                                    CmpiPredicate::Ule,
-                                    large_candidate_squared,
-                                    threshold,
-                                    location,
-                                ))
-                                .result(0)?
-                                .into();
-
-                            let result = block
-                                .append_operation(
-                                    OperationBuilder::new("arith.select", location)
-                                        .add_operands(&[is_in_range, large_candidate, result])
-                                        .add_results(&[i256_ty])
-                                        .build()?,
-                                )
-                                .result(0)?
-                                .into();
-
-                            let k2 = block
-                                .append_operation(arith::constant(
-                                    context,
-                                    IntegerAttribute::new(i256_ty, 2).into(),
-                                    location,
-                                ))
-                                .result(0)?
-                                .into();
-
-                            let shift_amount = block
-                                .append_operation(arith::subi(block.arg(1)?, k2, location))
-                                .result(0)?
-                                .into();
-
-                            let should_continue = block
-                                .append_operation(arith::cmpi(
-                                    context,
-                                    CmpiPredicate::Sge,
-                                    shift_amount,
-                                    k0,
-                                    location,
-                                ))
-                                .result(0)?
-                                .into();
-                            block.append_operation(scf::condition(
-                                should_continue,
-                                &[result, shift_amount],
-                                location,
-                            ));
-
-                            region
-                        },
-                        {
-                            let region = Region::new();
-                            let block = region.append_block(Block::new(&[
-                                (i256_ty, location),
-                                (i256_ty, location),
-                            ]));
-
-                            block.append_operation(scf::r#yield(
-                                &[block.arg(0)?, block.argument(1)?.into()],
-                                location,
-                            ));
-
-                            region
-                        },
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-
-                block.append_operation(scf::r#yield(&[result], location));
-
-                region
-            },
-            location,
-        ))
-        .result(0)?
-        .into();
-
-    let result = entry
-        .append_operation(arith::trunci(result, i128_ty, location))
-        .result(0)?
-        .into();
+    // The square root is built as a separate `no_inline` MLIR function (shared
+    // with the u8..u128 variants) rather than inlined here. It already returns
+    // the result truncated to 128 bits.
+    let runtime_bindings = metadata.get_or_insert_with(RuntimeBindingsMeta::default);
+    let result = runtime_bindings.integer_square_root(
+        context,
+        helper.module,
+        entry,
+        location,
+        arg_value,
+        SquareRootType::U256,
+    )?;
 
     helper.br(entry, 0, &[range_check, result], location)
 }
