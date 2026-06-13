@@ -792,4 +792,35 @@ proptest! {
             &result_native,
         )?;
     }
+
+    // u256
+
+    #[test]
+    fn u256_sqrt_proptest(lo in any::<u128>(), hi in any::<u128>()) {
+        let program = &load_program_and_runner("programs/libfuncs/u256_sqrt");
+        let result_vm = run_vm_program(
+            program,
+            "run_test",
+            vec![Arg::Value(lo.into()), Arg::Value(hi.into())],
+            Some(DEFAULT_GAS as usize),
+        )
+        .unwrap();
+        let result_native = run_native_program(
+            program,
+            "run_test",
+            &[Value::Struct {
+                fields: vec![Value::Uint128(lo), Value::Uint128(hi)],
+                debug_name: None,
+            }],
+            Some(DEFAULT_GAS),
+            Option::<DummySyscallHandler>::None,
+        );
+
+        compare_outputs(
+            &program.1,
+            &program.2.find_function("run_test").unwrap().id,
+            &result_vm,
+            &result_native,
+        )?;
+    }
 }

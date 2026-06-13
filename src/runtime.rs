@@ -11,6 +11,7 @@ use cairo_lang_sierra_gas::core_libfunc_cost::{
 use itertools::Itertools;
 use lambdaworks_math::field::fields::mersenne31::extensions::Degree4ExtensionField;
 use lazy_static::lazy_static;
+use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 use starknet_curve::curve_params::BETA;
 use starknet_types_core::{
@@ -40,6 +41,42 @@ pub(crate) static EXECUTION_ARENA: RefCell<Bump> = RefCell::new(Bump::new());
     /// Drained during InvocationGuard drop to drop HashMaps (which live on the
     /// system heap and cannot be reclaimed by the arena).
     pub(crate) static DICT_REGISTRY: RefCell<Vec<*mut FeltDict>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Compute `floor(sqrt(value))`. The result of each integer square root always
+/// fits in the (smaller) output type used by the corresponding libfunc.
+pub extern "C" fn cairo_native__u8_square_root(value: u8) -> u8 {
+    value.isqrt()
+}
+
+/// Compute `floor(sqrt(value))`. See [`cairo_native__u8_square_root`].
+pub extern "C" fn cairo_native__u16_square_root(value: u16) -> u8 {
+    value.isqrt() as u8
+}
+
+/// Compute `floor(sqrt(value))`. See [`cairo_native__u8_square_root`].
+pub extern "C" fn cairo_native__u32_square_root(value: u32) -> u16 {
+    value.isqrt() as u16
+}
+
+/// Compute `floor(sqrt(value))`. See [`cairo_native__u8_square_root`].
+pub extern "C" fn cairo_native__u64_square_root(value: u64) -> u32 {
+    value.isqrt() as u32
+}
+
+/// Compute `floor(sqrt(value))`. See [`cairo_native__u8_square_root`].
+pub extern "C" fn cairo_native__u128_square_root(value: u128) -> u64 {
+    value.isqrt() as u64
+}
+
+/// Compute `floor(sqrt(value))` of the `u256` given by its low and high `u128`
+/// limbs. The result always fits in a `u128`.
+pub extern "C" fn cairo_native__u256_square_root(lo: u128, hi: u128) -> u128 {
+    let value = (BigUint::from(hi) << 128u32) + BigUint::from(lo);
+    value
+        .sqrt()
+        .to_u128()
+        .expect("the square root of a u256 always fits in a u128")
 }
 
 /// Allocate `size` bytes with `align` alignment from the per-execution arena.
