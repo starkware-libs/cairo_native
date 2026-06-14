@@ -491,7 +491,9 @@ pub fn compare_outputs(
                         .map(|member_ty| map_vm_sizes(size_cache, registry, member_ty))
                         .sum(),
                     CoreTypeConcrete::NonZero(info) => map_vm_sizes(size_cache, registry, &info.ty),
-                    CoreTypeConcrete::EcState(_) => 4,
+                    // In the VM an `EcState` is `(x, y, random_ptr)` = 3 felts (the third
+                    // being a pointer to the random shift point), unlike native which uses 2.
+                    CoreTypeConcrete::EcState(_) => 3,
                     CoreTypeConcrete::Snapshot(info) => {
                         map_vm_sizes(size_cache, registry, &info.ty)
                     }
@@ -703,7 +705,9 @@ pub fn compare_outputs(
                 )
             }
             CoreTypeConcrete::EcState(_) => {
-                assert_eq!(values.len(), 2);
+                // The VM lays out an `EcState` as `(x, y, random_ptr)`; only the first two
+                // felts are the point, the third is a pointer to the random shift point.
+                assert_eq!(values.len(), 3);
 
                 Value::EcState(
                     Felt::from_bytes_le(&values[0].to_bytes_le()),
