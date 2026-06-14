@@ -322,7 +322,8 @@ impl Value {
                     }
                 }
                 Self::Enum { tag, value, .. } => {
-                    if let CoreTypeConcrete::Enum(info) = Self::resolve_type(ty, registry)? {
+                    let resolved_ty = Self::resolve_type(ty, registry)?;
+                    if let CoreTypeConcrete::Enum(info) = resolved_ty {
                         native_assert!(*tag < info.variants.len(), "Variant index out of range.");
 
                         let payload_type_id = &info.variants[*tag];
@@ -336,7 +337,7 @@ impl Value {
                         let ptr = arena.alloc_layout(layout).cast::<()>().as_ptr();
 
                         match tag_layout.size() {
-                            0 => native_panic!("An enum without variants cannot be instantiated."),
+                            0 => {}
                             1 => *ptr.cast::<u8>() = *tag as u8,
                             2 => *ptr.cast::<u16>() = *tag as u16,
                             4 => *ptr.cast::<u32>() = *tag as u32,
@@ -351,8 +352,12 @@ impl Value {
                             variant_layouts[*tag].size(),
                         );
 
-                        // alloc returns a reference so its never null
-                        NonNull::new_unchecked(arena.alloc(ptr) as *mut _).cast()
+                        if resolved_ty.is_memory_allocated(registry)? {
+                            // alloc returns a reference so its never null
+                            NonNull::new_unchecked(arena.alloc(ptr) as *mut _).cast()
+                        } else {
+                            NonNull::new_unchecked(ptr).cast()
+                        }
                     } else {
                         Err(Error::UnexpectedValue(format!(
                             "expected value of type {:?} but got an enum value",
@@ -1490,7 +1495,9 @@ mod test {
     }
 
     #[test]
-    fn test_to_ptr_enum_no_variant() {
+    fn test_to_ptr_single_variant_enum_u8() {
+        // A single-variant enum carries no tag: its tag type is `i0`, so
+        // `tag_layout.size() == 0` and the payload is written at offset 0.
         let program = ProgramParser::new()
             .parse(
                 "type u8 = u8;
@@ -1500,20 +1507,49 @@ mod test {
 
         let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();
 
-        let result = Value::Enum {
+        // Keep the arena alive for as long as we dereference `ptr`. `&Bump::new()`
+        // would be dropped at the end of the `let` statement, freeing the arena and
+        // turning the read below into a use-after-free.
+        let arena = Bump::new();
+        let ptr = Value::Enum {
             tag: 0,
             value: Box::new(Value::Uint8(10)),
             debug_name: None,
         }
-        .to_ptr(&Bump::new(), &registry, &program.type_declarations[1].id)
-        .unwrap_err();
+        .to_ptr(&arena, &registry, &program.type_declarations[1].id)
+        .unwrap();
 
-        let error = result.to_string().clone();
-        let error_msg = error.split("\n").collect::<Vec<&str>>()[0];
+        assert_eq!(unsafe { *ptr.cast::<u8>().as_ptr() }, 10);
+    }
 
-        assert_eq!(
-            error_msg,
-            "An enum without variants cannot be instantiated."
+    #[test]
+    fn test_to_ptr_single_variant_enum_array() {
+        // A single-variant enum such as `enum Wrapper { Only: Array<felt252> }`
+        // carries no tag: its tag type is `i0`, so `tag_layout.size() == 0`.
+        let program = ProgramParser::new()
+            .parse(
+                "type felt252 = felt252;
+                type Array<felt252> = Array<felt252>;
+                type Wrapper = Enum<ut@Wrapper, Array<felt252>>;",
+            )
+            .unwrap();
+
+        let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();
+
+        let result = Value::Enum {
+            tag: 0,
+            value: Box::new(Value::Array(vec![
+                Value::Felt252(Felt::from(1)),
+                Value::Felt252(Felt::from(2)),
+                Value::Felt252(Felt::from(3)),
+            ])),
+            debug_name: None,
+        }
+        .to_ptr(&Bump::new(), &registry, &program.type_declarations[2].id);
+
+        assert!(
+            result.is_ok(),
+            "single-variant enum must serialize, got: {result:?}"
         );
     }
 
