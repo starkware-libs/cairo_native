@@ -9,6 +9,7 @@ pub mod coupon;
 pub mod dict;
 pub mod e2e_libfuncs;
 pub mod ec;
+pub mod enums;
 pub mod felt252;
 pub mod int_range;
 pub mod libfuncs;
