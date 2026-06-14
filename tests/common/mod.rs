@@ -49,7 +49,10 @@ use lambdaworks_math::{
 use num_bigint::{BigInt, BigUint, Sign};
 use pretty_assertions_sorted::assert_eq_sorted;
 use proptest::{strategy::Strategy, test_runner::TestCaseError};
-use starknet_types_core::felt::Felt;
+use starknet_types_core::{
+    curve::{AffinePoint, ProjectivePoint},
+    felt::Felt,
+};
 use std::{collections::HashMap, env::var, fs, ops::Neg, path::Path};
 
 #[allow(unused_macros)]
@@ -491,7 +494,9 @@ pub fn compare_outputs(
                         .map(|member_ty| map_vm_sizes(size_cache, registry, member_ty))
                         .sum(),
                     CoreTypeConcrete::NonZero(info) => map_vm_sizes(size_cache, registry, &info.ty),
-                    CoreTypeConcrete::EcState(_) => 4,
+                    // In the VM an `EcState` is `(x, y, random_ptr)` = 3 felts (the third
+                    // being a pointer to the random shift point), unlike native which uses 2.
+                    CoreTypeConcrete::EcState(_) => 3,
                     CoreTypeConcrete::Snapshot(info) => {
                         map_vm_sizes(size_cache, registry, &info.ty)
                     }
@@ -703,12 +708,31 @@ pub fn compare_outputs(
                 )
             }
             CoreTypeConcrete::EcState(_) => {
-                assert_eq!(values.len(), 2);
+                // The VM lays out an `EcState` as `(x, y, random_ptr)`, where `(x, y)` is the
+                // accumulated point *shifted* by a random point sampled at `ec_state_init`, and
+                // `random_ptr` points to that random shift point `(random_x, random_y)`.
+                //
+                // Native represents an `EcState` as the plain accumulated point (starting from
+                // the identity `(0, 0)`), so to compare we must undo the shift by computing
+                // `(x, y) - (random_x, random_y)`.
+                assert_eq!(values.len(), 3);
 
-                Value::EcState(
-                    Felt::from_bytes_le(&values[0].to_bytes_le()),
-                    Felt::from_bytes_le(&values[1].to_bytes_le()),
-                )
+                let x = Felt::from_bytes_le(&values[0].to_bytes_le());
+                let y = Felt::from_bytes_le(&values[1].to_bytes_le());
+
+                let random_ptr = values[2].to_usize().unwrap();
+                let random_x = memory[random_ptr].unwrap();
+                let random_y = memory[random_ptr + 1].unwrap();
+
+                // `(x, y) - (random_x, random_y) == (x, y) + (random_x, -random_y)`.
+                let mut state = ProjectivePoint::from_affine_unchecked(x, y);
+                state += &AffinePoint::new_unchecked(random_x, -random_y);
+
+                match state.to_affine() {
+                    Ok(point) => Value::EcState(point.x(), point.y()),
+                    // Native uses `(0, 0)` to represent the point at infinity.
+                    Err(_) => Value::EcState(Felt::ZERO, Felt::ZERO),
+                }
             }
             CoreTypeConcrete::Bytes31(_) => {
                 let mut bytes = values[0].to_bytes_le().to_vec();
