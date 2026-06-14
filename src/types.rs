@@ -697,7 +697,7 @@ impl TypeBuilder for CoreTypeConcrete {
             CoreTypeConcrete::Box(_) => Layout::new::<*mut ()>(),
             CoreTypeConcrete::EcOp(_) => Layout::new::<u64>(),
             CoreTypeConcrete::EcPoint(_) => layout_repeat(&get_integer_layout(252), 2)?.0,
-            CoreTypeConcrete::EcState(_) => layout_repeat(&get_integer_layout(252), 4)?.0,
+            CoreTypeConcrete::EcState(_) => layout_repeat(&get_integer_layout(252), 2)?.0,
             CoreTypeConcrete::Felt252(_) => get_integer_layout(252),
             CoreTypeConcrete::GasBuiltin(_) => get_integer_layout(64),
             CoreTypeConcrete::BuiltinCosts(_) => Layout::new::<*const ()>(),
