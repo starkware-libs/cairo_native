@@ -21,7 +21,7 @@ use melior::{
         operation::OperationBuilder,
         r#type::IntegerType,
         Attribute, Block, BlockLike, Identifier, Location, Module, OperationRef, Region, Type,
-        Value,
+        Value, ValueLike,
     },
     Context,
 };
@@ -47,6 +47,12 @@ enum RuntimeBinding {
     BlakeCompress,
     DebugPrint,
     ExtendedEuclideanAlgorithm(ExtendedEuclideanWidth),
+    U8SquareRoot,
+    U16SquareRoot,
+    U32SquareRoot,
+    U64SquareRoot,
+    U128SquareRoot,
+    U256SquareRoot,
     CircuitArithOperation,
     DictIntoEntries,
     QM31Add,
@@ -61,31 +67,35 @@ enum RuntimeBinding {
 impl RuntimeBinding {
     const fn symbol(self) -> &'static str {
         match self {
-            RuntimeBinding::DebugPrint => "cairo_native__libfunc__debug__print",
-            RuntimeBinding::Pedersen => "cairo_native__libfunc__pedersen",
-            RuntimeBinding::HadesPermutation => "cairo_native__libfunc__hades_permutation",
-            RuntimeBinding::EcStateTryFinalizeNz => {
-                "cairo_native__libfunc__ec__ec_state_try_finalize_nz"
-            }
-            RuntimeBinding::EcStateAddMul => "cairo_native__libfunc__ec__ec_state_add_mul",
-            RuntimeBinding::EcStateAdd => "cairo_native__libfunc__ec__ec_state_add",
-            RuntimeBinding::EcPointTryNewNz => "cairo_native__libfunc__ec__ec_point_try_new_nz",
-            RuntimeBinding::EcPointFromXNz => "cairo_native__libfunc__ec__ec_point_from_x_nz",
-            RuntimeBinding::DictNew => "cairo_native__dict_new",
-            RuntimeBinding::DictGet => "cairo_native__dict_get",
-            RuntimeBinding::DictSquash => "cairo_native__dict_squash",
-            RuntimeBinding::GetCostsBuiltin => "cairo_native__get_costs_builtin",
-            RuntimeBinding::BlakeCompress => "cairo_native__libfunc__blake_compress",
-            RuntimeBinding::ExtendedEuclideanAlgorithm(width) => width.symbol(),
-            RuntimeBinding::CircuitArithOperation => "cairo_native__circuit_arith_operation",
-            RuntimeBinding::DictIntoEntries => "cairo_native__dict_into_entries",
-            RuntimeBinding::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
-            RuntimeBinding::QM31Sub => "cairo_native__libfunc__qm31__qm31_sub",
-            RuntimeBinding::QM31Mul => "cairo_native__libfunc__qm31__qm31_mul",
-            RuntimeBinding::QM31Div => "cairo_native__libfunc__qm31__qm31_div",
-            RuntimeBinding::ArenaAlloc => "cairo_native__arena_alloc",
+            Self::DebugPrint => "cairo_native__libfunc__debug__print",
+            Self::Pedersen => "cairo_native__libfunc__pedersen",
+            Self::HadesPermutation => "cairo_native__libfunc__hades_permutation",
+            Self::EcStateTryFinalizeNz => "cairo_native__libfunc__ec__ec_state_try_finalize_nz",
+            Self::EcStateAddMul => "cairo_native__libfunc__ec__ec_state_add_mul",
+            Self::EcStateAdd => "cairo_native__libfunc__ec__ec_state_add",
+            Self::EcPointTryNewNz => "cairo_native__libfunc__ec__ec_point_try_new_nz",
+            Self::EcPointFromXNz => "cairo_native__libfunc__ec__ec_point_from_x_nz",
+            Self::DictNew => "cairo_native__dict_new",
+            Self::DictGet => "cairo_native__dict_get",
+            Self::DictSquash => "cairo_native__dict_squash",
+            Self::GetCostsBuiltin => "cairo_native__get_costs_builtin",
+            Self::BlakeCompress => "cairo_native__libfunc__blake_compress",
+            Self::ExtendedEuclideanAlgorithm(width) => width.symbol(),
+            Self::U8SquareRoot => "cairo_native__u8_square_root",
+            Self::U16SquareRoot => "cairo_native__u16_square_root",
+            Self::U32SquareRoot => "cairo_native__u32_square_root",
+            Self::U64SquareRoot => "cairo_native__u64_square_root",
+            Self::U128SquareRoot => "cairo_native__u128_square_root",
+            Self::U256SquareRoot => "cairo_native__u256_square_root",
+            Self::CircuitArithOperation => "cairo_native__circuit_arith_operation",
+            Self::DictIntoEntries => "cairo_native__dict_into_entries",
+            Self::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
+            Self::QM31Sub => "cairo_native__libfunc__qm31__qm31_sub",
+            Self::QM31Mul => "cairo_native__libfunc__qm31__qm31_mul",
+            Self::QM31Div => "cairo_native__libfunc__qm31__qm31_div",
+            Self::ArenaAlloc => "cairo_native__arena_alloc",
             #[cfg(feature = "with-cheatcode")]
-            RuntimeBinding::VtableCheatcode => "cairo_native__vtable_cheatcode",
+            Self::VtableCheatcode => "cairo_native__vtable_cheatcode",
         }
     }
 
@@ -96,62 +106,38 @@ impl RuntimeBinding {
     /// - For internal bindings (implemented in MLIR), it returns `None`, since those
     ///   functions are defined within MLIR and invoked by name
     const fn function_ptr(self) -> Option<*const ()> {
+        use crate::runtime::*;
         let function_ptr = match self {
-            RuntimeBinding::DebugPrint => {
-                crate::runtime::cairo_native__libfunc__debug__print as *const ()
+            Self::DebugPrint => cairo_native__libfunc__debug__print as *const (),
+            Self::Pedersen => cairo_native__libfunc__pedersen as *const (),
+            Self::HadesPermutation => cairo_native__libfunc__hades_permutation as *const (),
+            Self::EcStateTryFinalizeNz => {
+                cairo_native__libfunc__ec__ec_state_try_finalize_nz as *const ()
             }
-            RuntimeBinding::Pedersen => {
-                crate::runtime::cairo_native__libfunc__pedersen as *const ()
-            }
-            RuntimeBinding::HadesPermutation => {
-                crate::runtime::cairo_native__libfunc__hades_permutation as *const ()
-            }
-            RuntimeBinding::EcStateTryFinalizeNz => {
-                crate::runtime::cairo_native__libfunc__ec__ec_state_try_finalize_nz as *const ()
-            }
-            RuntimeBinding::EcStateAddMul => {
-                crate::runtime::cairo_native__libfunc__ec__ec_state_add_mul as *const ()
-            }
-            RuntimeBinding::EcStateAdd => {
-                crate::runtime::cairo_native__libfunc__ec__ec_state_add as *const ()
-            }
-            RuntimeBinding::EcPointTryNewNz => {
-                crate::runtime::cairo_native__libfunc__ec__ec_point_try_new_nz as *const ()
-            }
-            RuntimeBinding::EcPointFromXNz => {
-                crate::runtime::cairo_native__libfunc__ec__ec_point_from_x_nz as *const ()
-            }
-            RuntimeBinding::DictNew => crate::runtime::cairo_native__dict_new as *const (),
-            RuntimeBinding::DictGet => crate::runtime::cairo_native__dict_get as *const (),
-            RuntimeBinding::DictSquash => crate::runtime::cairo_native__dict_squash as *const (),
-            RuntimeBinding::GetCostsBuiltin => {
-                crate::runtime::cairo_native__get_costs_builtin as *const ()
-            }
-            RuntimeBinding::DictIntoEntries => {
-                crate::runtime::cairo_native__dict_into_entries as *const ()
-            }
-            RuntimeBinding::QM31Add => {
-                crate::runtime::cairo_native__libfunc__qm31__qm31_add as *const ()
-            }
-            RuntimeBinding::QM31Sub => {
-                crate::runtime::cairo_native__libfunc__qm31__qm31_sub as *const ()
-            }
-            RuntimeBinding::QM31Mul => {
-                crate::runtime::cairo_native__libfunc__qm31__qm31_mul as *const ()
-            }
-            RuntimeBinding::QM31Div => {
-                crate::runtime::cairo_native__libfunc__qm31__qm31_div as *const ()
-            }
-            RuntimeBinding::BlakeCompress => {
-                crate::runtime::cairo_native__libfunc__blake_compress as *const ()
-            }
-            RuntimeBinding::ExtendedEuclideanAlgorithm(_) => return None,
-            RuntimeBinding::CircuitArithOperation => return None,
-            RuntimeBinding::ArenaAlloc => crate::runtime::cairo_native__arena_alloc as *const (),
+            Self::EcStateAddMul => cairo_native__libfunc__ec__ec_state_add_mul as *const (),
+            Self::EcStateAdd => cairo_native__libfunc__ec__ec_state_add as *const (),
+            Self::EcPointTryNewNz => cairo_native__libfunc__ec__ec_point_try_new_nz as *const (),
+            Self::EcPointFromXNz => cairo_native__libfunc__ec__ec_point_from_x_nz as *const (),
+            Self::DictNew => cairo_native__dict_new as *const (),
+            Self::DictGet => cairo_native__dict_get as *const (),
+            Self::DictSquash => cairo_native__dict_squash as *const (),
+            Self::GetCostsBuiltin => cairo_native__get_costs_builtin as *const (),
+            Self::DictIntoEntries => cairo_native__dict_into_entries as *const (),
+            Self::QM31Add => cairo_native__libfunc__qm31__qm31_add as *const (),
+            Self::QM31Sub => cairo_native__libfunc__qm31__qm31_sub as *const (),
+            Self::QM31Mul => cairo_native__libfunc__qm31__qm31_mul as *const (),
+            Self::QM31Div => cairo_native__libfunc__qm31__qm31_div as *const (),
+            Self::BlakeCompress => cairo_native__libfunc__blake_compress as *const (),
+            Self::U8SquareRoot => cairo_native__u8_square_root as *const (),
+            Self::U16SquareRoot => cairo_native__u16_square_root as *const (),
+            Self::U32SquareRoot => cairo_native__u32_square_root as *const (),
+            Self::U64SquareRoot => cairo_native__u64_square_root as *const (),
+            Self::U128SquareRoot => cairo_native__u128_square_root as *const (),
+            Self::U256SquareRoot => cairo_native__u256_square_root as *const (),
+            Self::ArenaAlloc => cairo_native__arena_alloc as *const (),
+            Self::ExtendedEuclideanAlgorithm(_) | Self::CircuitArithOperation => return None,
             #[cfg(feature = "with-cheatcode")]
-            RuntimeBinding::VtableCheatcode => {
-                crate::starknet::cairo_native__vtable_cheatcode as *const ()
-            }
+            Self::VtableCheatcode => crate::starknet::cairo_native__vtable_cheatcode as *const (),
         };
         Some(function_ptr)
     }
@@ -284,6 +270,79 @@ impl RuntimeBindingsMeta {
                     )])
                     .add_operands(&[a, b])
                     .add_results(&[return_type])
+                    .build()?,
+            )
+            .result(0)?
+            .into())
+    }
+
+    /// Register if necessary, then invoke the integer square root runtime
+    /// function matching the width of `value` (`u8`..`u128`).
+    ///
+    /// Returns `floor(sqrt(value))` in the (smaller) output type used by the
+    /// libfunc.
+    pub fn integer_square_root<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        location: Location<'c>,
+        value: Value<'c, '_>,
+    ) -> Result<Value<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let value_type: IntegerType = value.r#type().try_into()?;
+        // Each width has its own runtime function whose result already fits the
+        // (smaller) output width used by the libfunc.
+        let (binding, output_bits) = match value_type.width() {
+            8 => (RuntimeBinding::U8SquareRoot, 8),
+            16 => (RuntimeBinding::U16SquareRoot, 8),
+            32 => (RuntimeBinding::U32SquareRoot, 16),
+            64 => (RuntimeBinding::U64SquareRoot, 32),
+            128 => (RuntimeBinding::U128SquareRoot, 64),
+            _ => crate::native_panic!("invalid integer width in square root"),
+        };
+        let output_type = IntegerType::new(context, output_bits).into();
+        let function = self.build_function(context, module, block, location, binding)?;
+        Ok(block
+            .append_operation(
+                OperationBuilder::new("llvm.call", location)
+                    .add_operands(&[function, value])
+                    .add_results(&[output_type])
+                    .build()?,
+            )
+            .result(0)?
+            .into())
+    }
+
+    /// Register if necessary, then invoke `cairo_native__u256_square_root` on
+    /// the `u256` given by its low and high `u128` limbs, returning the `u128`
+    /// result.
+    pub fn u256_square_root<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        location: Location<'c>,
+        lo: Value<'c, '_>,
+        hi: Value<'c, '_>,
+    ) -> Result<Value<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let function = self.build_function(
+            context,
+            module,
+            block,
+            location,
+            RuntimeBinding::U256SquareRoot,
+        )?;
+        Ok(block
+            .append_operation(
+                OperationBuilder::new("llvm.call", location)
+                    .add_operands(&[function, lo, hi])
+                    .add_results(&[IntegerType::new(context, 128).into()])
                     .build()?,
             )
             .result(0)?
@@ -908,6 +967,12 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::QM31Mul,
         RuntimeBinding::QM31Div,
         RuntimeBinding::ArenaAlloc,
+        RuntimeBinding::U8SquareRoot,
+        RuntimeBinding::U16SquareRoot,
+        RuntimeBinding::U32SquareRoot,
+        RuntimeBinding::U64SquareRoot,
+        RuntimeBinding::U128SquareRoot,
+        RuntimeBinding::U256SquareRoot,
         #[cfg(feature = "with-cheatcode")]
         RuntimeBinding::VtableCheatcode,
     ] {
