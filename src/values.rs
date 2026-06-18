@@ -370,17 +370,6 @@ impl Value {
                         let elem_ty = registry.get_type(&info.ty)?;
                         let elem_layout = elem_ty.layout(registry)?;
 
-                        // Arena-allocate the elements buffer.
-                        let elements = if map.is_empty() {
-                            null_mut()
-                        } else {
-                            crate::runtime::cairo_native__arena_alloc(
-                                (elem_layout.pad_to_align().size() * map.len()) as u64,
-                                elem_layout.align() as u64,
-                            )
-                            .cast()
-                        };
-
                         // Arena-allocate the FeltDict struct and register it.
                         let dict_ptr = crate::runtime::cairo_native__dict_new(
                             elem_layout.size() as u64,
@@ -388,6 +377,19 @@ impl Value {
                         );
                         let dict = &mut *dict_ptr;
                         dict.mappings.reserve(map.len());
+
+                        // Arena-allocate the elements buffer. It must be sized to the
+                        // HashMap's capacity (read *after* `reserve`).
+                        let capacity = dict.mappings.capacity();
+                        let elements = if map.is_empty() {
+                            null_mut()
+                        } else {
+                            crate::runtime::cairo_native__arena_alloc(
+                                (elem_layout.pad_to_align().size() * capacity) as u64,
+                                elem_layout.align() as u64,
+                            )
+                            .cast()
+                        };
                         dict.elements = elements;
 
                         for (key, value) in map.iter() {
