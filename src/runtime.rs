@@ -79,6 +79,57 @@ pub extern "C" fn cairo_native__u256_square_root(lo: u128, hi: u128) -> u128 {
         .expect("the square root of a u256 always fits in a u128")
 }
 
+/// Compute `(lhs * rhs) mod STARK_PRIME`. Each input buffer is the 32-byte
+/// little-endian *canonical* integer; the canonical product is written to `dst`.
+///
+/// A `Felt` stores its value `v` in Montgomery form: its internal limbs — what
+/// we call its *raw* bytes — are `v · R mod p`, with `R = 2^256 mod p`. So:
+/// - `from_bytes_le`/`to_bytes_le` convert canonical integer <-> `Felt`, each
+///   costing one Montgomery multiplication;
+/// - `from_raw`/`to_raw` move the raw (Montgomery-limb) bytes in/out with no
+///   conversion at all — they are free.
+///
+/// The naive `from_bytes_le(a) * from_bytes_le(b)` then `to_bytes_le` is four
+/// Montgomery multiplications. Reinterpreting `a`'s canonical bytes as raw
+/// Montgomery limbs (`from_raw`) cuts it to two. Tracking the value and the raw
+/// bytes of each `Felt` (canonical inputs `a` = `lhs`, `b` = `rhs`):
+pub extern "C" fn cairo_native__felt252_mul(dst: &mut [u8; 32], lhs: &[u8; 32], rhs: &[u8; 32]) {
+    // value = a * R⁻¹    raw bytes = a              (free: read a as raw limbs)
+    let lhs = felt_from_raw_le_bytes(lhs);
+    // value = b          raw bytes = b * R          (1 Montgomery mul)
+    let rhs = Felt::from_bytes_le(rhs);
+    // value = a * b * R⁻¹   raw bytes = a * b        (1 Montgomery mul)
+    let product = lhs * rhs;
+    // read the raw bytes (= a * b), the canonical product.
+    *dst = felt_raw_to_le_bytes(&product);
+}
+
+/// Build a `Felt` by interpreting a 32-byte little-endian buffer as the felt's
+/// raw internal (Montgomery) representation. The inverse of
+/// [`felt_raw_to_le_bytes`]. Zero-cost: no canonical<->Montgomery conversion.
+///
+/// `Felt::from_raw` takes limbs most-significant-first, while the buffer is
+/// little-endian, so the limbs are read least-significant-first then reversed.
+fn felt_from_raw_le_bytes(buffer: &[u8; 32]) -> Felt {
+    let mut limbs = [0u64; 4];
+    for (i, limb) in limbs.iter_mut().enumerate() {
+        *limb = u64::from_le_bytes(buffer[i * 8..i * 8 + 8].try_into().unwrap());
+    }
+    limbs.reverse();
+    Felt::from_raw(limbs)
+}
+
+/// Little-endian image of a `Felt`'s raw internal (Montgomery) representation.
+/// The inverse of [`felt_from_raw_le_bytes`]. Zero-cost.
+fn felt_raw_to_le_bytes(value: &Felt) -> [u8; 32] {
+    let limbs = value.to_raw_reversed(); // least-significant limb first
+    let mut buffer = [0u8; 32];
+    for (i, limb) in limbs.iter().enumerate() {
+        buffer[i * 8..i * 8 + 8].copy_from_slice(&limb.to_le_bytes());
+    }
+    buffer
+}
+
 /// Allocate `size` bytes with `align` alignment from the per-execution arena.
 pub unsafe extern "C" fn cairo_native__arena_alloc(size: u64, align: u64) -> *mut u8 {
     EXECUTION_ARENA.with(|arena| {
@@ -975,6 +1026,35 @@ mod tests {
         io::{Read, Seek},
         os::fd::AsRawFd,
     };
+
+    /// The 2-CIOS `cairo_native__felt252_mul` must equal the canonical field
+    /// product for every input, including 0, 1, -1, and `PRIME`-adjacent values.
+    #[test]
+    fn felt252_mul_matches_field_product() {
+        let cases = [
+            Felt::ZERO,
+            Felt::ONE,
+            Felt::THREE,
+            Felt::from(-1),
+            Felt::from(-2),
+            Felt::from(1234567890123456789u64),
+            Felt::from_hex_unchecked(
+                "0x4d6e41de886ac83938da3456ccf1481182687989ead34d9d35236f0864575a0",
+            ),
+            Felt::MAX,
+        ];
+        for &a in &cases {
+            for &b in &cases {
+                let mut dst = [0u8; 32];
+                cairo_native__felt252_mul(&mut dst, &a.to_bytes_le(), &b.to_bytes_le());
+                assert_eq!(
+                    Felt::from_bytes_le(&dst),
+                    a * b,
+                    "felt252_mul({a:#x}, {b:#x}) gave the wrong product"
+                );
+            }
+        }
+    }
 
     pub fn felt252_short_str(value: &str) -> Felt {
         let values: Vec<_> = value
