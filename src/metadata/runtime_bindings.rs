@@ -53,6 +53,7 @@ enum RuntimeBinding {
     U64SquareRoot,
     U128SquareRoot,
     U256SquareRoot,
+    Felt252Mul,
     CircuitArithOperation,
     DictIntoEntries,
     QM31Add,
@@ -87,6 +88,7 @@ impl RuntimeBinding {
             Self::U64SquareRoot => "cairo_native__u64_square_root",
             Self::U128SquareRoot => "cairo_native__u128_square_root",
             Self::U256SquareRoot => "cairo_native__u256_square_root",
+            Self::Felt252Mul => "cairo_native__felt252_mul",
             Self::CircuitArithOperation => "cairo_native__circuit_arith_operation",
             Self::DictIntoEntries => "cairo_native__dict_into_entries",
             Self::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
@@ -134,6 +136,7 @@ impl RuntimeBinding {
             Self::U64SquareRoot => cairo_native__u64_square_root as *const (),
             Self::U128SquareRoot => cairo_native__u128_square_root as *const (),
             Self::U256SquareRoot => cairo_native__u256_square_root as *const (),
+            Self::Felt252Mul => cairo_native__felt252_mul as *const (),
             Self::ArenaAlloc => cairo_native__arena_alloc as *const (),
             Self::ExtendedEuclideanAlgorithm(_) | Self::CircuitArithOperation => return None,
             #[cfg(feature = "with-cheatcode")]
@@ -347,6 +350,34 @@ impl RuntimeBindingsMeta {
             )
             .result(0)?
             .into())
+    }
+
+    /// Register if necessary, then invoke `cairo_native__felt252_mul`, which
+    /// computes `(lhs * rhs) mod STARK_PRIME`. The pointers reference 32-byte
+    /// little-endian felt252 buffers; the result is written to `dst_ptr`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn felt252_mul<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        dst_ptr: Value<'c, '_>,
+        lhs_ptr: Value<'c, '_>,
+        rhs_ptr: Value<'c, '_>,
+        location: Location<'c>,
+    ) -> Result<OperationRef<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let function =
+            self.build_function(context, module, block, location, RuntimeBinding::Felt252Mul)?;
+
+        Ok(block.append_operation(
+            OperationBuilder::new("llvm.call", location)
+                .add_operands(&[function])
+                .add_operands(&[dst_ptr, lhs_ptr, rhs_ptr])
+                .build()?,
+        ))
     }
 
     /// Builds, if necessary, the circuit operation function, used to perform
@@ -973,6 +1004,7 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::U64SquareRoot,
         RuntimeBinding::U128SquareRoot,
         RuntimeBinding::U256SquareRoot,
+        RuntimeBinding::Felt252Mul,
         #[cfg(feature = "with-cheatcode")]
         RuntimeBinding::VtableCheatcode,
     ] {

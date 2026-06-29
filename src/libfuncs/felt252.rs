@@ -7,7 +7,7 @@ use crate::{
         runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
         MetadataStorage,
     },
-    utils::{felt_to_unsigned, ProgramRegistryExt, PRIME},
+    utils::{felt_to_unsigned, get_integer_layout, ProgramRegistryExt, PRIME},
 };
 use cairo_lang_sierra::{
     extensions::{
@@ -128,21 +128,41 @@ pub fn build_binary_operation<'ctx, 'this>(
             entry.trunci(result, felt252_ty, location)?
         }
         Felt252BinaryOperator::Mul => {
-            let lhs = entry.extui(lhs, i512, location)?;
-            let rhs = entry.extui(rhs, i512, location)?;
-            let result = entry.muli(lhs, rhs, location)?;
+            let layout_i256 = get_integer_layout(256);
+            let lhs_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
+            let rhs_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
+            let dst_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
 
-            let prime = entry.const_int_from_type(context, location, PRIME.clone(), i512)?;
-            let result_mod = entry.append_op_result(arith::remui(result, prime, location))?;
-            let is_out_of_range =
-                entry.cmpi(context, CmpiPredicate::Uge, result, prime, location)?;
+            let lhs_i256 = entry.extui(lhs, i256, location)?;
+            let rhs_i256 = entry.extui(rhs, i256, location)?;
+            entry.store(context, location, lhs_ptr, lhs_i256)?;
+            entry.store(context, location, rhs_ptr, rhs_i256)?;
 
-            let result = entry.append_op_result(arith::select(
-                is_out_of_range,
-                result_mod,
-                result,
+            let runtime_bindings_meta = metadata
+                .get_mut::<RuntimeBindingsMeta>()
+                .to_native_assert_error(
+                    "Unable to get the RuntimeBindingsMeta from MetadataStorage",
+                )?;
+            runtime_bindings_meta.felt252_mul(
+                context,
+                helper.module,
+                entry,
+                dst_ptr,
+                lhs_ptr,
+                rhs_ptr,
                 location,
-            ))?;
+            )?;
+
+            let result = entry.load(context, location, dst_ptr, i256)?;
             entry.trunci(result, felt252_ty, location)?
         }
         Felt252BinaryOperator::Div => {
