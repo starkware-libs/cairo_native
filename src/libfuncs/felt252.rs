@@ -3,10 +3,7 @@
 use super::LibfuncHelper;
 use crate::{
     error::{panic::ToNativeAssertError, Result},
-    metadata::{
-        runtime_bindings::{ExtendedEuclideanWidth, RuntimeBindingsMeta},
-        MetadataStorage,
-    },
+    metadata::{runtime_bindings::RuntimeBindingsMeta, MetadataStorage},
     utils::{felt_to_unsigned, get_integer_layout, ProgramRegistryExt, PRIME},
 };
 use cairo_lang_sierra::{
@@ -72,7 +69,6 @@ pub fn build_binary_operation<'ctx, 'this>(
         &info.branch_signatures()[0].vars[0].ty,
     )?;
     let i256 = IntegerType::new(context, 256).into();
-    let i512 = IntegerType::new(context, 512).into();
 
     let (op, lhs, rhs) = match info {
         Felt252BinaryOperationConcrete::WithVar(operation) => {
@@ -166,49 +162,47 @@ pub fn build_binary_operation<'ctx, 'this>(
             entry.trunci(result, felt252_ty, location)?
         }
         Felt252BinaryOperator::Div => {
+            // The field division (a modular inverse followed by a multiply) is
+            // delegated to a runtime binding. Lowering it inline produces an
+            // extended-euclidean loop plus an i512 multiply and remainder that
+            // the LLVM backend legalizes into huge sequences of limb
+            // operations, making codegen of division-heavy contracts
+            // pathologically slow.
+            let layout_i256 = get_integer_layout(256);
+            let lhs_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
+            let rhs_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
+            let dst_ptr =
+                helper
+                    .init_block()
+                    .alloca1(context, location, i256, layout_i256.align())?;
+
+            let lhs_i256 = entry.extui(lhs, i256, location)?;
+            let rhs_i256 = entry.extui(rhs, i256, location)?;
+            entry.store(context, location, lhs_ptr, lhs_i256)?;
+            entry.store(context, location, rhs_ptr, rhs_i256)?;
+
             let runtime_bindings_meta = metadata
                 .get_mut::<RuntimeBindingsMeta>()
                 .to_native_assert_error(
                     "Unable to get the RuntimeBindingsMeta from MetadataStorage",
                 )?;
-
-            let prime = entry.const_int_from_type(context, location, PRIME.clone(), felt252_ty)?;
-
-            // Find 1 / rhs.
-            let euclidean_result = runtime_bindings_meta.extended_euclidean_algorithm(
+            runtime_bindings_meta.felt252_div(
                 context,
                 helper.module,
                 entry,
+                dst_ptr,
+                lhs_ptr,
+                rhs_ptr,
                 location,
-                [rhs, prime],
-                ExtendedEuclideanWidth::U252,
             )?;
 
-            // Here we omit checking if inverse is actually the inverse,
-            // satisfying gcd(a,b) == 1, because we are using a prime as the
-            // modulus. This ensures that for any value of a, included in the
-            // field, gcd(a,b) == 1.
-            let prime = entry.const_int_from_type(context, location, PRIME.clone(), i512)?;
-            let inverse = {
-                let inverse =
-                    entry.extract_value(context, location, euclidean_result, felt252_ty, 1)?;
-                entry.extui(inverse, i512, location)?
-            };
-
-            // Peform lhs * (1 / rhs)
-            let lhs = entry.extui(lhs, i512, location)?;
-            let result = entry.muli(lhs, inverse, location)?;
-            // Apply modulo and convert result to felt252
-            let result_mod = entry.append_op_result(arith::remui(result, prime, location))?;
-            let is_out_of_range =
-                entry.cmpi(context, CmpiPredicate::Uge, result, prime, location)?;
-            let result = entry.append_op_result(arith::select(
-                is_out_of_range,
-                result_mod,
-                result,
-                location,
-            ))?;
-
+            let result = entry.load(context, location, dst_ptr, i256)?;
             entry.trunci(result, felt252_ty, location)?
         }
     };

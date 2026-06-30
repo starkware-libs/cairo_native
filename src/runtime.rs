@@ -16,7 +16,7 @@ use num_traits::{ToPrimitive, Zero};
 use starknet_curve::curve_params::BETA;
 use starknet_types_core::{
     curve::{AffinePoint, ProjectivePoint},
-    felt::Felt,
+    felt::{Felt, NonZeroFelt},
     hash::StarkHash,
     qm31::QM31,
 };
@@ -130,6 +130,17 @@ fn felt_raw_to_le_bytes(value: &Felt) -> [u8; 32] {
         buffer[i * 8..i * 8 + 8].copy_from_slice(&limb.to_le_bytes());
     }
     buffer
+}
+
+/// Compute `lhs / rhs` in the STARK field, i.e. `lhs * rhs⁻¹ mod STARK_PRIME`,
+/// and store the canonical little-endian result in `dst`.
+///
+/// `rhs` originates from a `NonZero<felt252>`, so it is guaranteed nonzero;
+/// `field_div` uses the optimized Montgomery inverse.
+pub extern "C" fn cairo_native__felt252_div(dst: &mut [u8; 32], lhs: &[u8; 32], rhs: &[u8; 32]) {
+    let lhs = Felt::from_bytes_le(lhs);
+    let rhs = NonZeroFelt::from_felt_unchecked(Felt::from_bytes_le(rhs));
+    *dst = lhs.field_div(&rhs).to_bytes_le();
 }
 
 /// Allocate `size` bytes with `align` alignment from the per-execution arena.
