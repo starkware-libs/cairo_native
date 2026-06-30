@@ -16,7 +16,7 @@ use num_traits::{ToPrimitive, Zero};
 use starknet_curve::curve_params::BETA;
 use starknet_types_core::{
     curve::{AffinePoint, ProjectivePoint},
-    felt::Felt,
+    felt::{Felt, NonZeroFelt},
     hash::StarkHash,
     qm31::QM31,
 };
@@ -102,6 +102,28 @@ pub extern "C" fn cairo_native__felt252_mul(dst: &mut [u8; 32], lhs: &[u8; 32], 
     let product = lhs * rhs;
     // read the raw bytes (= a * b), the canonical product.
     *dst = felt_raw_to_le_bytes(&product);
+}
+
+/// Compute `lhs / rhs` in the STARK field, i.e. `lhs * rhs⁻¹ mod STARK_PRIME`,
+/// and store the canonical little-endian result in `dst`.
+///
+/// Mirrors the raw-representation trick in [`cairo_native__felt252_mul`]: the
+/// `from_raw`/`to_raw` conversions are free, so only `rhs` pays a Montgomery
+/// multiplication. `field_div` flips `rhs`'s exponent, so the `R` factors land
+/// exactly as in the multiply case:
+/// - `from_raw(canonical(a))` has value `a * R⁻¹` (free),
+/// - dividing by `from_bytes_le(b)` (value `b`) gives value `a * b⁻¹ * R⁻¹`,
+/// - whose raw representation is exactly the canonical `a / b`, read by `to_raw`.
+///
+/// `rhs` originates from a `NonZero<felt252>`, so it is guaranteed nonzero and
+/// `field_div`'s Montgomery inverse never fails.
+pub extern "C" fn cairo_native__felt252_div(dst: &mut [u8; 32], lhs: &[u8; 32], rhs: &[u8; 32]) {
+    // value = a * R⁻¹ (free: reinterpret canonical bytes as raw limbs).
+    let lhs = felt_from_raw_le_bytes(lhs);
+    // value = b (one Montgomery multiplication).
+    let rhs = NonZeroFelt::from_felt_unchecked(Felt::from_bytes_le(rhs));
+    // value = a * b⁻¹ * R⁻¹, so its raw representation is the canonical `a / b`.
+    *dst = felt_raw_to_le_bytes(&lhs.field_div(&rhs));
 }
 
 /// Build a `Felt` by interpreting a 32-byte little-endian buffer as the felt's
@@ -1051,6 +1073,38 @@ mod tests {
                     Felt::from_bytes_le(&dst),
                     a * b,
                     "felt252_mul({a:#x}, {b:#x}) gave the wrong product"
+                );
+            }
+        }
+    }
+
+    /// The raw-representation `cairo_native__felt252_div` must equal the
+    /// canonical field quotient for every nonzero divisor.
+    #[test]
+    fn felt252_div_matches_field_quotient() {
+        let cases = [
+            Felt::ZERO,
+            Felt::ONE,
+            Felt::THREE,
+            Felt::from(-1),
+            Felt::from(-2),
+            Felt::from(1234567890123456789u64),
+            Felt::from_hex_unchecked(
+                "0x4d6e41de886ac83938da3456ccf1481182687989ead34d9d35236f0864575a0",
+            ),
+            Felt::MAX,
+        ];
+        for &a in &cases {
+            for &b in &cases {
+                if b == Felt::ZERO {
+                    continue;
+                }
+                let mut dst = [0u8; 32];
+                cairo_native__felt252_div(&mut dst, &a.to_bytes_le(), &b.to_bytes_le());
+                assert_eq!(
+                    Felt::from_bytes_le(&dst),
+                    a.field_div(&NonZeroFelt::from_felt_unchecked(b)),
+                    "felt252_div({a:#x}, {b:#x}) gave the wrong quotient"
                 );
             }
         }
