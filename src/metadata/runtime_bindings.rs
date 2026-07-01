@@ -54,6 +54,7 @@ enum RuntimeBinding {
     U128SquareRoot,
     U256SquareRoot,
     Felt252Mul,
+    Felt252Div,
     CircuitArithOperation,
     DictIntoEntries,
     QM31Add,
@@ -89,6 +90,7 @@ impl RuntimeBinding {
             Self::U128SquareRoot => "cairo_native__u128_square_root",
             Self::U256SquareRoot => "cairo_native__u256_square_root",
             Self::Felt252Mul => "cairo_native__felt252_mul",
+            Self::Felt252Div => "cairo_native__felt252_div",
             Self::CircuitArithOperation => "cairo_native__circuit_arith_operation",
             Self::DictIntoEntries => "cairo_native__dict_into_entries",
             Self::QM31Add => "cairo_native__libfunc__qm31__qm31_add",
@@ -137,6 +139,7 @@ impl RuntimeBinding {
             Self::U128SquareRoot => cairo_native__u128_square_root as *const (),
             Self::U256SquareRoot => cairo_native__u256_square_root as *const (),
             Self::Felt252Mul => cairo_native__felt252_mul as *const (),
+            Self::Felt252Div => cairo_native__felt252_div as *const (),
             Self::ArenaAlloc => cairo_native__arena_alloc as *const (),
             Self::ExtendedEuclideanAlgorithm(_) | Self::CircuitArithOperation => return None,
             #[cfg(feature = "with-cheatcode")]
@@ -150,7 +153,6 @@ impl RuntimeBinding {
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 pub enum ExtendedEuclideanWidth {
     U31,
-    U252,
     U256,
     U384,
 }
@@ -159,7 +161,6 @@ impl ExtendedEuclideanWidth {
     const fn symbol(self) -> &'static str {
         match self {
             Self::U31 => "cairo_native__u31_extended_euclidean_algorithm",
-            Self::U252 => "cairo_native__u252_extended_euclidean_algorithm",
             Self::U256 => "cairo_native__u256_extended_euclidean_algorithm",
             Self::U384 => "cairo_native__u384_extended_euclidean_algorithm",
         }
@@ -168,7 +169,6 @@ impl ExtendedEuclideanWidth {
     const fn bits(self) -> u32 {
         match self {
             Self::U31 => 31,
-            Self::U252 => 252,
             Self::U256 => 256,
             Self::U384 => 384,
         }
@@ -371,6 +371,31 @@ impl RuntimeBindingsMeta {
     {
         let function =
             self.build_function(context, module, block, location, RuntimeBinding::Felt252Mul)?;
+
+        Ok(block.append_operation(
+            OperationBuilder::new("llvm.call", location)
+                .add_operands(&[function])
+                .add_operands(&[dst_ptr, lhs_ptr, rhs_ptr])
+                .build()?,
+        ))
+    }
+
+    /// Register if necessary, then invoke `cairo_native__felt252_div`, which
+    /// computes `(lhs / rhs) mod STARK_PRIME`. The pointers reference 32-byte
+    /// little-endian felt252 buffers; the result is written to `dst_ptr`.
+    pub fn felt252_div<'c, 'a>(
+        &mut self,
+        context: &'c Context,
+        module: &Module,
+        block: &'a Block<'c>,
+        [dst_ptr, lhs_ptr, rhs_ptr]: [Value<'c, '_>; 3],
+        location: Location<'c>,
+    ) -> Result<OperationRef<'c, 'a>>
+    where
+        'c: 'a,
+    {
+        let function =
+            self.build_function(context, module, block, location, RuntimeBinding::Felt252Div)?;
 
         Ok(block.append_operation(
             OperationBuilder::new("llvm.call", location)
@@ -1005,6 +1030,7 @@ pub fn setup_runtime(find_symbol_ptr: impl Fn(&str) -> Option<*mut c_void>) {
         RuntimeBinding::U128SquareRoot,
         RuntimeBinding::U256SquareRoot,
         RuntimeBinding::Felt252Mul,
+        RuntimeBinding::Felt252Div,
         #[cfg(feature = "with-cheatcode")]
         RuntimeBinding::VtableCheatcode,
     ] {
