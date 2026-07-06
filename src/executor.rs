@@ -3,10 +3,10 @@
 //! This module provides methods to execute the programs, either via JIT or compiled ahead
 //! of time. It also provides a cache to avoid recompiling previously compiled programs.
 
-#[cfg(feature = "with-libfunc-profiling")]
-pub use self::libfunc_profile::AotWithProgram;
 #[cfg(feature = "sierra-emu")]
 pub use self::emu_contract_executor::EmuContractExecutor;
+#[cfg(feature = "with-libfunc-profiling")]
+pub use self::libfunc_profile::AotWithProgram;
 pub use self::{aot::AotNativeExecutor, contract::AotContractExecutor, jit::JitNativeExecutor};
 use crate::{
     arch::{AbiArgument, ValueWithInfoWrapper},

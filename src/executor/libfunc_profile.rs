@@ -26,6 +26,63 @@ pub struct AotWithProgram {
     pub program: ArcProgram,
 }
 
+impl AotWithProgram {
+    /// Run the contract entry point identified by `selector`, discarding the profile.
+    ///
+    /// Mirrors [`AotContractExecutor::run`] so the executor types are interchangeable at
+    /// the call site. The run is still routed through the profiling bookkeeping: the
+    /// executor's shared library is compiled with profiling instrumentation, and running
+    /// it without a live profile slot makes every statement log a missing-profiler
+    /// error. Use [`Self::run_with_profile`] to capture the profile instead.
+    pub fn run(
+        &self,
+        selector: Felt,
+        args: &[Felt],
+        gas: u64,
+        builtin_costs: Option<BuiltinCosts>,
+        syscall_handler: impl StarknetSyscallHandler,
+    ) -> Result<ContractExecutionResult> {
+        self.executor.run_with_libfunc_profile(
+            &self.program,
+            selector,
+            args,
+            gas,
+            builtin_costs,
+            syscall_handler,
+            |_profile| {},
+        )
+    }
+
+    /// Like [`Self::run`] but hands the captured libfunc profile -- together with the
+    /// program this executor was paired with -- to `on_profile` after the call returns
+    /// successfully. The program is included so callers don't have to keep their own
+    /// copy around just to resolve libfunc samples.
+    pub fn run_with_profile<H, F>(
+        &self,
+        selector: Felt,
+        args: &[Felt],
+        gas: u64,
+        builtin_costs: Option<BuiltinCosts>,
+        syscall_handler: H,
+        on_profile: F,
+    ) -> Result<ContractExecutionResult>
+    where
+        H: StarknetSyscallHandler,
+        F: FnOnce(Profile, ArcProgram),
+    {
+        let program_for_cb = Arc::clone(&self.program);
+        self.executor.run_with_libfunc_profile(
+            &self.program,
+            selector,
+            args,
+            gas,
+            builtin_costs,
+            syscall_handler,
+            move |profile| on_profile(profile, program_for_cb),
+        )
+    }
+}
+
 /// Process-wide lock that serializes *top-level* profiled runs across threads. The
 /// profiler hot-swaps a process-global symbol (`cairo_native__profiler__profile_id`);
 /// a concurrent thread would race on that write and on the [`LIBFUNC_PROFILE`] slot
