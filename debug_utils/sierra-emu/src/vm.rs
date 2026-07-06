@@ -449,6 +449,32 @@ impl VirtualMachine {
 
         ContractExecutionResult::from_state(&last?)
     }
+
+    /// One-shot convenience over [`VirtualMachine::new_starknet`],
+    /// [`VirtualMachine::call_contract`] and [`VirtualMachine::run`]: build a
+    /// Starknet VM for `program`, call the entry point identified by `selector`
+    /// and run it to completion.
+    ///
+    /// Returns `None` when execution never produced a final state.
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_contract<I>(
+        program: Arc<Program>,
+        entry_points: &ContractEntryPoints,
+        sierra_version: VersionId,
+        selector: Felt,
+        initial_gas: u64,
+        calldata: I,
+        builtin_costs: Option<BuiltinCosts>,
+        syscall_handler: &mut impl StarknetSyscallHandler,
+    ) -> Option<ContractExecutionResult>
+    where
+        I: IntoIterator<Item = Felt>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let mut vm = Self::new_starknet(program, entry_points, sierra_version);
+        vm.call_contract(selector, initial_gas, calldata, builtin_costs);
+        vm.run(syscall_handler)
+    }
 }
 
 #[derive(Clone, Debug)]

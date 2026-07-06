@@ -81,19 +81,19 @@ impl ContractExecutor {
                 entry_points,
                 sierra_version,
             }) => {
-                let mut virtual_machine = sierra_emu::VirtualMachine::new_starknet(
+                // `run_contract` returns `None` when the VM never produced a
+                // final state -- propagate as an error rather than aborting the host.
+                let result = sierra_emu::VirtualMachine::run_contract(
                     Arc::clone(program),
                     entry_points,
                     *sierra_version,
-                );
-
-                let emu_builtin_costs = builtin_costs.map(convert_builtin_costs);
-
-                virtual_machine.call_contract(selector, gas, args.to_vec(), emu_builtin_costs);
-
-                // `VirtualMachine::run` returns `None` when the VM never produced a
-                // final state -- propagate as an error rather than aborting the host.
-                let result = virtual_machine.run(&mut syscall_handler).ok_or_else(|| {
+                    selector,
+                    gas,
+                    args.to_vec(),
+                    builtin_costs.map(convert_builtin_costs),
+                    &mut syscall_handler,
+                )
+                .ok_or_else(|| {
                     Error::UnexpectedValue("sierra-emu VM produced no final state".to_string())
                 })?;
 
