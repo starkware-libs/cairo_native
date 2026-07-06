@@ -4,11 +4,8 @@
 //! of time. It also provides a cache to avoid recompiling previously compiled programs.
 
 #[cfg(feature = "sierra-emu")]
-pub use self::contract_executor::EmuContractInfo;
-pub use self::{
-    aot::AotNativeExecutor, contract::AotContractExecutor, contract_executor::ContractExecutor,
-    jit::JitNativeExecutor,
-};
+pub use self::emu_contract_executor::EmuContractExecutor;
+pub use self::{aot::AotNativeExecutor, contract::AotContractExecutor, jit::JitNativeExecutor};
 use crate::{
     arch::{AbiArgument, ValueWithInfoWrapper},
     error::{panic::ToNativeAssertError, Error},
@@ -44,7 +41,8 @@ use std::{alloc::Layout, arch::global_asm, ptr::NonNull};
 
 mod aot;
 mod contract;
-mod contract_executor;
+#[cfg(feature = "sierra-emu")]
+mod emu_contract_executor;
 mod jit;
 
 #[cfg(target_arch = "aarch64")]
