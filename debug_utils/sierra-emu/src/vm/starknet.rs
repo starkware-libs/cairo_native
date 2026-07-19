@@ -94,6 +94,9 @@ pub fn eval(
             eval_get_execution_info_v2(registry, info, args, syscall_handler)
         }
         StarknetConcreteLibfunc::Deploy(info) => eval_deploy(registry, info, args, syscall_handler),
+        StarknetConcreteLibfunc::DeployV2(info) => {
+            eval_deploy_v2(registry, info, args, syscall_handler)
+        }
         StarknetConcreteLibfunc::Keccak(info) => eval_keccak(registry, info, args, syscall_handler),
         StarknetConcreteLibfunc::Sha256ProcessBlock(info) => {
             eval_sha256_process_block(registry, info, args, syscall_handler)
@@ -1057,6 +1060,90 @@ fn eval_deploy(
     };
 
     let result = syscall_handler.deploy(
+        class_hash,
+        contract_address_salt,
+        &calldata,
+        deploy_from_zero,
+        &mut gas,
+    );
+
+    match result {
+        Ok((contract_address, return_values)) => EvalAction::NormalBranch(
+            0,
+            smallvec![
+                Value::U64(gas),
+                system,
+                Value::Felt(contract_address),
+                Value::Struct(vec![Value::Array {
+                    ty: felt_ty,
+                    data: return_values
+                        .into_iter()
+                        .map(Value::Felt)
+                        .collect::<Vec<_>>(),
+                }])
+            ],
+        ),
+        Err(e) => EvalAction::NormalBranch(
+            1,
+            smallvec![
+                Value::U64(gas),
+                system,
+                Value::Array {
+                    ty: felt_ty,
+                    data: e.into_iter().map(Value::Felt).collect::<Vec<_>>(),
+                }
+            ],
+        ),
+    }
+}
+
+/// Same request/response layout as [`eval_deploy`], but dispatches to the handler's `deploy_v2`
+/// method (Blake-escaped address derivation).
+fn eval_deploy_v2(
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    info: &SignatureOnlyConcreteLibfunc,
+    args: Vec<Value>,
+    syscall_handler: &mut impl StarknetSyscallHandler,
+) -> EvalAction {
+    let [Value::U64(mut gas), system, Value::Felt(class_hash), Value::Felt(contract_address_salt), Value::Struct(calldata), Value::Enum {
+        self_ty: _,
+        index: deploy_from_zero,
+        payload: _,
+    }]: [Value; 6] = args.try_into().unwrap()
+    else {
+        panic!()
+    };
+
+    let deploy_from_zero = deploy_from_zero != 0;
+
+    let [Value::Array {
+        ty: _,
+        data: calldata,
+    }]: [Value; 1] = calldata.try_into().unwrap()
+    else {
+        panic!()
+    };
+
+    let calldata = calldata
+        .into_iter()
+        .map(|x| match x {
+            Value::Felt(x) => x,
+            _ => unreachable!(),
+        })
+        .collect::<Vec<_>>();
+
+    // get felt type from the error branch array
+    let felt_ty = {
+        match registry
+            .get_type(&info.branch_signatures()[1].vars[2].ty)
+            .unwrap()
+        {
+            CoreTypeConcrete::Array(info) => info.ty.clone(),
+            _ => unreachable!(),
+        }
+    };
+
+    let result = syscall_handler.deploy_v2(
         class_hash,
         contract_address_salt,
         &calldata,

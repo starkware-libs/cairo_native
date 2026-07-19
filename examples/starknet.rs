@@ -150,6 +150,21 @@ impl StarknetSyscallHandler for SyscallHandler {
         ))
     }
 
+    fn deploy_v2(
+        &mut self,
+        class_hash: Felt,
+        contract_address_salt: Felt,
+        calldata: &[Felt],
+        deploy_from_zero: bool,
+        _gas: &mut u64,
+    ) -> SyscallResult<(Felt, Vec<Felt>)> {
+        println!("Called `deploy_v2({class_hash}, {contract_address_salt}, {calldata:?}, {deploy_from_zero})` from MLIR.");
+        Ok((
+            class_hash + contract_address_salt,
+            calldata.iter().map(|x| x + Felt::ONE).collect(),
+        ))
+    }
+
     fn replace_class(&mut self, class_hash: Felt, _gas: &mut u64) -> SyscallResult<()> {
         println!("Called `replace_class({class_hash})` from MLIR.");
         Ok(())

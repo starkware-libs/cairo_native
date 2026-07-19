@@ -1,7 +1,7 @@
 use starknet::ClassHash;
 use starknet::{
     call_contract_syscall, ContractAddress,
-    deploy_syscall, emit_event_syscall, ExecutionInfo, get_block_hash_syscall,
+    deploy_syscall, deploy_v2_syscall, emit_event_syscall, ExecutionInfo, get_block_hash_syscall,
     keccak_syscall,
     library_call_syscall, replace_class_syscall, send_message_to_l1_syscall,
     storage_address_try_from_felt252, storage_read_syscall, storage_write_syscall, SyscallResult,
@@ -27,6 +27,10 @@ const ZERO_CONTRACT_ADDRESS: ContractAddress = 0x0.try_into().unwrap();
 
 fn deploy() -> SyscallResult<(ContractAddress, Span<felt252>)> {
     deploy_syscall(ZERO_CLASS_HASH, 0, array![].span(), false)
+}
+
+fn deploy_v2() -> SyscallResult<(ContractAddress, Span<felt252>)> {
+    deploy_v2_syscall(ZERO_CLASS_HASH, 0, array![].span(), false)
 }
 
 fn replace_class() -> SyscallResult<()> {

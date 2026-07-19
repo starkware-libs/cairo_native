@@ -235,6 +235,17 @@ pub trait StarknetSyscallHandler {
         remaining_gas: &mut u64,
     ) -> SyscallResult<(Felt, Vec<Felt>)>;
 
+    /// Deploys a contract, deriving its address with the Blake-escaped derivation instead of
+    /// Pedersen (the `deploy_v2` syscall). Same request/response as [`Self::deploy`].
+    fn deploy_v2(
+        &mut self,
+        class_hash: Felt,
+        contract_address_salt: Felt,
+        calldata: &[Felt],
+        deploy_from_zero: bool,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<(Felt, Vec<Felt>)>;
+
     fn replace_class(&mut self, class_hash: Felt, remaining_gas: &mut u64) -> SyscallResult<()>;
 
     fn library_call(

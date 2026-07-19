@@ -127,6 +127,9 @@ pub fn build<'ctx, 'this>(
         StarknetConcreteLibfunc::Deploy(info) => {
             build_deploy(context, registry, entry, location, helper, metadata, info)
         }
+        StarknetConcreteLibfunc::DeployV2(info) => {
+            build_deploy_v2(context, registry, entry, location, helper, metadata, info)
+        }
         StarknetConcreteLibfunc::Keccak(info) => {
             build_keccak(context, registry, entry, location, helper, metadata, info)
         }
@@ -1178,6 +1181,54 @@ pub fn build_deploy<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
+    build_deploy_impl(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        info,
+        StarknetSyscallHandlerCallbacks::<()>::DEPLOY,
+    )
+}
+
+/// Same request/response layout as [`build_deploy`], but dispatches to the handler's `deploy_v2`
+/// method (Blake-escaped address derivation) via its vtable offset.
+pub fn build_deploy_v2<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    info: &SignatureOnlyConcreteLibfunc,
+) -> Result<()> {
+    build_deploy_impl(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        info,
+        StarknetSyscallHandlerCallbacks::<()>::DEPLOY_V2,
+    )
+}
+
+/// Shared body of [`build_deploy`] and [`build_deploy_v2`]; `callback_offset` selects which handler
+/// vtable entry (`DEPLOY` or `DEPLOY_V2`) the syscall dispatches to.
+#[allow(clippy::too_many_arguments)]
+fn build_deploy_impl<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    info: &SignatureOnlyConcreteLibfunc,
+    callback_offset: usize,
+) -> Result<()> {
     // Extract self pointer.
     let ptr = entry.load(
         context,
@@ -1314,9 +1365,7 @@ pub fn build_deploy<'ctx, 'this>(
         context,
         location,
         entry.arg(1)?,
-        &[GepIndex::Const(
-            StarknetSyscallHandlerCallbacks::<()>::DEPLOY.try_into()?,
-        )],
+        &[GepIndex::Const(callback_offset.try_into()?)],
         pointer(context, 0),
     )?;
     let fn_ptr = entry.load(context, location, fn_ptr, llvm::r#type::pointer(context, 0))?;

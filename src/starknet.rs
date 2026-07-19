@@ -94,6 +94,17 @@ impl StarknetSyscallHandler for DummySyscallHandler {
         unimplemented!()
     }
 
+    fn deploy_v2(
+        &mut self,
+        _class_hash: Felt,
+        _contract_address_salt: Felt,
+        _calldata: &[Felt],
+        _deploy_from_zero: bool,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<(Felt, Vec<Felt>)> {
+        unimplemented!()
+    }
+
     fn replace_class(&mut self, _class_hash: Felt, _remaining_gas: &mut u64) -> SyscallResult<()> {
         unimplemented!()
     }
@@ -456,6 +467,15 @@ pub(crate) mod handler {
             calldata: &ArrayAbi<Felt252Abi>,
             deploy_from_zero: bool,
         ),
+        deploy_v2: extern "C" fn(
+            result_ptr: &mut SyscallResultAbi<(Felt252Abi, ArrayAbi<Felt252Abi>)>,
+            ptr: &mut T,
+            gas: &mut u64,
+            class_hash: &Felt252Abi,
+            contract_address_salt: &Felt252Abi,
+            calldata: &ArrayAbi<Felt252Abi>,
+            deploy_from_zero: bool,
+        ),
         replace_class: extern "C" fn(
             result_ptr: &mut SyscallResultAbi<()>,
             ptr: &mut T,
@@ -631,6 +651,7 @@ pub(crate) mod handler {
         // Callback field indices.
         pub const CALL_CONTRACT: usize = field_offset!(Self, call_contract) >> 3;
         pub const DEPLOY: usize = field_offset!(Self, deploy) >> 3;
+        pub const DEPLOY_V2: usize = field_offset!(Self, deploy_v2) >> 3;
         pub const EMIT_EVENT: usize = field_offset!(Self, emit_event) >> 3;
         pub const GET_BLOCK_HASH: usize = field_offset!(Self, get_block_hash) >> 3;
         pub const GET_EXECUTION_INFO: usize = field_offset!(Self, get_execution_info) >> 3;
@@ -677,6 +698,7 @@ pub(crate) mod handler {
                 get_execution_info_v2: Self::wrap_get_execution_info_v2,
                 get_execution_info_v3: Self::wrap_get_execution_info_v3,
                 deploy: Self::wrap_deploy,
+                deploy_v2: Self::wrap_deploy_v2,
                 replace_class: Self::wrap_replace_class,
                 library_call: Self::wrap_library_call,
                 call_contract: Self::wrap_call_contract,
@@ -1045,6 +1067,43 @@ pub(crate) mod handler {
             let calldata_vec: Vec<_> = calldata.into();
 
             let result = ptr.deploy(
+                class_hash,
+                contract_address_salt,
+                &calldata_vec,
+                deploy_from_zero,
+                gas,
+            );
+
+            *result_ptr = match result {
+                Ok(x) => {
+                    let felts: Vec<_> = x.1.iter().map(|x| Felt252Abi(x.to_bytes_le())).collect();
+                    let felts_ptr = unsafe { Self::alloc_mlir_array(&felts) };
+                    SyscallResultAbi {
+                        ok: ManuallyDrop::new(SyscallResultAbiOk {
+                            tag: 0u8,
+                            payload: ManuallyDrop::new((Felt252Abi(x.0.to_bytes_le()), felts_ptr)),
+                        }),
+                    }
+                }
+                Err(e) => Self::wrap_error(&e),
+            };
+        }
+
+        extern "C" fn wrap_deploy_v2(
+            result_ptr: &mut SyscallResultAbi<(Felt252Abi, ArrayAbi<Felt252Abi>)>,
+            ptr: &mut T,
+            gas: &mut u64,
+            class_hash: &Felt252Abi,
+            contract_address_salt: &Felt252Abi,
+            calldata: &ArrayAbi<Felt252Abi>,
+            deploy_from_zero: bool,
+        ) {
+            let class_hash = Felt::from(class_hash);
+            let contract_address_salt = Felt::from(contract_address_salt);
+
+            let calldata_vec: Vec<_> = calldata.into();
+
+            let result = ptr.deploy_v2(
                 class_hash,
                 contract_address_salt,
                 &calldata_vec,

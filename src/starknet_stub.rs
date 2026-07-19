@@ -32,7 +32,7 @@ use num_traits::Zero;
 use sha2::digest::generic_array::GenericArray;
 use starknet_types_core::{
     felt::{Felt, NonZeroFelt},
-    hash::{Pedersen, StarkHash},
+    hash::{Blake2Felt252, Pedersen, StarkHash},
 };
 use tracing::instrument;
 
@@ -564,6 +564,68 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
         }
     }
 
+    /// Identical to [`Self::deploy`] except the deployed address is derived with the Blake-escaped
+    /// derivation ([`calculate_contract_address_blake_escaped`]) instead of Pedersen. Must match
+    /// the sequencer's `starknet_api::core::calculate_contract_address` for the `Blake2` arm and
+    /// the cairo runner's `calculate_contract_address_blake_escaped`.
+    fn deploy_v2(
+        &mut self,
+        class_hash: Felt,
+        contract_address_salt: Felt,
+        calldata: &[Felt],
+        deploy_from_zero: bool,
+        remaining_gas: &mut u64,
+    ) -> crate::starknet::SyscallResult<(Felt, Vec<Felt>)> {
+        tracing::debug!("called");
+        deduct_gas(remaining_gas, gas_costs::DEPLOY_V2)?;
+
+        let deployer_address = if deploy_from_zero {
+            Felt::zero()
+        } else {
+            self.execution_info.contract_address
+        };
+        let deployed_contract_address = calculate_contract_address_blake_escaped(
+            contract_address_salt,
+            class_hash,
+            calldata,
+            deployer_address,
+        );
+
+        let Some(contract_info) = self.contracts_info.get(&class_hash) else {
+            return Err(vec![Felt::from_bytes_be_slice(b"CLASS_HASH_NOT_FOUND")]);
+        };
+
+        if self
+            .deployed_contracts
+            .insert(deployed_contract_address, class_hash)
+            .is_some()
+        {
+            return Err(vec![Felt::from_bytes_be_slice(
+                b"CONTRACT_ALREADY_DEPLOYED",
+            )]);
+        }
+
+        if let Some(constructor) = contract_info.constructor.clone() {
+            let old_addrs = self.open_caller_context((deployed_contract_address, deployer_address));
+            let res = self.call_entry_point(remaining_gas, &constructor, calldata);
+            self.close_caller_context(old_addrs);
+            match res {
+                Ok(res) => Ok((deployed_contract_address, res)),
+                Err(mut res) => {
+                    res.push(Felt::from_bytes_be_slice(b"CONSTRUCTOR_FAILED"));
+                    Err(res)
+                }
+            }
+        } else if calldata.is_empty() {
+            Ok((deployed_contract_address, vec![]))
+        } else {
+            // Remove the contract from the deployed contracts,
+            // since it failed to deploy.
+            self.deployed_contracts.remove(&deployed_contract_address);
+            Err(vec![Felt::from_bytes_be_slice(b"INVALID_CALLDATA_LEN")])
+        }
+    }
+
     #[instrument(skip(self))]
     fn replace_class(
         &mut self,
@@ -1055,6 +1117,85 @@ pub fn deduct_gas(gas: &mut u64, price: u64) -> Result<(), Vec<Felt>> {
     }
 }
 
+/// Max value for a contract address: `2**251 - 256`.
+const CONTRACT_ADDRESS_BOUND_FELT: Felt =
+    Felt::from_hex_unchecked("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00");
+const CONTRACT_ADDRESS_BOUND: NonZeroFelt =
+    NonZeroFelt::from_felt_unchecked(CONTRACT_ADDRESS_BOUND_FELT);
+/// Cairo string for "STARKNET_CONTRACT_ADDRESS".
+const CONTRACT_ADDRESS_PREFIX: Felt =
+    Felt::from_hex_unchecked("0x535441524b4e45545f434f4e54524143545f41444452455353");
+/// The field prime minus [`CONTRACT_ADDRESS_BOUND_FELT`]. Addresses below this bound have a second
+/// lift into the field: both `address` and `address + CONTRACT_ADDRESS_BOUND_FELT` are below `p`.
+const SECOND_LIFT_BOUND: Felt =
+    Felt::from_hex_unchecked("0x11000000000000000000000000000000000000000000000101");
+/// The STARK curve is `y^2 = x^3 + ALPHA * x + BETA`.
+const STARK_CURVE_ALPHA: Felt = Felt::ONE;
+const STARK_CURVE_BETA: Felt =
+    Felt::from_hex_unchecked("0x6f21413efbe40de150e596d72f7a8c5609ad26c15c915c1f4cdfcb99cee9e89");
+
+/// Calculates the address of a Starknet contract with the Blake-escaped derivation used by the
+/// `deploy_v2` syscall (and `deploy_account` v4).
+///
+/// The raw address is the BLAKE2s felt-array hash of the same preimage `deploy` hashes with
+/// Pedersen, reduced modulo [`CONTRACT_ADDRESS_BOUND_FELT`]. It is then incremented (wrapping,
+/// skipping the reserved `0x0`/`0x1`) until it is provably unreachable by any Pedersen derivation,
+/// so the two schemes' address spaces are disjoint. Must match the sequencer's
+/// `starknet_api::core::calculate_contract_address` for the `Blake2` arm.
+fn calculate_contract_address_blake_escaped(
+    salt: Felt,
+    class_hash: Felt,
+    constructor_calldata: &[Felt],
+    deployer_address: Felt,
+) -> Felt {
+    let constructor_calldata_hash =
+        Blake2Felt252::encode_felt252_data_and_calc_blake_hash(constructor_calldata);
+    let raw_address = Blake2Felt252::encode_felt252_data_and_calc_blake_hash(&[
+        CONTRACT_ADDRESS_PREFIX,
+        deployer_address,
+        salt,
+        class_hash,
+        constructor_calldata_hash,
+    ])
+    .mod_floor(&CONTRACT_ADDRESS_BOUND);
+    escape_pedersen_image(raw_address)
+}
+
+/// Returns `value^3 + STARK_CURVE_ALPHA * value + STARK_CURVE_BETA` — a square in the field iff
+/// `value` is the x-coordinate of a STARK curve point.
+fn stark_curve_cubic(value: Felt) -> Felt {
+    value * value * value + STARK_CURVE_ALPHA * value + STARK_CURVE_BETA
+}
+
+/// Returns whether `value` is the x-coordinate of a STARK curve point (`stark_curve_cubic(value)`
+/// is a quadratic residue, i.e. `t == 0` or `legendre(t) == 1`).
+fn is_stark_curve_x_coordinate(value: Felt) -> bool {
+    stark_curve_cubic(value).sqrt().is_some()
+}
+
+/// Returns whether some Pedersen hash output reduces (mod [`CONTRACT_ADDRESS_BOUND_FELT`]) to
+/// `address`. A Pedersen output is the x-coordinate of a STARK curve point, so `address` is
+/// reachable iff one of its lifts into the field is a curve x-coordinate.
+fn is_pedersen_reachable_address(address: Felt) -> bool {
+    is_stark_curve_x_coordinate(address)
+        || (address < SECOND_LIFT_BOUND
+            && is_stark_curve_x_coordinate(address + CONTRACT_ADDRESS_BOUND_FELT))
+}
+
+/// Increments `raw_address` (wrapping mod [`CONTRACT_ADDRESS_BOUND_FELT`], skipping the reserved
+/// `0x0`/`0x1`) until no Pedersen derivation can reach it. Expected ~1 increment; each step costs
+/// one residuosity check, never a re-hash.
+fn escape_pedersen_image(raw_address: Felt) -> Felt {
+    let mut address = raw_address;
+    while address < Felt::TWO || is_pedersen_reachable_address(address) {
+        address += Felt::ONE;
+        if address == CONTRACT_ADDRESS_BOUND_FELT {
+            address = Felt::ZERO;
+        }
+    }
+    address
+}
+
 /// Gas costs for syscalls.
 ///
 /// Taken from cairo-lang-runner syscall handler implementation.
@@ -1069,6 +1210,8 @@ mod gas_costs {
     // Gas cost for each syscall, minus the precharged base amount.
     pub const CALL_CONTRACT: u64 = 10 * STEP + ENTRY_POINT;
     pub const DEPLOY: u64 = 200 * STEP + ENTRY_POINT;
+    // Provisional: same profile as `DEPLOY` until a measured one lands (sequencer-side).
+    pub const DEPLOY_V2: u64 = 200 * STEP + ENTRY_POINT;
     pub const EMIT_EVENT: u64 = 10 * STEP;
     pub const GET_BLOCK_HASH: u64 = 50 * STEP;
     pub const GET_EXECUTION_INFO: u64 = 10 * STEP;
@@ -1097,6 +1240,68 @@ mod gas_costs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The five frozen Blake-escaped derivation vectors (0/1/2/3/7 escape steps), shared with the
+    /// sequencer and the cairo runner. `deploy_from_zero = true` (deployer = 0),
+    /// `class_hash = 0x4242`, `calldata = [42, 2 ** 63, 1337]`.
+    #[test]
+    fn test_calculate_contract_address_blake_escaped() {
+        let deployer_address = Felt::ZERO;
+        let class_hash = Felt::from(0x4242);
+        let calldata = [Felt::from(42), Felt::TWO.pow(63_u32), Felt::from(1337)];
+
+        for (salt, expected) in [
+            (
+                777,
+                "0x781e95f4b806dfe5b550756620c77a108d974a5b5d1198b1d45901ac1f89e9f",
+            ),
+            (
+                771,
+                "0x566c3e328f3fd5a311267250cadc3c1c4de799db54180fcf862fe90b622571d",
+            ),
+            (
+                776,
+                "0x1cd7f5c31ef1b147b816048b025a6cc345e7e023aa8ed97222a883e31dc8435",
+            ),
+            (
+                775,
+                "0x4f7ba32369d7f68c42a7619242a52a5be9e803459f5afae1772d9377b161c4c",
+            ),
+            (
+                774,
+                "0x47d0c1ff356a1d540cd9f2efa122b60168b1007ef0603af0857bc6100e4b8e8",
+            ),
+        ] {
+            let salt = Felt::from(salt);
+            assert_eq!(
+                calculate_contract_address_blake_escaped(
+                    salt,
+                    class_hash,
+                    &calldata,
+                    deployer_address,
+                ),
+                Felt::from_hex(expected).unwrap(),
+                "wrong Blake-escaped address for salt {salt}",
+            );
+        }
+    }
+
+    /// The frozen `pedersen_reachable` truth table, shared with the sequencer and the cairo runner.
+    #[test]
+    fn test_is_pedersen_reachable_address() {
+        for (address, expected) in [
+            (0x1_u64, true),
+            (0x2_u64, true),
+            (0x5_u64, false),
+            (0x1234567890abcdef_u64, true),
+        ] {
+            assert_eq!(
+                is_pedersen_reachable_address(Felt::from(address)),
+                expected,
+                "wrong pedersen_reachable for {address:#x}",
+            );
+        }
+    }
 
     #[test]
     fn test_secp256k1_get_xy() {
