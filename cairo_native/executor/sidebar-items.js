@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AotContractExecutor","AotNativeExecutor","JitNativeExecutor"]};
+window.SIDEBAR_ITEMS = {"struct":["AotContractExecutor","AotNativeExecutor","EmuContractExecutor","JitNativeExecutor"]};
