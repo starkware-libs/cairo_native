@@ -3,6 +3,8 @@
 //! This module provides methods to execute the programs, either via JIT or compiled ahead
 //! of time. It also provides a cache to avoid recompiling previously compiled programs.
 
+#[cfg(feature = "sierra-emu")]
+pub use self::emu_contract_executor::EmuContractExecutor;
 pub use self::{aot::AotNativeExecutor, contract::AotContractExecutor, jit::JitNativeExecutor};
 use crate::{
     arch::{AbiArgument, ValueWithInfoWrapper},
@@ -39,6 +41,8 @@ use std::{alloc::Layout, arch::global_asm, ptr::NonNull};
 
 mod aot;
 mod contract;
+#[cfg(feature = "sierra-emu")]
+mod emu_contract_executor;
 mod jit;
 
 #[cfg(target_arch = "aarch64")]
