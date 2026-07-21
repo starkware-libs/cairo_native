@@ -25,7 +25,7 @@ jobs:
     steps:
       # We checkout replay as it's the main repository for this workflow
       - name: Checkout Replay
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: starkware-libs/starknet-replay
           path: starknet-replay
@@ -33,11 +33,11 @@ jobs:
 
       # We need native to use the linux deps ci action
       - name: Checkout Native
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: cairo_native
       - name: Checkout Sequencer
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: starkware-libs/sequencer
           path: sequencer
@@ -46,7 +46,7 @@ jobs:
 
       - name: Restore RPC Calls
         id: restore-rpc-calls
-        uses: actions/cache/restore@v4.2.0
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: starknet-replay/cache
           key: cache-${{matrix.block}}-${{ github.run_id }}
@@ -56,9 +56,9 @@ jobs:
       # Install dependencies
       - uses: ./cairo_native/.github/actions/install-linux-deps
       - name: Setup rust env
-        uses: dtolnay/rust-toolchain@1.84.1
+        uses: dtolnay/rust-toolchain@1321684edfabb845e0bc37de117ff544adf0f648 # 1.84.1
       - name: Retreive cached dependecies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: |
             starknet-replay
@@ -100,13 +100,13 @@ jobs:
           cargo run --release --bin replay --features "state_dump,only_cairo_vm" block mainnet ${{ matrix.block }}
 
       - name: Upload dumps
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dump-${{matrix.block}}-${{matrix.runner}}
           path: starknet-replay/state_dumps/${{matrix.runner}}
 
       - name: Save RPC Calls
-        uses: actions/cache/save@v4.2.0
+        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         if: ${{ always() && matrix.runner == 'vm' }}
         with:
           path: starknet-replay/cache

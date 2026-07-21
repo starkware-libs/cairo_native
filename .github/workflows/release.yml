@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - uses: taiki-e/create-gh-release-action@v1
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: taiki-e/create-gh-release-action@eba8ea96c86cca8a37f1b56e94b4d13301fba651 # v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -32,7 +32,7 @@ jobs:
             dep_base_dir: /opt/homebrew/opt/llvm@19
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
       - name: Set env
@@ -42,7 +42,7 @@ jobs:
           echo "TABLEGEN_190_PREFIX=${{ matrix.dep_base_dir }}" >> $GITHUB_ENV
       - name: Install deps
         run: make deps && make deps-ci-linux
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: cairo-native-compile
           manifest_path: binaries/cairo-native-compile/Cargo.toml
@@ -51,7 +51,7 @@ jobs:
           zip: windows
           archive: cairo-native-compile-$target
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: cairo-native-dump
           manifest_path: binaries/cairo-native-dump/Cargo.toml
@@ -60,7 +60,7 @@ jobs:
           zip: windows
           archive: cairo-native-dump-$target
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: cairo-native-run
           manifest_path: binaries/cairo-native-run/Cargo.toml
@@ -69,7 +69,7 @@ jobs:
           zip: windows
           archive: cairo-native-run-$target
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: cairo-native-stress
           manifest_path: debug_utils/cairo-native-stress/Cargo.toml
@@ -78,7 +78,7 @@ jobs:
           zip: windows
           archive: cairo-native-stress-$target
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: cairo-native-test
           manifest_path: binaries/cairo-native-test/Cargo.toml
@@ -87,7 +87,7 @@ jobs:
           zip: windows
           archive: cairo-native-test-$target
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: starknet-native-compile
           manifest_path: binaries/starknet-native-compile/Cargo.toml
