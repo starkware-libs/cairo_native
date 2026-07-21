@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AotContractExecutor","AotNativeExecutor","EmuContractExecutor","JitNativeExecutor"]};
+window.SIDEBAR_ITEMS = {"struct":["AotContractExecutor","AotNativeExecutor","AotWithProgram","EmuContractExecutor","JitNativeExecutor"],"type":["ArcProgram"]};

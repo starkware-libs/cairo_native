@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ProfilerBinding"],"fn":["setup_runtime"],"static":["LIBFUNC_PROFILE"],"struct":["LibfuncProfileData","ProfilerImpl","ProfilerMeta"]};
+window.SIDEBAR_ITEMS = {"enum":["ProfilerBinding"],"fn":["setup_runtime"],"static":["LIBFUNC_PROFILE"],"struct":["LibfuncProfileData","ProfilerImpl","ProfilerMeta"],"type":["Profile"]};
