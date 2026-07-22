@@ -50,3 +50,52 @@ fn single_variant_enum_in_array_matches_vm() {
     )
     .expect("single-variant enum in array must agree between VM and native");
 }
+
+#[test]
+fn nested_enum_argument_matches_vm() {
+    let program = &load_program_and_runner("programs/nested_enum_arg");
+
+    // (outer_tag, inner_tag). Both enums have 2 variants, so the tag equals the
+    // variant index (no selector encoding is needed).
+    for (outer_tag, inner_tag) in [(0, 0), (0, 1), (1, 0), (1, 1)] {
+        let payload = Felt::from(0x1234);
+
+        let result_vm = run_vm_program(
+            program,
+            "run_test",
+            vec![
+                Arg::Value(Felt::from(outer_tag as u64)),
+                Arg::Value(Felt::from(inner_tag as u64)),
+                Arg::Value(payload),
+            ],
+            Some(DEFAULT_GAS as usize),
+        )
+        .unwrap();
+
+        let result_native = run_native_program(
+            program,
+            "run_test",
+            &[Value::Enum {
+                tag: outer_tag,
+                value: Box::new(Value::Enum {
+                    tag: inner_tag,
+                    value: Box::new(Value::Felt252(payload)),
+                    debug_name: None,
+                }),
+                debug_name: None,
+            }],
+            Some(DEFAULT_GAS),
+            Option::<DummySyscallHandler>::None,
+        );
+
+        compare_outputs(
+            &program.1,
+            &program.2.find_function("run_test").unwrap().id,
+            &result_vm,
+            &result_native,
+        )
+        .unwrap_or_else(|e| {
+            panic!("nested enum (outer={outer_tag}, inner={inner_tag}) mismatch: {e:?}")
+        });
+    }
+}

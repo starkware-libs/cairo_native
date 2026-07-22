@@ -327,7 +327,17 @@ impl Value {
                         native_assert!(*tag < info.variants.len(), "Variant index out of range.");
 
                         let payload_type_id = &info.variants[*tag];
+                        let payload_ty = registry.get_type(payload_type_id)?;
                         let payload = value.to_ptr(arena, registry, payload_type_id)?;
+
+                        // Undo the wrapper pointer added when the payload is memory
+                        // allocated (e.g. a nested >=2-variant enum), so that the copy
+                        // below reads the payload data rather than the wrapper pointer.
+                        let payload = if payload_ty.is_memory_allocated(registry)? {
+                            *payload.cast::<NonNull<()>>().as_ref()
+                        } else {
+                            payload
+                        };
 
                         let (layout, tag_layout, variant_layouts) =
                             crate::types::r#enum::get_layout_for_variants(
