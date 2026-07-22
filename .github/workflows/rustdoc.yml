@@ -17,11 +17,11 @@ jobs:
       LLVM_SYS_191_PREFIX: /usr/lib/llvm-19/
       TABLEGEN_190_PREFIX: /usr/lib/llvm-19/
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.84.1
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@1321684edfabb845e0bc37de117ff544adf0f648 # 1.84.1
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: add llvm deb repository
-        uses: myci-actions/add-deb-repo@11
+        uses: myci-actions/add-deb-repo@43408b9f0225d1c64ba667d59e337c6140383bbe # 11
         with:
           repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
           repo-name: llvm-repo
@@ -31,7 +31,7 @@ jobs:
       - name: Build docs
         run: make doc
       - name: Deploy Documentation
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages

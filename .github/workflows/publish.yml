@@ -19,18 +19,18 @@ jobs:
         CRATES_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: free HDD space
         run: |
           # deleting space
           sudo rm -rf /usr/share/dotnet/
           sudo rm -rf /usr/local/lib/android
       - name: Setup rust env
-        uses: dtolnay/rust-toolchain@1.84.1
+        uses: dtolnay/rust-toolchain@1321684edfabb845e0bc37de117ff544adf0f648 # 1.84.1
       - name: Retreive cached dependecies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: add llvm deb repository
-        uses: myci-actions/add-deb-repo@11
+        uses: myci-actions/add-deb-repo@43408b9f0225d1c64ba667d59e337c6140383bbe # 11
         with:
           repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
           repo-name: llvm-repo
