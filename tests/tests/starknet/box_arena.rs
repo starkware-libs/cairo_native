@@ -107,6 +107,17 @@ impl StarknetSyscallHandler for &mut MultiContractHandler {
     ) -> SyscallResult<(Felt, Vec<Felt>)> {
         unimplemented!()
     }
+
+    fn deploy_v2(
+        &mut self,
+        _class_hash: Felt,
+        _contract_address_salt: Felt,
+        _calldata: &[Felt],
+        _deploy_from_zero: bool,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<(Felt, Vec<Felt>)> {
+        unimplemented!()
+    }
     fn replace_class(&mut self, _class_hash: Felt, _remaining_gas: &mut u64) -> SyscallResult<()> {
         unimplemented!()
     }

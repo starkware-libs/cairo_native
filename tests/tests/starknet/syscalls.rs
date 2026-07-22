@@ -254,6 +254,23 @@ impl StarknetSyscallHandler for SyscallHandler {
         ))
     }
 
+    fn deploy_v2(
+        &mut self,
+        _class_hash: Felt,
+        _contract_address_salt: Felt,
+        _calldata: &[Felt],
+        _deploy_from_zero: bool,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<(Felt, Vec<Felt>)> {
+        // A distinct value from `deploy` (the salt-777 §3.1 frozen vector), so the JIT test
+        // confirms `deploy_v2_syscall` routes to this method and not to `deploy`.
+        Ok((
+            Felt::from_hex("0x781e95f4b806dfe5b550756620c77a108d974a5b5d1198b1d45901ac1f89e9f")
+                .unwrap(),
+            Vec::new(),
+        ))
+    }
+
     fn replace_class(&mut self, _class_hash: Felt, _remaining_gas: &mut u64) -> SyscallResult<()> {
         Ok(())
     }
@@ -922,6 +939,44 @@ fn deploy() {
                         "1833707083418045616336697070784512826809940908236872124572250196391719980392",
                     )
                     .unwrap()),
+                    Value::Struct {
+                        fields: vec![Value::Array(Vec::new())],
+                        debug_name: None,
+                    },
+                ],
+                debug_name: None,
+            }),
+            debug_name: None,
+        },
+    )
+}
+
+#[test]
+fn deploy_v2() {
+    let program = load_program_and_runner("programs/starknet/syscalls");
+    let result = run_native_program(
+        &program,
+        "deploy_v2",
+        &[],
+        Some(u64::MAX),
+        Some(SyscallHandler::new()),
+    );
+
+    // The salt-777 §3.1 frozen vector returned by the stub's `deploy_v2` — distinct from `deploy`'s
+    // return, confirming `deploy_v2_syscall` dispatches (via the DEPLOY_V2 vtable offset) to the
+    // handler's `deploy_v2` method.
+    assert_eq_sorted!(
+        result.return_value,
+        Value::Enum {
+            tag: 0,
+            value: Box::new(Value::Struct {
+                fields: vec![
+                    Value::Felt252(
+                        Felt::from_hex(
+                            "0x781e95f4b806dfe5b550756620c77a108d974a5b5d1198b1d45901ac1f89e9f",
+                        )
+                        .unwrap()
+                    ),
                     Value::Struct {
                         fields: vec![Value::Array(Vec::new())],
                         debug_name: None,

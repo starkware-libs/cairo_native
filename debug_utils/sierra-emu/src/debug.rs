@@ -354,6 +354,7 @@ pub fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             StarknetConcreteLibfunc::GetExecutionInfo(_) => "get_exec_info_v1",
             StarknetConcreteLibfunc::GetExecutionInfoV2(_) => "get_exec_info_v2",
             StarknetConcreteLibfunc::Deploy(_) => "deploy",
+            StarknetConcreteLibfunc::DeployV2(_) => "deploy_v2",
             StarknetConcreteLibfunc::Keccak(_) => "keccak",
             StarknetConcreteLibfunc::LibraryCall(_) => "library_call",
             StarknetConcreteLibfunc::ReplaceClass(_) => "replace_class",

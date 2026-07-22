@@ -34,24 +34,27 @@ ark-secp256k1 = "0.5.0"
 ark-secp256r1 = "0.5.0"
 bincode = "2.0.1"
 bumpalo = "3.16.0"
-cairo-lang-casm = "~2.19.0-rc.3"
-cairo-lang-compiler = "~2.19.0-rc.3"
-cairo-lang-defs = "~2.19.0-rc.3"
-cairo-lang-filesystem = "~2.19.0-rc.3"
-cairo-lang-lowering = "~2.19.0-rc.3"
-cairo-lang-runner = "~2.19.0-rc.3"
-cairo-lang-semantic = "~2.19.0-rc.3"
-cairo-lang-sierra = "~2.19.0-rc.3"
-cairo-lang-sierra-ap-change = "~2.19.0-rc.3"
-cairo-lang-sierra-gas = "~2.19.0-rc.3"
-cairo-lang-sierra-generator = "~2.19.0-rc.3"
-cairo-lang-sierra-to-casm = "~2.19.0-rc.3"
-cairo-lang-sierra-type-size = "~2.19.0-rc.3"
-cairo-lang-starknet = "~2.19.0-rc.3"
-cairo-lang-starknet-classes = "~2.19.0-rc.3"
-cairo-lang-test-plugin = "~2.19.0-rc.3"
-cairo-lang-test-runner = "~2.19.0-rc.3"
-cairo-lang-utils = "~2.19.0-rc.3"
+# NOTE(deploy_v2): bumped from "~2.19.0-rc.3" to the release carrying the `DeployV2` Sierra libfunc
+# variant. That release is not yet published, so the `[patch.crates-io]` block at the bottom of this
+# file redirects these to the local cairo checkout during development (see the note there).
+cairo-lang-casm = "2.19.3"
+cairo-lang-compiler = "2.19.3"
+cairo-lang-defs = "2.19.3"
+cairo-lang-filesystem = "2.19.3"
+cairo-lang-lowering = "2.19.3"
+cairo-lang-runner = "2.19.3"
+cairo-lang-semantic = "2.19.3"
+cairo-lang-sierra = "2.19.3"
+cairo-lang-sierra-ap-change = "2.19.3"
+cairo-lang-sierra-gas = "2.19.3"
+cairo-lang-sierra-generator = "2.19.3"
+cairo-lang-sierra-to-casm = "2.19.3"
+cairo-lang-sierra-type-size = "2.19.3"
+cairo-lang-starknet = "2.19.3"
+cairo-lang-starknet-classes = "2.19.3"
+cairo-lang-test-plugin = "2.19.3"
+cairo-lang-test-runner = "2.19.3"
+cairo-lang-utils = "2.19.3"
 cairo-native-bin-utils.path = "binaries/cairo-native-bin-utils"
 cairo-native = { path = ".", version = "0.9.0-rc.7" }
 cairo-starknet-syscalls = { path = "cairo-starknet-syscalls", version = "0.9.0-rc.7" }
@@ -252,3 +255,28 @@ required-features = [ "testing" ]
 [[example]]
 name = "easy_api"
 required-features = [ "testing" ]
+
+# --- TEMPORARY dev override (deploy_v2) ---
+# The `deploy_v2` syscall needs the `DeployV2` Sierra libfunc variant, which is not yet in a
+# published cairo-lang-* release. Until one is, build against the cairo `deploy_v2` compiler branch
+# (https://github.com/starkware-libs/cairo/pull/10214). Remove this block once a release carries the
+# variant — the version pins above already target it.
+[patch.crates-io]
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-compiler = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-defs = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-filesystem = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-lowering = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-semantic = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra-ap-change = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra-gas = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra-generator = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra-to-casm = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-sierra-type-size = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-starknet-classes = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-test-plugin = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-test-runner = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
+cairo-lang-utils = { git = "https://github.com/starkware-libs/cairo", branch = "ron/deploy-v2/compiler" }
