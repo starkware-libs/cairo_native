@@ -86,25 +86,14 @@ jobs:
   unused-deps:
     name: No unused dependencies
     runs-on: ubuntu-24.04
-    env:
-      MLIR_SYS_190_PREFIX: /usr/lib/llvm-19/
-      LLVM_SYS_191_PREFIX: /usr/lib/llvm-19/
-      TABLEGEN_190_PREFIX: /usr/lib/llvm-19/
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
           components: rustfmt
-
-      - name: add llvm deb repository
-        uses: myci-actions/add-deb-repo@11
-        with:
-          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
-          repo-name: llvm-repo
-          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
-      - name: Install LLVM
-        run: sudo apt-get install llvm-19 llvm-19-dev llvm-19-runtime clang-19 clang-tools-19 lld-19 libpolly-19-dev libmlir-19-dev mlir-19-tools
+      # cargo-machete only parses Cargo manifests/sources, so it needs neither
+      # LLVM nor a compiled workspace.
       - name: Machete
         uses: bnjbvr/cargo-machete@main
 
@@ -153,7 +142,7 @@ jobs:
           repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
           repo-name: llvm-repo
           keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
-      - run: sudo apt-get update && sudo apt-get upgrade -y
+      - run: sudo apt-get update
       - name: Install LLVM
         run: sudo apt-get install llvm-19 llvm-19-dev llvm-19-runtime clang-19 clang-tools-19 lld-19 libpolly-19-dev libmlir-19-dev mlir-19-tools
       - name: Install deps
@@ -187,6 +176,8 @@ jobs:
           components: clippy
       - name: Rust `$PATH` workaround.
         run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Retreive cached dependecies
+        uses: Swatinem/rust-cache@v2
       - uses: Homebrew/actions/setup-homebrew@master
       - name: Install deps
         run: make deps
@@ -221,8 +212,38 @@ jobs:
           sudo rm -rf /usr/share/dotnet/
           sudo rm -rf /usr/local/lib/android
           df -h
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@v4
+        id: docker-build-cache
+        with:
+          path: |
+            cargo-registry-cache
+            cargo-git-cache
+            target-cache
+          key: docker-build-cache-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            docker-build-cache-
+      # Inject the cached dirs into the BuildKit cache mounts used by the
+      # Dockerfile (and extract them back out afterwards for actions/cache to
+      # persist). Without this the cache mounts start empty on every ephemeral
+      # runner and the full release build re-runs from scratch.
+      - name: Inject build cache into Docker
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        with:
+          cache-map: |
+            {
+              "cargo-registry-cache": "/root/.cargo/registry",
+              "cargo-git-cache": "/root/.cargo/git",
+              "target-cache": "/cairo_native/target"
+            }
+          skip-extraction: ${{ steps.docker-build-cache.outputs.cache-hit }}
       - name: build image
-        run: docker build .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
 
   build-sierra-emu:
     name: Build sierra-emu

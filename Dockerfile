@@ -33,5 +33,15 @@ WORKDIR /cairo_native/
 ENV MLIR_SYS_190_PREFIX=/usr/lib/llvm-19
 ENV LLVM_SYS_191_PREFIX=/usr/lib/llvm-19
 ENV TABLEGEN_190_PREFIX=/usr/lib/llvm-19
-RUN make deps
-RUN make build
+# The cargo registry/git and target dirs are mounted as BuildKit caches so the
+# (slow, release-LTO) Rust build is incremental across CI runs. They are cache
+# mounts rather than image layers: the contents are not part of the final image,
+# which only needs to prove the build succeeds.
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/cairo_native/target \
+    make deps
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/cairo_native/target \
+    make build
