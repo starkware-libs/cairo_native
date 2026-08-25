@@ -426,11 +426,23 @@ fn build_eval<'ctx, 'this>(
             registry.build_type(context, helper, metadata, partial_type_id)?,
             location,
         ))?;
+
+        // Same nullifier as the VM hint: `modulus / gcd(input, modulus)`.
+        let gcd = err_block.arg(1)?;
+        let nullifier = err_block.append_op_result(arith::divui(circuit_modulus, gcd, location))?;
+        let nullifier_struct = u384_integer_to_struct(context, err_block, location, nullifier)?;
+        let modulus_struct = u384_integer_to_struct(context, err_block, location, circuit_modulus)?;
         let failure_type_id = &info.branch_signatures()[1].vars[3].ty;
-        let failure = err_block.append_op_result(llvm::undef(
-            registry.build_type(context, helper, metadata, failure_type_id)?,
+        let failure = build_struct_value(
+            context,
+            registry,
+            err_block,
             location,
-        ))?;
+            helper,
+            metadata,
+            failure_type_id,
+            &[nullifier_struct, modulus_struct],
+        )?;
         helper.br(
             err_block,
             1,
@@ -448,6 +460,7 @@ fn build_eval<'ctx, 'this>(
 /// - The success block receives nothing.
 /// - The error block receives:
 ///   - The index of the first gate that could not be computed.
+///   - The gcd of the failing inverse gate's input and the modulus.
 ///
 /// The evaluated gates are returned separately, as a vector of `MLIR` values.
 /// Note that in the case of error, not all MLIR values are guaranteed to have been computed,
@@ -498,10 +511,10 @@ fn build_gate_evaluation<'ctx, 'this>(
         gates[i + 1] = Some(block.load(context, location, value_ptr, u384_type)?);
     }
 
-    let err_block = helper.append_block(Block::new(&[(
-        IntegerType::new(context, 64).into(),
-        location,
-    )]));
+    let err_block = helper.append_block(Block::new(&[
+        (IntegerType::new(context, 64).into(), location),
+        (IntegerType::new(context, 384).into(), location),
+    ]));
     let ok_block = helper.append_block(Block::new(&[]));
 
     let mut add_offsets = circuit_info.add_offsets.iter().peekable();
@@ -607,7 +620,7 @@ fn build_gate_evaluation<'ctx, 'this>(
                         has_inverse_block,
                         err_block,
                         &[],
-                        &[gate_offset_idx_value],
+                        &[gate_offset_idx_value, gcd],
                         location,
                     ));
                     block = has_inverse_block;
@@ -637,7 +650,6 @@ fn build_gate_evaluation<'ctx, 'this>(
 }
 
 /// Generate MLIR operations for the `circuit_failure_guarantee_verify` libfunc.
-/// NOOP
 #[allow(clippy::too_many_arguments)]
 fn build_failure_guarantee_verify<'ctx, 'this>(
     context: &'ctx Context,
@@ -650,15 +662,28 @@ fn build_failure_guarantee_verify<'ctx, 'this>(
 ) -> Result<()> {
     let rc = entry.arg(0)?;
     let mul_mod = entry.arg(1)?;
+    let failure_guarantee = entry.arg(2)?;
     let rc = increment_builtin_counter_by(context, entry, location, rc, 2 + VALUE_SIZE)?;
 
     let mul_mod =
         increment_builtin_counter_by(context, entry, location, mul_mod, MOD_BUILTIN_INSTANCE_SIZE)?;
 
-    let guarantee_type_id = &info.branch_signatures()[0].vars[2].ty;
-    let guarantee_type = registry.build_type(context, helper, metadata, guarantee_type_id)?;
+    let u384_struct_type = build_u384_struct_type(context);
+    let nullifier =
+        entry.extract_value(context, location, failure_guarantee, u384_struct_type, 0)?;
+    let modulus = entry.extract_value(context, location, failure_guarantee, u384_struct_type, 1)?;
 
-    let guarantee = entry.append_op_result(llvm::undef(guarantee_type, location))?;
+    let guarantee_type_id = &info.branch_signatures()[0].vars[2].ty;
+    let guarantee = build_struct_value(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        guarantee_type_id,
+        &[nullifier, modulus],
+    )?;
 
     helper.br(entry, 0, &[rc, mul_mod, guarantee], location)
 }
