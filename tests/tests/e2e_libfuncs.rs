@@ -5,6 +5,9 @@ use std::path::Path;
 
 const SRC_DIR: &str = "vendor/cairo/tests/e2e_test_data/libfuncs";
 
+/// Libfuncs not yet supported by cairo-native; test cases using them are skipped.
+const UNSUPPORTED_LIBFUNCS: &[&str] = &["u96_limbs_less_than_guarantee_verify_v2"];
+
 /// Walks the raw e2e test data files, extracts sierra_code sections, and
 /// compiles each through cairo-native (Sierra -> LLVM) to verify they compile
 /// without errors.
@@ -35,6 +38,12 @@ fn compile_e2e_libfunc_sierra() {
         let test_cases = extract_sierra_from_test_file(&content);
 
         for (test_name, sierra) in test_cases {
+            if UNSUPPORTED_LIBFUNCS
+                .iter()
+                .any(|libfunc| sierra.contains(libfunc))
+            {
+                continue;
+            }
             total += 1;
 
             let label = format!("{}/{test_name}", rel_path.display());

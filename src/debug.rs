@@ -409,6 +409,9 @@ pub const fn libfunc_to_name(value: &CoreConcreteLibfunc) -> &'static str {
             CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerify(_) => {
                 "circuit_u96_limbs_less_than_guarantee_verify"
             }
+            CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(_) => {
+                "circuit_u96_limbs_less_than_guarantee_verify_v2"
+            }
             CircuitConcreteLibfunc::U96SingleLimbLessThanGuaranteeVerify(_) => {
                 "circuit_u96_single_limb_less_than_guarantee_verify"
             }
