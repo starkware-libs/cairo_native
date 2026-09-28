@@ -1,7 +1,8 @@
 use core::circuit::{
     CircuitData, CircuitElement, CircuitInput, circuit_add, circuit_sub, circuit_mul, circuit_inverse,
     EvalCircuitResult, EvalCircuitTrait, u384, CircuitOutputsTrait, CircuitModulus, into_u96_guarantee, U96Guarantee,
-    CircuitInputs, AddInputResultTrait, AddInputResult, IntoCircuitInputValue, add_circuit_input
+    CircuitInputs, AddInputResultTrait, AddInputResult, IntoCircuitInputValue, add_circuit_input,
+    CircuitOutputs, U96LimbsLtGuarantee, u96, RangeCheck96,
 };
 
 #[feature("bounded-int-utils")]
@@ -180,4 +181,48 @@ fn test_into_u96_guarantee() -> (U96Guarantee, U96Guarantee, U96Guarantee) {
         into_u96_guarantee::<BoundedInt<100, 1000>>(123),
         into_u96_guarantee::<u8>(123),
     )
+}
+
+extern fn get_circuit_output<C, Output>(
+    outputs: CircuitOutputs<C>,
+) -> (u384, U96LimbsLtGuarantee<4>) nopanic;
+
+fn get_output_and_guarantee<C, Output>(
+    outputs: CircuitOutputs<C>, _output: CircuitElement<Output>,
+) -> (u384, U96LimbsLtGuarantee<4>) {
+    get_circuit_output::<C, Output>(outputs)
+}
+
+/// Evaluates `5 + 9` modulo `modulus`, returning the output and its less-than-modulus guarantee.
+fn eval_add_with_guarantee(modulus: [u96; 4]) -> (u384, U96LimbsLtGuarantee<4>) {
+    let in1 = CircuitElement::<CircuitInput<0>> {};
+    let in2 = CircuitElement::<CircuitInput<1>> {};
+    let add = circuit_add(in1, in2);
+
+    let modulus = TryInto::<_, CircuitModulus>::try_into(modulus).unwrap();
+    let outputs = (add,)
+        .new_inputs()
+        .next([5, 0, 0, 0])
+        .next([9, 0, 0, 0])
+        .done()
+        .eval(modulus)
+        .unwrap();
+
+    get_output_and_guarantee(outputs, add)
+}
+
+extern fn u96_limbs_less_than_guarantee_verify_v2<const LIMB_COUNT: usize>(
+    guarantee: U96LimbsLtGuarantee<LIMB_COUNT>,
+) implicits(RangeCheck96) nopanic;
+
+fn test_guarantee_v2_last_limb() -> u384 {
+    let (output, guarantee) = eval_add_with_guarantee([7, 0, 0, 1]);
+    u96_limbs_less_than_guarantee_verify_v2(guarantee);
+    output
+}
+
+fn test_guarantee_v2_first_limb() -> u384 {
+    let (output, guarantee) = eval_add_with_guarantee([7, 0, 0, 0]);
+    u96_limbs_less_than_guarantee_verify_v2(guarantee);
+    output
 }

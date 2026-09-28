@@ -111,8 +111,8 @@ pub fn eval(
         CircuitConcreteLibfunc::U96SingleLimbLessThanGuaranteeVerify(info) => {
             eval_u96_single_limb_less_than_guarantee_verify(registry, info, args)
         }
-        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(_) => {
-            todo!("u96_limbs_less_than_guarantee_verify_v2")
+        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(info) => {
+            eval_u96_limbs_less_than_guarantee_verify_v2(registry, info, args)
         }
     }
 }
@@ -313,6 +313,18 @@ fn eval_u96_limbs_less_than_guarantee_verify(
 
         EvalAction::NormalBranch(0, smallvec![Value::Struct(vec![new_gate, new_modulus])])
     }
+}
+
+fn eval_u96_limbs_less_than_guarantee_verify_v2(
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _info: &ConcreteU96LimbsLessThanGuaranteeVerifyLibfunc,
+    args: Vec<Value>,
+) -> EvalAction {
+    let [range_check_96 @ Value::Unit, _]: [Value; 2] = args.try_into().unwrap() else {
+        panic!();
+    };
+
+    EvalAction::NormalBranch(0, smallvec![range_check_96])
 }
 
 fn eval_u96_single_limb_less_than_guarantee_verify(
