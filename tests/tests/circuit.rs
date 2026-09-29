@@ -4,6 +4,7 @@ use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::testing::load_program_and_runner;
 use cairo_native::Value;
 use starknet_types_core::felt::Felt;
+use test_case::test_case;
 
 #[test]
 fn test_circuit_guarantee_first_limb() {
@@ -517,6 +518,36 @@ fn test_circuit_add_ec_point_unchecked() {
             .find_function("add_ec_point_unchecked")
             .unwrap()
             .id,
+        &result_vm,
+        &result_native,
+    )
+    .unwrap();
+}
+
+#[test_case("test_guarantee_v2_last_limb")]
+#[test_case("test_guarantee_v2_first_limb")]
+fn test_circuit_guarantee_verify_v2(entry_point: &str) {
+    let program = &load_program_and_runner("programs/circuit");
+
+    let result_vm =
+        run_vm_program(program, entry_point, vec![], Some(DEFAULT_GAS as usize)).unwrap();
+
+    let result_native = run_native_program(
+        program,
+        entry_point,
+        &[],
+        Some(DEFAULT_GAS),
+        Option::<DummySyscallHandler>::None,
+    );
+
+    assert!(matches!(
+        result_native.return_value,
+        Value::Enum { tag: 0, .. }
+    ));
+
+    compare_outputs(
+        &program.1,
+        &program.2.find_function(entry_point).unwrap().id,
         &result_vm,
         &result_native,
     )
