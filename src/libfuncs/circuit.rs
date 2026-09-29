@@ -88,8 +88,10 @@ pub fn build<'ctx, 'this>(
                 context, registry, entry, location, helper, metadata, info,
             )
         }
-        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(_) => {
-            todo!("u96_limbs_less_than_guarantee_verify_v2")
+        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(info) => {
+            build_u96_limbs_less_than_guarantee_verify_v2(
+                context, registry, entry, location, helper, metadata, info,
+            )
         }
     }
 }
@@ -751,6 +753,31 @@ fn build_u96_limbs_less_than_guarantee_verify<'ctx, 'this>(
     }
 
     Ok(())
+}
+
+/// Generate MLIR operations for the `u96_limbs_less_than_guarantee_verify_v2` libfunc.
+#[allow(clippy::too_many_arguments)]
+fn build_u96_limbs_less_than_guarantee_verify_v2<'ctx, 'this>(
+    context: &'ctx Context,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    _metadata: &mut MetadataStorage,
+    _info: &ConcreteU96LimbsLessThanGuaranteeVerifyLibfunc,
+) -> Result<()> {
+    // The guarantee is consumed at once. Only the first differing limb is range checked, so we
+    // increase the range_check96 builtin by 1 usage.
+    // https://github.com/starkware-libs/cairo/blob/v2.19.6/crates/cairo-lang-sierra-to-casm/src/invocations/circuit.rs?plain=1#L553
+    let range_check96 = increment_builtin_counter_by(
+        context,
+        entry,
+        location,
+        entry.arg(0)?,
+        RANGE_CHECK96_BUILTIN_SIZE,
+    )?;
+
+    helper.br(entry, 0, &[range_check96], location)
 }
 
 fn build_u96_single_limb_less_than_guarantee_verify<'ctx, 'this>(
