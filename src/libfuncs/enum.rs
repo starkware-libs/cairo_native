@@ -426,13 +426,17 @@ pub fn build_snapshot_match<'ctx, 'this>(
 ) -> Result<()> {
     let type_info = registry.get_type(&info.param_signatures()[0].ty)?;
 
-    // This libfunc's implementation is identical to `enum_match` aside from fetching the snapshotted enum's variants from the metadata:
-    let variant_ids = metadata
-        .get::<EnumSnapshotVariantsMeta>()
-        .ok_or(Error::MissingMetadata)?
-        .get_variants(&info.param_signatures()[0].ty)
-        .to_native_assert_error("enum should always have variants")?
-        .clone();
+    // This libfunc's implementation is identical to `enum_match` aside from fetching the snapshotted enum's variants from the metadata.
+    // The snapshot of a duplicatable enum (such as `never`) is the enum itself, so its variants are available directly.
+    let variant_ids = match type_info.variants() {
+        Some(variants) => variants.to_vec(),
+        None => metadata
+            .get::<EnumSnapshotVariantsMeta>()
+            .ok_or(Error::MissingMetadata)?
+            .get_variants(&info.param_signatures()[0].ty)
+            .to_native_assert_error("enum should always have variants")?
+            .clone(),
+    };
     match variant_ids.len() {
         0 => {
             // The Cairo compiler will generate an enum match for enums without variants, so this

@@ -88,6 +88,9 @@ pub fn build<'ctx, 'this>(
                 context, registry, entry, location, helper, metadata, info,
             )
         }
+        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(_) => {
+            todo!("u96_limbs_less_than_guarantee_verify_v2")
+        }
     }
 }
 

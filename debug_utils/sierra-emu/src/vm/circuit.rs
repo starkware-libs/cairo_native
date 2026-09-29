@@ -111,6 +111,9 @@ pub fn eval(
         CircuitConcreteLibfunc::U96SingleLimbLessThanGuaranteeVerify(info) => {
             eval_u96_single_limb_less_than_guarantee_verify(registry, info, args)
         }
+        CircuitConcreteLibfunc::U96LimbsLessThanGuaranteeVerifyV2(_) => {
+            todo!("u96_limbs_less_than_guarantee_verify_v2")
+        }
     }
 }
 
