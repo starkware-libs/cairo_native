@@ -109,9 +109,14 @@ pub fn build_squash<'ctx, 'this>(
         .to_native_assert_error("runtime library should be available")?;
 
     let range_check_ptr =
-        entry.alloca1(context, location, IntegerType::new(context, 64).into(), 0)?;
+        helper
+            .init_block()
+            .alloca1(context, location, IntegerType::new(context, 64).into(), 0)?;
     entry.store(context, location, range_check_ptr, range_check)?;
-    let gas_ptr = entry.alloca1(context, location, IntegerType::new(context, 64).into(), 0)?;
+    let gas_ptr =
+        helper
+            .init_block()
+            .alloca1(context, location, IntegerType::new(context, 64).into(), 0)?;
     entry.store(context, location, gas_ptr, gas)?;
 
     runtime_bindings.dict_squash(
