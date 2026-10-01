@@ -74,7 +74,7 @@ use cairo_lang_sierra::{
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
 use melior::{
     helpers::LlvmBlockExt,
-    ir::{BlockRef, Location, Module, Value, ValueLike},
+    ir::{Block, BlockRef, Location, Module, Value, ValueLike},
     Context,
 };
 
@@ -88,6 +88,7 @@ pub fn build_state_snapshot(
     context: &Context,
     registry: &ProgramRegistry<CoreType, CoreLibfunc>,
     module: &Module,
+    init_block: &Block,
     block: &BlockRef,
     location: Location,
     metadata: &mut MetadataStorage,
@@ -103,7 +104,9 @@ pub fn build_state_snapshot(
 
         let layout = value_type.layout(registry).unwrap();
 
-        let value_ptr = block
+        // Allocas must live in the init block so that they are not executed on every loop
+        // iteration, which would grow the stack unboundedly.
+        let value_ptr = init_block
             .alloca1(context, location, value.r#type(), layout.align())
             .unwrap();
         block.store(context, location, value_ptr, *value).unwrap();

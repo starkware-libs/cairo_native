@@ -78,7 +78,10 @@ pub fn build_into_entries<'ctx, 'this>(
         &info.branch_signatures()[0].vars[0].ty,
     )?;
     // Alloc the necessary memory
-    let array_ptr = entry.alloca1(context, location, array_ty, array_layout.align())?;
+    let array_ptr =
+        helper
+            .init_block()
+            .alloca1(context, location, array_ty, array_layout.align())?;
 
     // Runtime function that creates the array with its content
     metadata

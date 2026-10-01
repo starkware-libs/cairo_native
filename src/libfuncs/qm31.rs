@@ -433,8 +433,14 @@ pub fn build_binary_op<'ctx, 'this>(
     let lhs = entry.arg(0)?;
     let rhs = entry.arg(1)?;
 
-    let lhs_ptr = entry.alloca1(context, location, qm31_ty, get_integer_layout(31).align())?;
-    let rhs_ptr = entry.alloca1(context, location, qm31_ty, get_integer_layout(31).align())?;
+    let lhs_ptr =
+        helper
+            .init_block()
+            .alloca1(context, location, qm31_ty, get_integer_layout(31).align())?;
+    let rhs_ptr =
+        helper
+            .init_block()
+            .alloca1(context, location, qm31_ty, get_integer_layout(31).align())?;
 
     entry.store(context, location, lhs_ptr, lhs)?;
     entry.store(context, location, rhs_ptr, rhs)?;

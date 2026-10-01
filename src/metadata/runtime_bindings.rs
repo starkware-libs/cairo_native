@@ -730,7 +730,7 @@ impl RuntimeBindingsMeta {
     pub fn libfunc_qm31_bin_op<'c, 'a>(
         &mut self,
         context: &'c Context,
-        module: &Module,
+        helper: &LibfuncHelper<'c, 'a>,
         block: &'a Block<'c>,
         lhs_ptr: Value<'c, '_>,
         rhs_ptr: Value<'c, '_>,
@@ -741,20 +741,25 @@ impl RuntimeBindingsMeta {
         'c: 'a,
     {
         let qm31_ty = llvm::r#type::array(IntegerType::new(context, 31).into(), 4);
-        let res_ptr = block.alloca1(context, location, qm31_ty, get_integer_layout(31).align())?;
+        let res_ptr = helper.init_block().alloca1(
+            context,
+            location,
+            qm31_ty,
+            get_integer_layout(31).align(),
+        )?;
 
         let function = match op {
             QM31BinaryOperator::Add => {
-                self.build_function(context, module, block, location, RuntimeBinding::QM31Add)?
+                self.build_function(context, helper, block, location, RuntimeBinding::QM31Add)?
             }
             QM31BinaryOperator::Sub => {
-                self.build_function(context, module, block, location, RuntimeBinding::QM31Sub)?
+                self.build_function(context, helper, block, location, RuntimeBinding::QM31Sub)?
             }
             QM31BinaryOperator::Mul => {
-                self.build_function(context, module, block, location, RuntimeBinding::QM31Mul)?
+                self.build_function(context, helper, block, location, RuntimeBinding::QM31Mul)?
             }
             QM31BinaryOperator::Div => {
-                self.build_function(context, module, block, location, RuntimeBinding::QM31Div)?
+                self.build_function(context, helper, block, location, RuntimeBinding::QM31Div)?
             }
         };
 
