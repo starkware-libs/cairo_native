@@ -1,4 +1,6 @@
-use crate::common::{any_felt, compare_outputs, run_native_program, run_vm_program, DEFAULT_GAS};
+use crate::common::{
+    any_felt, compare_outputs, load_cairo, run_native_program, run_vm_program, DEFAULT_GAS,
+};
 use cairo_lang_runner::Arg;
 use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::felt252_str;
@@ -274,6 +276,75 @@ proptest! {
 #[test]
 fn self_referencing_struct() {
     let program = load_program_and_runner("programs/self_referencing");
+    let result_vm =
+        run_vm_program(&program, "run_test", vec![], Some(DEFAULT_GAS as usize)).unwrap();
+    let result_native = run_native_program(
+        &program,
+        "run_test",
+        &[],
+        Some(DEFAULT_GAS),
+        Option::<DummySyscallHandler>::None,
+    );
+
+    compare_outputs(
+        &program.1,
+        &program.2.find_function("run_test").unwrap().id,
+        &result_vm,
+        &result_native,
+    )
+    .unwrap();
+}
+
+#[test]
+fn recursive_types() {
+    // Types that contain themselves through a pointer must not make type building recurse.
+    let program = load_cairo! {
+        use core::nullable::{match_nullable, FromNullableResult, NullableTrait};
+
+        #[derive(Drop)]
+        struct BoxRec {
+            rec: Box<BoxRec>,
+        }
+
+        #[derive(Drop)]
+        struct NullableRec {
+            rec: Nullable<NullableRec>,
+        }
+
+        #[derive(Drop, Clone)]
+        struct ArrayRec {
+            rec: Array<ArrayRec>,
+        }
+
+        #[inline(never)]
+        fn is_null(value: Nullable<BoxRec>) -> bool {
+            value.is_null()
+        }
+
+        fn depth(value: Nullable<NullableRec>) -> u32 {
+            match match_nullable(value) {
+                FromNullableResult::Null => 0,
+                FromNullableResult::NotNull(inner) => 1 + depth(inner.unbox().rec),
+            }
+        }
+
+        fn run_test() -> (bool, u32, u32) {
+            let box_rec = is_null(Default::default());
+
+            let nullable_rec = NullableRec {
+                rec: NullableTrait::new(NullableRec { rec: Default::default() }),
+            };
+            let nullable_depth = depth(NullableTrait::new(nullable_rec));
+
+            let array_rec = ArrayRec {
+                rec: array![ArrayRec { rec: array![] }, ArrayRec { rec: array![] }],
+            };
+            let array_len = array_rec.rec.len();
+
+            (box_rec, nullable_depth, array_len)
+        }
+    };
+
     let result_vm =
         run_vm_program(&program, "run_test", vec![], Some(DEFAULT_GAS as usize)).unwrap();
     let result_native = run_native_program(

@@ -6,7 +6,7 @@
 //! `Box<T>` we can reuse its pointer, just leaving it null when there's no value.
 
 use super::WithSelf;
-use crate::{error::Result, metadata::MetadataStorage, utils::ProgramRegistryExt};
+use crate::{error::Result, metadata::MetadataStorage};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -25,14 +25,11 @@ use melior::{
 /// Check out [the module](self) for more info.
 pub fn build<'ctx>(
     context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: WithSelf<InfoAndTypeConcreteType>,
+    _module: &Module<'ctx>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _metadata: &mut MetadataStorage,
+    _info: WithSelf<InfoAndTypeConcreteType>,
 ) -> Result<Type<'ctx>> {
-    // Ensure the inner type is built.
-    registry.build_type(context, module, metadata, &info.ty)?;
-
     // A nullable is represented by a pointer (equivalent to a box). A null value means no value.
     Ok(llvm::r#type::pointer(context, 0))
 }

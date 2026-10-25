@@ -13,7 +13,7 @@
 //! ```
 
 use super::WithSelf;
-use crate::{error::Result, metadata::MetadataStorage, utils::ProgramRegistryExt};
+use crate::{error::Result, metadata::MetadataStorage};
 use cairo_lang_sierra::{
     extensions::{
         core::{CoreLibfunc, CoreType},
@@ -32,13 +32,10 @@ use melior::{
 /// Check out [the module](self) for more info.
 pub fn build<'ctx>(
     context: &'ctx Context,
-    module: &Module<'ctx>,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    metadata: &mut MetadataStorage,
-    info: WithSelf<InfoAndTypeConcreteType>,
+    _module: &Module<'ctx>,
+    _registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    _metadata: &mut MetadataStorage,
+    _info: WithSelf<InfoAndTypeConcreteType>,
 ) -> Result<Type<'ctx>> {
-    // Ensure the inner type is built.
-    registry.build_type(context, module, metadata, &info.ty)?;
-
     Ok(llvm::r#type::pointer(context, 0))
 }
