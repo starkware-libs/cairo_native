@@ -28,7 +28,7 @@ jobs:
             os: ubuntu-24.04
             dep_base_dir: /usr/lib/llvm-19
           - target: x86_64-apple-darwin
-            os: macos-14
+            os: macos-15
             dep_base_dir: /opt/homebrew/opt/llvm@19
     runs-on: ${{ matrix.os }}
     steps:
