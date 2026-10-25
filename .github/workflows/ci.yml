@@ -165,7 +165,7 @@ jobs:
 
   test_macos:
     name: Test (macOS, Apple silicon)
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       CARGO_TERM_COLOR: always
       LIBRARY_PATH: /opt/homebrew/lib

@@ -137,7 +137,8 @@ endif
 
 .PHONY: deps-macos
 deps-macos: build-cairo-2-compiler-macos install-scarb-macos
-	-brew install llvm@19 --quiet
+	brew install llvm@19 --quiet
+	@test -x /opt/homebrew/opt/llvm@19/bin/llvm-config || { echo "llvm-config not found at /opt/homebrew/opt/llvm@19/bin/llvm-config"; exit 1; }
 	@echo "You can execute the env-macos.sh script to setup the needed env variables."
 
 # CI use only
