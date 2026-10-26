@@ -99,347 +99,351 @@
 <a href=#99 id=99 data-nosnippet>99</a>    }
 <a href=#100 id=100 data-nosnippet>100</a>}
 <a href=#101 id=101 data-nosnippet>101</a>
-<a href=#102 id=102 data-nosnippet>102</a><span class="doccomment">/// Converts a MLIR module to a compile object, that can be linked with a linker.
-<a href=#103 id=103 data-nosnippet>103</a></span><span class="kw">pub fn </span>module_to_object(
-<a href=#104 id=104 data-nosnippet>104</a>    module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#105 id=105 data-nosnippet>105</a>    opt_level: OptLevel,
-<a href=#106 id=106 data-nosnippet>106</a>    stats: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Statistics&gt;,
-<a href=#107 id=107 data-nosnippet>107</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">static </span>INITIALIZED: OnceLock&lt;()&gt; = OnceLock::new();
-<a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>    INITIALIZED.get_or_init(|| <span class="kw">unsafe </span>{
-<a href=#111 id=111 data-nosnippet>111</a>        LLVM_InitializeAllTargets();
-<a href=#112 id=112 data-nosnippet>112</a>        LLVM_InitializeAllTargetInfos();
-<a href=#113 id=113 data-nosnippet>113</a>        LLVM_InitializeAllTargetMCs();
-<a href=#114 id=114 data-nosnippet>114</a>        LLVM_InitializeAllAsmPrinters();
-<a href=#115 id=115 data-nosnippet>115</a>        LLVM_InitializeAllAsmParsers();
-<a href=#116 id=116 data-nosnippet>116</a>    });
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">unsafe </span>{
-<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">let </span>llvm_context = LLVMContextCreate();
-<a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">let </span>op = module.as_operation().to_raw();
-<a href=#122 id=122 data-nosnippet>122</a>
-<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">let </span>pre_mlir_to_llvm_instant = Instant::now();
-<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>llvm_module = mlirTranslateModuleToLLVMIR(op, llvm_context <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>;
-<a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">let </span>mlir_to_llvm_time = pre_mlir_to_llvm_instant.elapsed().as_millis();
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
-<a href=#127 id=127 data-nosnippet>127</a>            stats.compilation_mlir_to_llvm_time_ms = <span class="prelude-val">Some</span>(mlir_to_llvm_time);
-<a href=#128 id=128 data-nosnippet>128</a>        }
-<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#102 id=102 data-nosnippet>102</a><span class="doccomment">/// Initializes every LLVM target, exactly once per process.
+<a href=#103 id=103 data-nosnippet>103</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_llvm_targets() {
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">static </span>INITIALIZED: OnceLock&lt;()&gt; = OnceLock::new();
+<a href=#105 id=105 data-nosnippet>105</a>    INITIALIZED.get_or_init(|| <span class="kw">unsafe </span>{
+<a href=#106 id=106 data-nosnippet>106</a>        LLVM_InitializeAllTargets();
+<a href=#107 id=107 data-nosnippet>107</a>        LLVM_InitializeAllTargetInfos();
+<a href=#108 id=108 data-nosnippet>108</a>        LLVM_InitializeAllTargetMCs();
+<a href=#109 id=109 data-nosnippet>109</a>        LLVM_InitializeAllAsmPrinters();
+<a href=#110 id=110 data-nosnippet>110</a>        LLVM_InitializeAllAsmParsers();
+<a href=#111 id=111 data-nosnippet>111</a>    });
+<a href=#112 id=112 data-nosnippet>112</a>}
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a><span class="doccomment">/// Converts a MLIR module to a compile object, that can be linked with a linker.
+<a href=#115 id=115 data-nosnippet>115</a></span><span class="kw">pub fn </span>module_to_object(
+<a href=#116 id=116 data-nosnippet>116</a>    module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#117 id=117 data-nosnippet>117</a>    opt_level: OptLevel,
+<a href=#118 id=118 data-nosnippet>118</a>    stats: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Statistics&gt;,
+<a href=#119 id=119 data-nosnippet>119</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>    initialize_llvm_targets();
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="kw">unsafe </span>{
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">let </span>llvm_context = LLVMContextCreate();
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">let </span>op = module.as_operation().to_raw();
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span>pre_mlir_to_llvm_instant = Instant::now();
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">let </span>llvm_module = mlirTranslateModuleToLLVMIR(op, llvm_context <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>;
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>mlir_to_llvm_time = pre_mlir_to_llvm_instant.elapsed().as_millis();
 <a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
-<a href=#131 id=131 data-nosnippet>131</a>            <span class="kw">let </span><span class="kw-2">mut </span>llvmir_instruction_count = <span class="number">0</span>;
-<a href=#132 id=132 data-nosnippet>132</a>            <span class="kw">let </span><span class="kw-2">mut </span>llvmir_virtual_register_count = <span class="number">0</span>;
+<a href=#131 id=131 data-nosnippet>131</a>            stats.compilation_mlir_to_llvm_time_ms = <span class="prelude-val">Some</span>(mlir_to_llvm_time);
+<a href=#132 id=132 data-nosnippet>132</a>        }
 <a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>            walk_llvm_instructions(llvm_module, |instruction| {
-<a href=#135 id=135 data-nosnippet>135</a>                <span class="comment">// Increase total instruction count.
-<a href=#136 id=136 data-nosnippet>136</a>                </span>llvmir_instruction_count += <span class="number">1</span>;
+<a href=#134 id=134 data-nosnippet>134</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
+<a href=#135 id=135 data-nosnippet>135</a>            <span class="kw">let </span><span class="kw-2">mut </span>llvmir_instruction_count = <span class="number">0</span>;
+<a href=#136 id=136 data-nosnippet>136</a>            <span class="kw">let </span><span class="kw-2">mut </span>llvmir_virtual_register_count = <span class="number">0</span>;
 <a href=#137 id=137 data-nosnippet>137</a>
-<a href=#138 id=138 data-nosnippet>138</a>                <span class="comment">// Debug string looks like "LLVM{OP}".
-<a href=#139 id=139 data-nosnippet>139</a>                </span><span class="kw">let </span>full_opcode = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, LLVMGetInstructionOpcode(instruction));
-<a href=#140 id=140 data-nosnippet>140</a>                <span class="comment">// Strip leading "LLVM".
-<a href=#141 id=141 data-nosnippet>141</a>                </span><span class="kw">let </span>opcode = full_opcode
-<a href=#142 id=142 data-nosnippet>142</a>                    .strip_prefix(<span class="string">"LLVM"</span>)
-<a href=#143 id=143 data-nosnippet>143</a>                    .map(str::to_string)
-<a href=#144 id=144 data-nosnippet>144</a>                    .unwrap_or(full_opcode);
-<a href=#145 id=145 data-nosnippet>145</a>                <span class="comment">// Update opcode frequency map.
-<a href=#146 id=146 data-nosnippet>146</a>                </span><span class="kw-2">*</span>stats.llvmir_opcode_frequency.entry(opcode).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
-<a href=#147 id=147 data-nosnippet>147</a>
-<a href=#148 id=148 data-nosnippet>148</a>                <span class="comment">// Increase virtual register count, only if the
-<a href=#149 id=149 data-nosnippet>149</a>                // instruction value is used somewhere.
-<a href=#150 id=150 data-nosnippet>150</a>                </span><span class="kw">let </span>first_use = LLVMGetFirstUse(instruction);
-<a href=#151 id=151 data-nosnippet>151</a>                <span class="kw">if </span>!first_use.is_null() {
-<a href=#152 id=152 data-nosnippet>152</a>                    llvmir_virtual_register_count += <span class="number">1</span>;
-<a href=#153 id=153 data-nosnippet>153</a>                }
-<a href=#154 id=154 data-nosnippet>154</a>            });
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>            stats.llvmir_instruction_count = <span class="prelude-val">Some</span>(llvmir_instruction_count);
-<a href=#157 id=157 data-nosnippet>157</a>            stats.llvmir_virtual_register_count = <span class="prelude-val">Some</span>(llvmir_virtual_register_count)
-<a href=#158 id=158 data-nosnippet>158</a>        }
+<a href=#138 id=138 data-nosnippet>138</a>            walk_llvm_instructions(llvm_module, |instruction| {
+<a href=#139 id=139 data-nosnippet>139</a>                <span class="comment">// Increase total instruction count.
+<a href=#140 id=140 data-nosnippet>140</a>                </span>llvmir_instruction_count += <span class="number">1</span>;
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>                <span class="comment">// Debug string looks like "LLVM{OP}".
+<a href=#143 id=143 data-nosnippet>143</a>                </span><span class="kw">let </span>full_opcode = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, LLVMGetInstructionOpcode(instruction));
+<a href=#144 id=144 data-nosnippet>144</a>                <span class="comment">// Strip leading "LLVM".
+<a href=#145 id=145 data-nosnippet>145</a>                </span><span class="kw">let </span>opcode = full_opcode
+<a href=#146 id=146 data-nosnippet>146</a>                    .strip_prefix(<span class="string">"LLVM"</span>)
+<a href=#147 id=147 data-nosnippet>147</a>                    .map(str::to_string)
+<a href=#148 id=148 data-nosnippet>148</a>                    .unwrap_or(full_opcode);
+<a href=#149 id=149 data-nosnippet>149</a>                <span class="comment">// Update opcode frequency map.
+<a href=#150 id=150 data-nosnippet>150</a>                </span><span class="kw-2">*</span>stats.llvmir_opcode_frequency.entry(opcode).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="comment">// Increase virtual register count, only if the
+<a href=#153 id=153 data-nosnippet>153</a>                // instruction value is used somewhere.
+<a href=#154 id=154 data-nosnippet>154</a>                </span><span class="kw">let </span>first_use = LLVMGetFirstUse(instruction);
+<a href=#155 id=155 data-nosnippet>155</a>                <span class="kw">if </span>!first_use.is_null() {
+<a href=#156 id=156 data-nosnippet>156</a>                    llvmir_virtual_register_count += <span class="number">1</span>;
+<a href=#157 id=157 data-nosnippet>157</a>                }
+<a href=#158 id=158 data-nosnippet>158</a>            });
 <a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span><span class="kw-2">mut </span>null = null_mut();
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">let </span><span class="kw-2">mut </span>error_buffer = <span class="macro">addr_of_mut!</span>(null);
-<a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">let </span>target_triple = LLVMGetDefaultTargetTriple();
-<a href=#164 id=164 data-nosnippet>164</a>        <span class="kw">let </span>target_cpu = LLVMGetHostCPUName();
-<a href=#165 id=165 data-nosnippet>165</a>        <span class="kw">let </span>target_cpu_features = LLVMGetHostCPUFeatures();
+<a href=#160 id=160 data-nosnippet>160</a>            stats.llvmir_instruction_count = <span class="prelude-val">Some</span>(llvmir_instruction_count);
+<a href=#161 id=161 data-nosnippet>161</a>            stats.llvmir_virtual_register_count = <span class="prelude-val">Some</span>(llvmir_virtual_register_count)
+<a href=#162 id=162 data-nosnippet>162</a>        }
+<a href=#163 id=163 data-nosnippet>163</a>
+<a href=#164 id=164 data-nosnippet>164</a>        <span class="kw">let </span><span class="kw-2">mut </span>null = null_mut();
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="kw">let </span><span class="kw-2">mut </span>error_buffer = <span class="macro">addr_of_mut!</span>(null);
 <a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">let </span><span class="kw-2">mut </span>target: MaybeUninit&lt;LLVMTargetRef&gt; = MaybeUninit::uninit();
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">if </span>LLVMGetTargetFromTriple(target_triple, target.as_mut_ptr(), error_buffer) != <span class="number">0 </span>{
-<a href=#170 id=170 data-nosnippet>170</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
-<a href=#171 id=171 data-nosnippet>171</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
-<a href=#172 id=172 data-nosnippet>172</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#173 id=173 data-nosnippet>173</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
-<a href=#174 id=174 data-nosnippet>174</a>        } <span class="kw">else if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
-<a href=#175 id=175 data-nosnippet>175</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#176 id=176 data-nosnippet>176</a>            error_buffer = <span class="macro">addr_of_mut!</span>(null);
-<a href=#177 id=177 data-nosnippet>177</a>        }
-<a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a>        <span class="kw">let </span>target = target.assume_init();
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="kw">let </span>machine = LLVMCreateTargetMachine(
-<a href=#182 id=182 data-nosnippet>182</a>            target,
-<a href=#183 id=183 data-nosnippet>183</a>            target_triple.cast(),
-<a href=#184 id=184 data-nosnippet>184</a>            target_cpu.cast(),
-<a href=#185 id=185 data-nosnippet>185</a>            target_cpu_features.cast(),
-<a href=#186 id=186 data-nosnippet>186</a>            <span class="kw">match </span>opt_level {
-<a href=#187 id=187 data-nosnippet>187</a>                OptLevel::None =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
-<a href=#188 id=188 data-nosnippet>188</a>                OptLevel::Less =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelLess,
-<a href=#189 id=189 data-nosnippet>189</a>                OptLevel::Default =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
-<a href=#190 id=190 data-nosnippet>190</a>                OptLevel::Aggressive =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelAggressive,
-<a href=#191 id=191 data-nosnippet>191</a>            },
-<a href=#192 id=192 data-nosnippet>192</a>            LLVMRelocMode::LLVMRelocPIC,
-<a href=#193 id=193 data-nosnippet>193</a>            LLVMCodeModel::LLVMCodeModelDefault,
-<a href=#194 id=194 data-nosnippet>194</a>        );
-<a href=#195 id=195 data-nosnippet>195</a>
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span>opts = LLVMCreatePassBuilderOptions();
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span>opt = <span class="kw">match </span>opt_level {
-<a href=#199 id=199 data-nosnippet>199</a>            OptLevel::None =&gt; <span class="number">0</span>,
-<a href=#200 id=200 data-nosnippet>200</a>            OptLevel::Less =&gt; <span class="number">1</span>,
-<a href=#201 id=201 data-nosnippet>201</a>            <span class="comment">// slp-vectorizer pass did cause some issues, but after the change
-<a href=#202 id=202 data-nosnippet>202</a>            // on function attributes it seems to not trigger them anymore.
-<a href=#203 id=203 data-nosnippet>203</a>            // https://github.com/llvm/llvm-project/issues/107198
-<a href=#204 id=204 data-nosnippet>204</a>            </span>OptLevel::Default =&gt; <span class="number">2</span>,
-<a href=#205 id=205 data-nosnippet>205</a>            OptLevel::Aggressive =&gt; <span class="number">3</span>,
-<a href=#206 id=206 data-nosnippet>206</a>        };
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">let </span>passes = CString::new(<span class="macro">format!</span>(<span class="string">"default&lt;O{opt}&gt;"</span>))
-<a href=#208 id=208 data-nosnippet>208</a>            .to_native_assert_error(<span class="string">"only fails if the hardcoded string contains a null byte"</span>)<span class="question-mark">?</span>;
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span>pre_llvm_passes_instant = Instant::now();
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>error = LLVMRunPasses(llvm_module, passes.as_ptr(), machine, opts);
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">let </span>llvm_passes_time = pre_llvm_passes_instant.elapsed().as_millis();
-<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
-<a href=#214 id=214 data-nosnippet>214</a>            stats.compilation_llvm_passes_time_ms = <span class="prelude-val">Some</span>(llvm_passes_time);
-<a href=#215 id=215 data-nosnippet>215</a>        }
-<a href=#216 id=216 data-nosnippet>216</a>
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">if </span>!error.is_null() {
-<a href=#218 id=218 data-nosnippet>218</a>            <span class="kw">let </span>msg = LLVMGetErrorMessage(error);
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="kw">let </span>msg = CStr::from_ptr(msg);
-<a href=#220 id=220 data-nosnippet>220</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(msg.to_string_lossy().into_owned()))<span class="question-mark">?</span>;
-<a href=#221 id=221 data-nosnippet>221</a>        }
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a>        LLVMDisposePassBuilderOptions(opts);
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw">let </span><span class="kw-2">mut </span>out_buf: MaybeUninit&lt;LLVMMemoryBufferRef&gt; = MaybeUninit::uninit();
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">let </span>target_triple = LLVMGetDefaultTargetTriple();
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">let </span>target_cpu = LLVMGetHostCPUName();
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">let </span>target_cpu_features = LLVMGetHostCPUFeatures();
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span><span class="kw-2">mut </span>target: MaybeUninit&lt;LLVMTargetRef&gt; = MaybeUninit::uninit();
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">if </span>LLVMGetTargetFromTriple(target_triple, target.as_mut_ptr(), error_buffer) != <span class="number">0 </span>{
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
+<a href=#175 id=175 data-nosnippet>175</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
+<a href=#176 id=176 data-nosnippet>176</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
+<a href=#178 id=178 data-nosnippet>178</a>        } <span class="kw">else if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
+<a href=#179 id=179 data-nosnippet>179</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
+<a href=#180 id=180 data-nosnippet>180</a>            error_buffer = <span class="macro">addr_of_mut!</span>(null);
+<a href=#181 id=181 data-nosnippet>181</a>        }
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>        <span class="kw">let </span>target = target.assume_init();
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>        <span class="kw">let </span>machine = LLVMCreateTargetMachine(
+<a href=#186 id=186 data-nosnippet>186</a>            target,
+<a href=#187 id=187 data-nosnippet>187</a>            target_triple.cast(),
+<a href=#188 id=188 data-nosnippet>188</a>            target_cpu.cast(),
+<a href=#189 id=189 data-nosnippet>189</a>            target_cpu_features.cast(),
+<a href=#190 id=190 data-nosnippet>190</a>            <span class="kw">match </span>opt_level {
+<a href=#191 id=191 data-nosnippet>191</a>                OptLevel::None =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+<a href=#192 id=192 data-nosnippet>192</a>                OptLevel::Less =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelLess,
+<a href=#193 id=193 data-nosnippet>193</a>                OptLevel::Default =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
+<a href=#194 id=194 data-nosnippet>194</a>                OptLevel::Aggressive =&gt; LLVMCodeGenOptLevel::LLVMCodeGenLevelAggressive,
+<a href=#195 id=195 data-nosnippet>195</a>            },
+<a href=#196 id=196 data-nosnippet>196</a>            LLVMRelocMode::LLVMRelocPIC,
+<a href=#197 id=197 data-nosnippet>197</a>            LLVMCodeModel::LLVMCodeModelDefault,
+<a href=#198 id=198 data-nosnippet>198</a>        );
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">let </span>opts = LLVMCreatePassBuilderOptions();
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">let </span>opt = <span class="kw">match </span>opt_level {
+<a href=#203 id=203 data-nosnippet>203</a>            OptLevel::None =&gt; <span class="number">0</span>,
+<a href=#204 id=204 data-nosnippet>204</a>            OptLevel::Less =&gt; <span class="number">1</span>,
+<a href=#205 id=205 data-nosnippet>205</a>            <span class="comment">// slp-vectorizer pass did cause some issues, but after the change
+<a href=#206 id=206 data-nosnippet>206</a>            // on function attributes it seems to not trigger them anymore.
+<a href=#207 id=207 data-nosnippet>207</a>            // https://github.com/llvm/llvm-project/issues/107198
+<a href=#208 id=208 data-nosnippet>208</a>            </span>OptLevel::Default =&gt; <span class="number">2</span>,
+<a href=#209 id=209 data-nosnippet>209</a>            OptLevel::Aggressive =&gt; <span class="number">3</span>,
+<a href=#210 id=210 data-nosnippet>210</a>        };
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>passes = CString::new(<span class="macro">format!</span>(<span class="string">"default&lt;O{opt}&gt;"</span>))
+<a href=#212 id=212 data-nosnippet>212</a>            .to_native_assert_error(<span class="string">"only fails if the hardcoded string contains a null byte"</span>)<span class="question-mark">?</span>;
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">let </span>pre_llvm_passes_instant = Instant::now();
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">let </span>error = LLVMRunPasses(llvm_module, passes.as_ptr(), machine, opts);
+<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span>llvm_passes_time = pre_llvm_passes_instant.elapsed().as_millis();
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
+<a href=#218 id=218 data-nosnippet>218</a>            stats.compilation_llvm_passes_time_ms = <span class="prelude-val">Some</span>(llvm_passes_time);
+<a href=#219 id=219 data-nosnippet>219</a>        }
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="kw">if </span>!error.is_null() {
+<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw">let </span>msg = LLVMGetErrorMessage(error);
+<a href=#223 id=223 data-nosnippet>223</a>            <span class="kw">let </span>msg = CStr::from_ptr(msg);
+<a href=#224 id=224 data-nosnippet>224</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(msg.to_string_lossy().into_owned()))<span class="question-mark">?</span>;
+<a href=#225 id=225 data-nosnippet>225</a>        }
 <a href=#226 id=226 data-nosnippet>226</a>
-<a href=#227 id=227 data-nosnippet>227</a>        <span class="macro">trace!</span>(<span class="string">"starting llvm to object compilation"</span>);
-<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">let </span>pre_llvm_to_object_instant = Instant::now();
-<a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">let </span>ok = LLVMTargetMachineEmitToMemoryBuffer(
-<a href=#230 id=230 data-nosnippet>230</a>            machine,
-<a href=#231 id=231 data-nosnippet>231</a>            llvm_module,
-<a href=#232 id=232 data-nosnippet>232</a>            LLVMCodeGenFileType::LLVMObjectFile,
-<a href=#233 id=233 data-nosnippet>233</a>            error_buffer,
-<a href=#234 id=234 data-nosnippet>234</a>            out_buf.as_mut_ptr(),
-<a href=#235 id=235 data-nosnippet>235</a>        );
-<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span>llvm_to_object_time = pre_llvm_to_object_instant.elapsed().as_millis();
-<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
-<a href=#238 id=238 data-nosnippet>238</a>            stats.compilation_llvm_to_object_time_ms = <span class="prelude-val">Some</span>(llvm_to_object_time);
-<a href=#239 id=239 data-nosnippet>239</a>        }
-<a href=#240 id=240 data-nosnippet>240</a>
-<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">if </span><span class="macro">ok !</span>= <span class="number">0 </span>{
-<a href=#242 id=242 data-nosnippet>242</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
-<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
-<a href=#244 id=244 data-nosnippet>244</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#245 id=245 data-nosnippet>245</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
-<a href=#246 id=246 data-nosnippet>246</a>        } <span class="kw">else if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
-<a href=#247 id=247 data-nosnippet>247</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#248 id=248 data-nosnippet>248</a>        }
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a>        <span class="kw">let </span>out_buf = out_buf.assume_init();
-<a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw">let </span>out_buf_start: <span class="kw-2">*const </span>u8 = LLVMGetBufferStart(out_buf).cast();
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>out_buf_size = LLVMGetBufferSize(out_buf);
-<a href=#254 id=254 data-nosnippet>254</a>
-<a href=#255 id=255 data-nosnippet>255</a>        <span class="comment">// keep it in rust side
-<a href=#256 id=256 data-nosnippet>256</a>        </span><span class="kw">let </span>data = std::slice::from_raw_parts(out_buf_start, out_buf_size).to_vec();
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a>        LLVMDisposeMemoryBuffer(out_buf);
-<a href=#259 id=259 data-nosnippet>259</a>        LLVMDisposeTargetMachine(machine);
-<a href=#260 id=260 data-nosnippet>260</a>        LLVMDisposeModule(llvm_module);
-<a href=#261 id=261 data-nosnippet>261</a>        LLVMContextDispose(llvm_context);
-<a href=#262 id=262 data-nosnippet>262</a>
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="prelude-val">Ok</span>(data)
-<a href=#264 id=264 data-nosnippet>264</a>    }
-<a href=#265 id=265 data-nosnippet>265</a>}
+<a href=#227 id=227 data-nosnippet>227</a>        LLVMDisposePassBuilderOptions(opts);
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">let </span><span class="kw-2">mut </span>out_buf: MaybeUninit&lt;LLVMMemoryBufferRef&gt; = MaybeUninit::uninit();
+<a href=#230 id=230 data-nosnippet>230</a>
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="macro">trace!</span>(<span class="string">"starting llvm to object compilation"</span>);
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">let </span>pre_llvm_to_object_instant = Instant::now();
+<a href=#233 id=233 data-nosnippet>233</a>        <span class="kw">let </span>ok = LLVMTargetMachineEmitToMemoryBuffer(
+<a href=#234 id=234 data-nosnippet>234</a>            machine,
+<a href=#235 id=235 data-nosnippet>235</a>            llvm_module,
+<a href=#236 id=236 data-nosnippet>236</a>            LLVMCodeGenFileType::LLVMObjectFile,
+<a href=#237 id=237 data-nosnippet>237</a>            error_buffer,
+<a href=#238 id=238 data-nosnippet>238</a>            out_buf.as_mut_ptr(),
+<a href=#239 id=239 data-nosnippet>239</a>        );
+<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">let </span>llvm_to_object_time = pre_llvm_to_object_instant.elapsed().as_millis();
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
+<a href=#242 id=242 data-nosnippet>242</a>            stats.compilation_llvm_to_object_time_ms = <span class="prelude-val">Some</span>(llvm_to_object_time);
+<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">if </span><span class="macro">ok !</span>= <span class="number">0 </span>{
+<a href=#246 id=246 data-nosnippet>246</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
+<a href=#247 id=247 data-nosnippet>247</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
+<a href=#248 id=248 data-nosnippet>248</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
+<a href=#249 id=249 data-nosnippet>249</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
+<a href=#250 id=250 data-nosnippet>250</a>        } <span class="kw">else if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
+<a href=#251 id=251 data-nosnippet>251</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
+<a href=#252 id=252 data-nosnippet>252</a>        }
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">let </span>out_buf = out_buf.assume_init();
+<a href=#255 id=255 data-nosnippet>255</a>
+<a href=#256 id=256 data-nosnippet>256</a>        <span class="kw">let </span>out_buf_start: <span class="kw-2">*const </span>u8 = LLVMGetBufferStart(out_buf).cast();
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw">let </span>out_buf_size = LLVMGetBufferSize(out_buf);
+<a href=#258 id=258 data-nosnippet>258</a>
+<a href=#259 id=259 data-nosnippet>259</a>        <span class="comment">// keep it in rust side
+<a href=#260 id=260 data-nosnippet>260</a>        </span><span class="kw">let </span>data = std::slice::from_raw_parts(out_buf_start, out_buf_size).to_vec();
+<a href=#261 id=261 data-nosnippet>261</a>
+<a href=#262 id=262 data-nosnippet>262</a>        LLVMDisposeMemoryBuffer(out_buf);
+<a href=#263 id=263 data-nosnippet>263</a>        LLVMDisposeTargetMachine(machine);
+<a href=#264 id=264 data-nosnippet>264</a>        LLVMDisposeModule(llvm_module);
+<a href=#265 id=265 data-nosnippet>265</a>        LLVMContextDispose(llvm_context);
 <a href=#266 id=266 data-nosnippet>266</a>
-<a href=#267 id=267 data-nosnippet>267</a><span class="doccomment">/// Links the passed object into a shared library, stored on the given path.
-<a href=#268 id=268 data-nosnippet>268</a></span><span class="kw">pub fn </span>object_to_shared_lib(
-<a href=#269 id=269 data-nosnippet>269</a>    object: <span class="kw-2">&amp;</span>[u8],
-<a href=#270 id=270 data-nosnippet>270</a>    output_filename: <span class="kw-2">&amp;</span>Path,
-<a href=#271 id=271 data-nosnippet>271</a>    stats: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Statistics&gt;,
-<a href=#272 id=272 data-nosnippet>272</a>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#273 id=273 data-nosnippet>273</a>    <span class="comment">// linker seems to need a file and doesn't accept stdin
-<a href=#274 id=274 data-nosnippet>274</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>file = NamedTempFile::new()<span class="question-mark">?</span>;
-<a href=#275 id=275 data-nosnippet>275</a>    file.write_all(object)<span class="question-mark">?</span>;
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">let </span>file = file.into_temp_path();
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a>    <span class="kw">let </span>file_path = file.display().to_string();
-<a href=#279 id=279 data-nosnippet>279</a>    <span class="kw">let </span>output_path = output_filename.display().to_string();
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = std::env::var(<span class="string">"NATIVE_DEBUG_DUMP"</span>) {
-<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">if </span>x == <span class="string">"1" </span>|| x == <span class="string">"true" </span>{
-<a href=#282 id=282 data-nosnippet>282</a>            <span class="comment">// forget so the temp file is not deleted and the debugger can load it.
-<a href=#283 id=283 data-nosnippet>283</a>            // its still in a temp file directory so eventually the OS will delete it, but just not instantly.
-<a href=#284 id=284 data-nosnippet>284</a>            // todo: maybe remove it when exiting, for example using atexit.
-<a href=#285 id=285 data-nosnippet>285</a>            </span>std::mem::forget(file);
-<a href=#286 id=286 data-nosnippet>286</a>        }
-<a href=#287 id=287 data-nosnippet>287</a>    }
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a>    <span class="kw">let </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = {
-<a href=#290 id=290 data-nosnippet>290</a>        <span class="attr">#[cfg(target_os = <span class="string">"macos"</span>)]
-<a href=#291 id=291 data-nosnippet>291</a>        </span>{
-<a href=#292 id=292 data-nosnippet>292</a>            <span class="kw">let </span><span class="kw-2">mut </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = <span class="macro">vec!</span>[
-<a href=#293 id=293 data-nosnippet>293</a>                <span class="string">"-demangle"</span>.into(),
-<a href=#294 id=294 data-nosnippet>294</a>                <span class="string">"-no_deduplicate"</span>.into(),
-<a href=#295 id=295 data-nosnippet>295</a>                <span class="string">"-dynamic"</span>.into(),
-<a href=#296 id=296 data-nosnippet>296</a>                <span class="string">"-dylib"</span>.into(),
-<a href=#297 id=297 data-nosnippet>297</a>                <span class="string">"-L/usr/local/lib"</span>.into(),
-<a href=#298 id=298 data-nosnippet>298</a>                <span class="string">"-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"</span>.into(),
-<a href=#299 id=299 data-nosnippet>299</a>            ];
-<a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a>            args.extend([
-<a href=#302 id=302 data-nosnippet>302</a>                Cow::from(file_path),
-<a href=#303 id=303 data-nosnippet>303</a>                <span class="string">"-o"</span>.into(),
-<a href=#304 id=304 data-nosnippet>304</a>                Cow::from(output_path),
-<a href=#305 id=305 data-nosnippet>305</a>                <span class="string">"-lSystem"</span>.into(),
-<a href=#306 id=306 data-nosnippet>306</a>            ]);
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a>            args
-<a href=#309 id=309 data-nosnippet>309</a>        }
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
-<a href=#311 id=311 data-nosnippet>311</a>        </span>{
-<a href=#312 id=312 data-nosnippet>312</a>            <span class="kw">let </span><span class="kw-2">mut </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = <span class="macro">vec!</span>[
-<a href=#313 id=313 data-nosnippet>313</a>                <span class="string">"--hash-style=gnu"</span>.into(),
-<a href=#314 id=314 data-nosnippet>314</a>                <span class="string">"-shared"</span>.into(),
-<a href=#315 id=315 data-nosnippet>315</a>                <span class="string">"-L/lib/../lib64"</span>.into(),
-<a href=#316 id=316 data-nosnippet>316</a>                <span class="string">"-L/usr/lib/../lib64"</span>.into(),
-<a href=#317 id=317 data-nosnippet>317</a>            ];
-<a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a>            args.extend([
-<a href=#320 id=320 data-nosnippet>320</a>                <span class="string">"-o"</span>.into(),
-<a href=#321 id=321 data-nosnippet>321</a>                Cow::from(output_path),
-<a href=#322 id=322 data-nosnippet>322</a>                <span class="string">"-lc"</span>.into(),
-<a href=#323 id=323 data-nosnippet>323</a>                Cow::from(file_path),
-<a href=#324 id=324 data-nosnippet>324</a>            ]);
-<a href=#325 id=325 data-nosnippet>325</a>
-<a href=#326 id=326 data-nosnippet>326</a>            args
-<a href=#327 id=327 data-nosnippet>327</a>        }
-<a href=#328 id=328 data-nosnippet>328</a>        <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#329 id=329 data-nosnippet>329</a>        </span>{
-<a href=#330 id=330 data-nosnippet>330</a>            <span class="macro">unimplemented!</span>()
+<a href=#267 id=267 data-nosnippet>267</a>        <span class="prelude-val">Ok</span>(data)
+<a href=#268 id=268 data-nosnippet>268</a>    }
+<a href=#269 id=269 data-nosnippet>269</a>}
+<a href=#270 id=270 data-nosnippet>270</a>
+<a href=#271 id=271 data-nosnippet>271</a><span class="doccomment">/// Links the passed object into a shared library, stored on the given path.
+<a href=#272 id=272 data-nosnippet>272</a></span><span class="kw">pub fn </span>object_to_shared_lib(
+<a href=#273 id=273 data-nosnippet>273</a>    object: <span class="kw-2">&amp;</span>[u8],
+<a href=#274 id=274 data-nosnippet>274</a>    output_filename: <span class="kw-2">&amp;</span>Path,
+<a href=#275 id=275 data-nosnippet>275</a>    stats: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Statistics&gt;,
+<a href=#276 id=276 data-nosnippet>276</a>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#277 id=277 data-nosnippet>277</a>    <span class="comment">// linker seems to need a file and doesn't accept stdin
+<a href=#278 id=278 data-nosnippet>278</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>file = NamedTempFile::new()<span class="question-mark">?</span>;
+<a href=#279 id=279 data-nosnippet>279</a>    file.write_all(object)<span class="question-mark">?</span>;
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>file = file.into_temp_path();
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span>file_path = file.display().to_string();
+<a href=#283 id=283 data-nosnippet>283</a>    <span class="kw">let </span>output_path = output_filename.display().to_string();
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = std::env::var(<span class="string">"NATIVE_DEBUG_DUMP"</span>) {
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">if </span>x == <span class="string">"1" </span>|| x == <span class="string">"true" </span>{
+<a href=#286 id=286 data-nosnippet>286</a>            <span class="comment">// forget so the temp file is not deleted and the debugger can load it.
+<a href=#287 id=287 data-nosnippet>287</a>            // its still in a temp file directory so eventually the OS will delete it, but just not instantly.
+<a href=#288 id=288 data-nosnippet>288</a>            // todo: maybe remove it when exiting, for example using atexit.
+<a href=#289 id=289 data-nosnippet>289</a>            </span>std::mem::forget(file);
+<a href=#290 id=290 data-nosnippet>290</a>        }
+<a href=#291 id=291 data-nosnippet>291</a>    }
+<a href=#292 id=292 data-nosnippet>292</a>
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">let </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = {
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="attr">#[cfg(target_os = <span class="string">"macos"</span>)]
+<a href=#295 id=295 data-nosnippet>295</a>        </span>{
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="kw">let </span><span class="kw-2">mut </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = <span class="macro">vec!</span>[
+<a href=#297 id=297 data-nosnippet>297</a>                <span class="string">"-demangle"</span>.into(),
+<a href=#298 id=298 data-nosnippet>298</a>                <span class="string">"-no_deduplicate"</span>.into(),
+<a href=#299 id=299 data-nosnippet>299</a>                <span class="string">"-dynamic"</span>.into(),
+<a href=#300 id=300 data-nosnippet>300</a>                <span class="string">"-dylib"</span>.into(),
+<a href=#301 id=301 data-nosnippet>301</a>                <span class="string">"-L/usr/local/lib"</span>.into(),
+<a href=#302 id=302 data-nosnippet>302</a>                <span class="string">"-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"</span>.into(),
+<a href=#303 id=303 data-nosnippet>303</a>            ];
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>            args.extend([
+<a href=#306 id=306 data-nosnippet>306</a>                Cow::from(file_path),
+<a href=#307 id=307 data-nosnippet>307</a>                <span class="string">"-o"</span>.into(),
+<a href=#308 id=308 data-nosnippet>308</a>                Cow::from(output_path),
+<a href=#309 id=309 data-nosnippet>309</a>                <span class="string">"-lSystem"</span>.into(),
+<a href=#310 id=310 data-nosnippet>310</a>            ]);
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a>            args
+<a href=#313 id=313 data-nosnippet>313</a>        }
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
+<a href=#315 id=315 data-nosnippet>315</a>        </span>{
+<a href=#316 id=316 data-nosnippet>316</a>            <span class="kw">let </span><span class="kw-2">mut </span>args: Vec&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt; = <span class="macro">vec!</span>[
+<a href=#317 id=317 data-nosnippet>317</a>                <span class="string">"--hash-style=gnu"</span>.into(),
+<a href=#318 id=318 data-nosnippet>318</a>                <span class="string">"-shared"</span>.into(),
+<a href=#319 id=319 data-nosnippet>319</a>                <span class="string">"-L/lib/../lib64"</span>.into(),
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="string">"-L/usr/lib/../lib64"</span>.into(),
+<a href=#321 id=321 data-nosnippet>321</a>            ];
+<a href=#322 id=322 data-nosnippet>322</a>
+<a href=#323 id=323 data-nosnippet>323</a>            args.extend([
+<a href=#324 id=324 data-nosnippet>324</a>                <span class="string">"-o"</span>.into(),
+<a href=#325 id=325 data-nosnippet>325</a>                Cow::from(output_path),
+<a href=#326 id=326 data-nosnippet>326</a>                <span class="string">"-lc"</span>.into(),
+<a href=#327 id=327 data-nosnippet>327</a>                Cow::from(file_path),
+<a href=#328 id=328 data-nosnippet>328</a>            ]);
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>            args
 <a href=#331 id=331 data-nosnippet>331</a>        }
-<a href=#332 id=332 data-nosnippet>332</a>    };
-<a href=#333 id=333 data-nosnippet>333</a>
-<a href=#334 id=334 data-nosnippet>334</a>    <span class="kw">let </span><span class="kw-2">mut </span>linker = std::process::Command::new(<span class="string">"ld"</span>);
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let </span>pre_linking_instant = Instant::now();
-<a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">let </span>proc = linker.args(args.iter().map(|x| x.as_ref())).output()<span class="question-mark">?</span>;
-<a href=#338 id=338 data-nosnippet>338</a>    <span class="kw">let </span>linking_time = pre_linking_instant.elapsed().as_millis();
-<a href=#339 id=339 data-nosnippet>339</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
-<a href=#340 id=340 data-nosnippet>340</a>        stats.compilation_linking_time_ms = <span class="prelude-val">Some</span>(linking_time);
-<a href=#341 id=341 data-nosnippet>341</a>    }
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">if </span>proc.status.success() {
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="prelude-val">Ok</span>(())
-<a href=#345 id=345 data-nosnippet>345</a>    } <span class="kw">else </span>{
-<a href=#346 id=346 data-nosnippet>346</a>        <span class="kw">let </span>msg = String::from_utf8_lossy(<span class="kw-2">&amp;</span>proc.stderr);
-<a href=#347 id=347 data-nosnippet>347</a>        <span class="prelude-val">Err</span>(Error::LinkError(msg.to_string()))
-<a href=#348 id=348 data-nosnippet>348</a>    }
-<a href=#349 id=349 data-nosnippet>349</a>}
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a><span class="doccomment">/// Gets the target triple, which identifies the platform and ABI.
-<a href=#352 id=352 data-nosnippet>352</a></span><span class="kw">pub fn </span>get_target_triple() -&gt; String {
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">let </span>target_triple = <span class="kw">unsafe </span>{
-<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span>value = LLVMGetDefaultTargetTriple();
-<a href=#355 id=355 data-nosnippet>355</a>        CStr::from_ptr(value).to_string_lossy().into_owned()
-<a href=#356 id=356 data-nosnippet>356</a>    };
-<a href=#357 id=357 data-nosnippet>357</a>    target_triple
-<a href=#358 id=358 data-nosnippet>358</a>}
-<a href=#359 id=359 data-nosnippet>359</a>
-<a href=#360 id=360 data-nosnippet>360</a><span class="doccomment">/// Gets the data layout reprrsentation as a string, to be given to the MLIR module.
-<a href=#361 id=361 data-nosnippet>361</a>/// LLVM uses this to know the proper alignments for the given sizes, etc.
-<a href=#362 id=362 data-nosnippet>362</a>/// This function gets the data layout of the host target triple.
-<a href=#363 id=363 data-nosnippet>363</a></span><span class="kw">pub fn </span>get_data_layout_rep() -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">unsafe </span>{
-<a href=#365 id=365 data-nosnippet>365</a>        <span class="kw">let </span><span class="kw-2">mut </span>null = null_mut();
-<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">let </span>error_buffer = <span class="macro">addr_of_mut!</span>(null);
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>target_triple = LLVMGetDefaultTargetTriple();
-<a href=#369 id=369 data-nosnippet>369</a>
-<a href=#370 id=370 data-nosnippet>370</a>        <span class="kw">let </span>target_cpu = LLVMGetHostCPUName();
+<a href=#332 id=332 data-nosnippet>332</a>        <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
+<a href=#333 id=333 data-nosnippet>333</a>        </span>{
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="macro">unimplemented!</span>()
+<a href=#335 id=335 data-nosnippet>335</a>        }
+<a href=#336 id=336 data-nosnippet>336</a>    };
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a>    <span class="kw">let </span><span class="kw-2">mut </span>linker = std::process::Command::new(<span class="string">"ld"</span>);
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">let </span>pre_linking_instant = Instant::now();
+<a href=#341 id=341 data-nosnippet>341</a>    <span class="kw">let </span>proc = linker.args(args.iter().map(|x| x.as_ref())).output()<span class="question-mark">?</span>;
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">let </span>linking_time = pre_linking_instant.elapsed().as_millis();
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut ref mut </span>stats) = stats {
+<a href=#344 id=344 data-nosnippet>344</a>        stats.compilation_linking_time_ms = <span class="prelude-val">Some</span>(linking_time);
+<a href=#345 id=345 data-nosnippet>345</a>    }
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>    <span class="kw">if </span>proc.status.success() {
+<a href=#348 id=348 data-nosnippet>348</a>        <span class="prelude-val">Ok</span>(())
+<a href=#349 id=349 data-nosnippet>349</a>    } <span class="kw">else </span>{
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="kw">let </span>msg = String::from_utf8_lossy(<span class="kw-2">&amp;</span>proc.stderr);
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="prelude-val">Err</span>(Error::LinkError(msg.to_string()))
+<a href=#352 id=352 data-nosnippet>352</a>    }
+<a href=#353 id=353 data-nosnippet>353</a>}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a><span class="doccomment">/// Gets the target triple, which identifies the platform and ABI.
+<a href=#356 id=356 data-nosnippet>356</a></span><span class="kw">pub fn </span>get_target_triple() -&gt; String {
+<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">let </span>target_triple = <span class="kw">unsafe </span>{
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">let </span>value = LLVMGetDefaultTargetTriple();
+<a href=#359 id=359 data-nosnippet>359</a>        CStr::from_ptr(value).to_string_lossy().into_owned()
+<a href=#360 id=360 data-nosnippet>360</a>    };
+<a href=#361 id=361 data-nosnippet>361</a>    target_triple
+<a href=#362 id=362 data-nosnippet>362</a>}
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a><span class="doccomment">/// Gets the data layout reprrsentation as a string, to be given to the MLIR module.
+<a href=#365 id=365 data-nosnippet>365</a>/// LLVM uses this to know the proper alignments for the given sizes, etc.
+<a href=#366 id=366 data-nosnippet>366</a>/// This function gets the data layout of the host target triple.
+<a href=#367 id=367 data-nosnippet>367</a></span><span class="kw">pub fn </span>get_data_layout_rep() -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+<a href=#368 id=368 data-nosnippet>368</a>    <span class="kw">unsafe </span>{
+<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">let </span><span class="kw-2">mut </span>null = null_mut();
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="kw">let </span>error_buffer = <span class="macro">addr_of_mut!</span>(null);
 <a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span>target_cpu_features = LLVMGetHostCPUFeatures();
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span>target_triple = LLVMGetDefaultTargetTriple();
 <a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw">let </span><span class="kw-2">mut </span>target: MaybeUninit&lt;LLVMTargetRef&gt; = MaybeUninit::uninit();
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw">let </span>target_cpu = LLVMGetHostCPUName();
 <a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">if </span>LLVMGetTargetFromTriple(target_triple, target.as_mut_ptr(), error_buffer) != <span class="number">0 </span>{
-<a href=#377 id=377 data-nosnippet>377</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
-<a href=#378 id=378 data-nosnippet>378</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
-<a href=#379 id=379 data-nosnippet>379</a>            <span class="macro">tracing::error!</span>(<span class="string">"error getting target triple: {}"</span>, err);
-<a href=#380 id=380 data-nosnippet>380</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#381 id=381 data-nosnippet>381</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
-<a href=#382 id=382 data-nosnippet>382</a>        }
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="kw">if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">let </span>target_cpu_features = LLVMGetHostCPUFeatures();
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>        <span class="kw">let </span><span class="kw-2">mut </span>target: MaybeUninit&lt;LLVMTargetRef&gt; = MaybeUninit::uninit();
+<a href=#379 id=379 data-nosnippet>379</a>
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="kw">if </span>LLVMGetTargetFromTriple(target_triple, target.as_mut_ptr(), error_buffer) != <span class="number">0 </span>{
+<a href=#381 id=381 data-nosnippet>381</a>            <span class="kw">let </span>error = CStr::from_ptr(<span class="kw-2">*</span>error_buffer);
+<a href=#382 id=382 data-nosnippet>382</a>            <span class="kw">let </span>err = error.to_string_lossy().to_string();
+<a href=#383 id=383 data-nosnippet>383</a>            <span class="macro">tracing::error!</span>(<span class="string">"error getting target triple: {}"</span>, err);
 <a href=#384 id=384 data-nosnippet>384</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
-<a href=#385 id=385 data-nosnippet>385</a>        }
-<a href=#386 id=386 data-nosnippet>386</a>
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>target = target.assume_init();
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>machine = LLVMCreateTargetMachine(
-<a href=#390 id=390 data-nosnippet>390</a>            target,
-<a href=#391 id=391 data-nosnippet>391</a>            target_triple.cast(),
-<a href=#392 id=392 data-nosnippet>392</a>            target_cpu.cast(),
-<a href=#393 id=393 data-nosnippet>393</a>            target_cpu_features.cast(),
-<a href=#394 id=394 data-nosnippet>394</a>            LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
-<a href=#395 id=395 data-nosnippet>395</a>            LLVMRelocMode::LLVMRelocDynamicNoPic,
-<a href=#396 id=396 data-nosnippet>396</a>            LLVMCodeModel::LLVMCodeModelDefault,
-<a href=#397 id=397 data-nosnippet>397</a>        );
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="kw">let </span>data_layout = llvm_sys::target_machine::LLVMCreateTargetDataLayout(machine);
-<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">let </span>data_layout_str =
-<a href=#401 id=401 data-nosnippet>401</a>            CStr::from_ptr(llvm_sys::target::LLVMCopyStringRepOfTargetData(data_layout));
-<a href=#402 id=402 data-nosnippet>402</a>        <span class="prelude-val">Ok</span>(data_layout_str.to_string_lossy().into_owned())
-<a href=#403 id=403 data-nosnippet>403</a>    }
-<a href=#404 id=404 data-nosnippet>404</a>}
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a><span class="attr">#[cfg(test)]
-<a href=#407 id=407 data-nosnippet>407</a></span><span class="kw">mod </span>tests {
-<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#385 id=385 data-nosnippet>385</a>            <span class="prelude-val">Err</span>(Error::LLVMCompileError(err))<span class="question-mark">?</span>;
+<a href=#386 id=386 data-nosnippet>386</a>        }
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">if </span>!(<span class="kw-2">*</span>error_buffer).is_null() {
+<a href=#388 id=388 data-nosnippet>388</a>            LLVMDisposeMessage(<span class="kw-2">*</span>error_buffer);
+<a href=#389 id=389 data-nosnippet>389</a>        }
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span>target = target.assume_init();
+<a href=#392 id=392 data-nosnippet>392</a>
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span>machine = LLVMCreateTargetMachine(
+<a href=#394 id=394 data-nosnippet>394</a>            target,
+<a href=#395 id=395 data-nosnippet>395</a>            target_triple.cast(),
+<a href=#396 id=396 data-nosnippet>396</a>            target_cpu.cast(),
+<a href=#397 id=397 data-nosnippet>397</a>            target_cpu_features.cast(),
+<a href=#398 id=398 data-nosnippet>398</a>            LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+<a href=#399 id=399 data-nosnippet>399</a>            LLVMRelocMode::LLVMRelocDynamicNoPic,
+<a href=#400 id=400 data-nosnippet>400</a>            LLVMCodeModel::LLVMCodeModelDefault,
+<a href=#401 id=401 data-nosnippet>401</a>        );
+<a href=#402 id=402 data-nosnippet>402</a>
+<a href=#403 id=403 data-nosnippet>403</a>        <span class="kw">let </span>data_layout = llvm_sys::target_machine::LLVMCreateTargetDataLayout(machine);
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span>data_layout_str =
+<a href=#405 id=405 data-nosnippet>405</a>            CStr::from_ptr(llvm_sys::target::LLVMCopyStringRepOfTargetData(data_layout));
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="prelude-val">Ok</span>(data_layout_str.to_string_lossy().into_owned())
+<a href=#407 id=407 data-nosnippet>407</a>    }
+<a href=#408 id=408 data-nosnippet>408</a>}
 <a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>    <span class="attr">#[test]
-<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="kw">fn </span>test_opt_level_default() {
-<a href=#412 id=412 data-nosnippet>412</a>        <span class="comment">// Asserts that the default implementation of `OptLevel` returns `OptLevel::Default`.
-<a href=#413 id=413 data-nosnippet>413</a>        </span><span class="macro">assert_eq!</span>(OptLevel::default(), OptLevel::Default);
-<a href=#414 id=414 data-nosnippet>414</a>
-<a href=#415 id=415 data-nosnippet>415</a>        <span class="comment">// Asserts that converting from usize value 2 returns `OptLevel::Default`.
-<a href=#416 id=416 data-nosnippet>416</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2usize</span>), OptLevel::Default);
-<a href=#417 id=417 data-nosnippet>417</a>
-<a href=#418 id=418 data-nosnippet>418</a>        <span class="comment">// Asserts that converting from u8 value 2 returns `OptLevel::Default`.
-<a href=#419 id=419 data-nosnippet>419</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2u8</span>), OptLevel::Default);
-<a href=#420 id=420 data-nosnippet>420</a>    }
+<a href=#410 id=410 data-nosnippet>410</a><span class="attr">#[cfg(test)]
+<a href=#411 id=411 data-nosnippet>411</a></span><span class="kw">mod </span>tests {
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#413 id=413 data-nosnippet>413</a>
+<a href=#414 id=414 data-nosnippet>414</a>    <span class="attr">#[test]
+<a href=#415 id=415 data-nosnippet>415</a>    </span><span class="kw">fn </span>test_opt_level_default() {
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="comment">// Asserts that the default implementation of `OptLevel` returns `OptLevel::Default`.
+<a href=#417 id=417 data-nosnippet>417</a>        </span><span class="macro">assert_eq!</span>(OptLevel::default(), OptLevel::Default);
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a>        <span class="comment">// Asserts that converting from usize value 2 returns `OptLevel::Default`.
+<a href=#420 id=420 data-nosnippet>420</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2usize</span>), OptLevel::Default);
 <a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="attr">#[test]
-<a href=#423 id=423 data-nosnippet>423</a>    </span><span class="kw">fn </span>test_opt_level_conversion() {
-<a href=#424 id=424 data-nosnippet>424</a>        <span class="comment">// Test conversion from usize to OptLevel
-<a href=#425 id=425 data-nosnippet>425</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">0usize</span>), OptLevel::None);
-<a href=#426 id=426 data-nosnippet>426</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">1usize</span>), OptLevel::Less);
-<a href=#427 id=427 data-nosnippet>427</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2usize</span>), OptLevel::Default);
-<a href=#428 id=428 data-nosnippet>428</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">3usize</span>), OptLevel::Aggressive);
-<a href=#429 id=429 data-nosnippet>429</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">30usize</span>), OptLevel::Aggressive);
-<a href=#430 id=430 data-nosnippet>430</a>
-<a href=#431 id=431 data-nosnippet>431</a>        <span class="comment">// Test conversion from OptLevel to usize
-<a href=#432 id=432 data-nosnippet>432</a>        </span><span class="macro">assert_eq!</span>(usize::from(OptLevel::None), <span class="number">0usize</span>);
-<a href=#433 id=433 data-nosnippet>433</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Less), <span class="number">1usize</span>);
-<a href=#434 id=434 data-nosnippet>434</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Default), <span class="number">2usize</span>);
-<a href=#435 id=435 data-nosnippet>435</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Aggressive), <span class="number">3usize</span>);
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="comment">// Test conversion from u8 to OptLevel
-<a href=#438 id=438 data-nosnippet>438</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">0u8</span>), OptLevel::None);
-<a href=#439 id=439 data-nosnippet>439</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">1u8</span>), OptLevel::Less);
-<a href=#440 id=440 data-nosnippet>440</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2u8</span>), OptLevel::Default);
-<a href=#441 id=441 data-nosnippet>441</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">3u8</span>), OptLevel::Aggressive);
-<a href=#442 id=442 data-nosnippet>442</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">30u8</span>), OptLevel::Aggressive);
-<a href=#443 id=443 data-nosnippet>443</a>    }
-<a href=#444 id=444 data-nosnippet>444</a>}
+<a href=#422 id=422 data-nosnippet>422</a>        <span class="comment">// Asserts that converting from u8 value 2 returns `OptLevel::Default`.
+<a href=#423 id=423 data-nosnippet>423</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2u8</span>), OptLevel::Default);
+<a href=#424 id=424 data-nosnippet>424</a>    }
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>    <span class="attr">#[test]
+<a href=#427 id=427 data-nosnippet>427</a>    </span><span class="kw">fn </span>test_opt_level_conversion() {
+<a href=#428 id=428 data-nosnippet>428</a>        <span class="comment">// Test conversion from usize to OptLevel
+<a href=#429 id=429 data-nosnippet>429</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">0usize</span>), OptLevel::None);
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">1usize</span>), OptLevel::Less);
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2usize</span>), OptLevel::Default);
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">3usize</span>), OptLevel::Aggressive);
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">30usize</span>), OptLevel::Aggressive);
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>        <span class="comment">// Test conversion from OptLevel to usize
+<a href=#436 id=436 data-nosnippet>436</a>        </span><span class="macro">assert_eq!</span>(usize::from(OptLevel::None), <span class="number">0usize</span>);
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Less), <span class="number">1usize</span>);
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Default), <span class="number">2usize</span>);
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="macro">assert_eq!</span>(usize::from(OptLevel::Aggressive), <span class="number">3usize</span>);
+<a href=#440 id=440 data-nosnippet>440</a>
+<a href=#441 id=441 data-nosnippet>441</a>        <span class="comment">// Test conversion from u8 to OptLevel
+<a href=#442 id=442 data-nosnippet>442</a>        </span><span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">0u8</span>), OptLevel::None);
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">1u8</span>), OptLevel::Less);
+<a href=#444 id=444 data-nosnippet>444</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">2u8</span>), OptLevel::Default);
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">3u8</span>), OptLevel::Aggressive);
+<a href=#446 id=446 data-nosnippet>446</a>        <span class="macro">assert_eq!</span>(OptLevel::from(<span class="number">30u8</span>), OptLevel::Aggressive);
+<a href=#447 id=447 data-nosnippet>447</a>    }
+<a href=#448 id=448 data-nosnippet>448</a>}
 </code></pre></div></section></main></body></html>
