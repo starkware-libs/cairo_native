@@ -15,10 +15,6 @@ use cairo_lang_sierra::{
 };
 use cairo_lang_sierra_to_casm::metadata::MetadataComputationConfig;
 use cairo_lang_sierra_type_size::ProgramRegistryInfo;
-use llvm_sys::target::{
-    LLVM_InitializeAllAsmPrinters, LLVM_InitializeAllTargetInfos, LLVM_InitializeAllTargetMCs,
-    LLVM_InitializeAllTargets,
-};
 use melior::{
     dialect::DialectRegistry,
     ir::{
@@ -34,7 +30,7 @@ use mlir_sys::{
     mlirLLVMDIModuleAttrGet, MlirLLVMDIEmissionKind_MlirLLVMDIEmissionKindFull,
     MlirLLVMDINameTableKind_MlirLLVMDINameTableKindDefault,
 };
-use std::{sync::OnceLock, time::Instant};
+use std::time::Instant;
 
 /// Context of IRs, dialects and passes for Cairo programs compilation.
 #[derive(Debug, Eq, PartialEq)]
@@ -73,14 +69,7 @@ impl NativeContext {
         gas_metadata_config: Option<MetadataComputationConfig>,
         stats: Option<&mut Statistics>,
     ) -> Result<NativeModule<'_>, Error> {
-        static INITIALIZED: OnceLock<()> = OnceLock::new();
-        INITIALIZED.get_or_init(|| unsafe {
-            LLVM_InitializeAllTargets();
-            LLVM_InitializeAllTargetInfos();
-            LLVM_InitializeAllTargetMCs();
-            LLVM_InitializeAllAsmPrinters();
-            tracing::debug!("initialized llvm targets");
-        });
+        crate::ffi::initialize_llvm_targets();
         let target_triple = get_target_triple();
 
         let module_region = Region::new();

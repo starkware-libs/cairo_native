@@ -1,15 +1,16 @@
-use cairo_lang_sierra::ProgramParser;
-use cairo_native::context::NativeContext;
+use cairo_lang_sierra::{program::Program, ProgramParser};
+use cairo_native::{context::NativeContext, utils::testing::find_type_layout_mismatches};
+use itertools::Itertools;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
 const SRC_DIR: &str = "vendor/cairo/tests/e2e_test_data/libfuncs";
 
-/// Walks the raw e2e test data files, extracts sierra_code sections, and
-/// compiles each through cairo-native (Sierra -> LLVM) to verify they compile
-/// without errors.
-#[test]
-fn compile_e2e_libfunc_sierra() {
+/// Walks the raw e2e test data files, extracts the `sierra_code` sections and
+/// parses them into `(label, program)` pairs. A parse failure means a broken
+/// corpus, so it panics.
+fn load_e2e_libfunc_programs() -> Vec<(String, Program)> {
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(SRC_DIR);
     assert!(
         src_dir.exists(),
@@ -17,11 +18,8 @@ fn compile_e2e_libfunc_sierra() {
         src_dir.display()
     );
 
-    let context = NativeContext::new();
     let parser = ProgramParser::new();
-
-    let mut total = 0;
-    let mut failures = Vec::new();
+    let mut programs = Vec::new();
 
     for entry in walkdir::WalkDir::new(&src_dir).sort_by_file_name() {
         let entry = entry.unwrap();
@@ -32,42 +30,70 @@ fn compile_e2e_libfunc_sierra() {
 
         let content = fs::read_to_string(path).unwrap();
         let rel_path = path.strip_prefix(&src_dir).unwrap();
-        let test_cases = extract_sierra_from_test_file(&content);
 
-        for (test_name, sierra) in test_cases {
-            total += 1;
-
+        for (test_name, sierra) in extract_sierra_from_test_file(&content) {
             let label = format!("{}/{test_name}", rel_path.display());
-
-            let program = match parser.parse(&sierra) {
-                Ok(p) => p,
-                Err(e) => {
-                    failures.push(format!("{label}: parse error: {e}"));
-                    continue;
-                }
-            };
-
-            eprintln!("compiling {label}");
-            if let Err(e) = context.compile(&program, false, Some(Default::default()), None) {
-                failures.push(format!("{label}: compile error: {e}"));
-            }
+            let program = parser
+                .parse(&sierra)
+                .unwrap_or_else(|e| panic!("{label}: parse error: {e}"));
+            programs.push((label, program));
         }
     }
 
     assert!(
-        total > 0,
+        !programs.is_empty(),
         "No sierra test cases found in {}",
         src_dir.display()
     );
+
+    programs
+}
+
+/// Compiles every e2e libfunc Sierra program through cairo-native
+/// (Sierra -> LLVM) to verify they compile without errors.
+#[test]
+fn compile_e2e_libfunc_sierra() {
+    let programs = load_e2e_libfunc_programs();
+
+    let context = NativeContext::new();
+    let mut failures = Vec::new();
+    for (label, program) in &programs {
+        if let Err(e) = context.compile(program, false, Some(Default::default()), None) {
+            failures.push(format!("{label}: compile error: {e}"));
+        }
+    }
 
     if !failures.is_empty() {
         panic!(
             "{}/{} e2e libfunc sierra tests failed:\n{}",
             failures.len(),
-            total,
+            programs.len(),
             failures.join("\n")
         );
     }
+}
+
+/// Checks that `layout()` of every type declared by the e2e libfunc corpus
+/// matches the size and alignment LLVM assigns to the emitted MLIR type.
+#[test]
+fn e2e_libfunc_type_layouts_match_llvm() {
+    let programs = load_e2e_libfunc_programs();
+
+    let context = NativeContext::new();
+    let mut mismatches = BTreeSet::new();
+    for (label, program) in &programs {
+        mismatches.extend(
+            find_type_layout_mismatches(&context, program)
+                .unwrap_or_else(|e| panic!("{label}: {e}")),
+        );
+    }
+
+    assert!(
+        mismatches.is_empty(),
+        "{} type(s) whose layout() disagrees with LLVM:\n{}",
+        mismatches.len(),
+        mismatches.iter().join("\n")
+    );
 }
 
 /// Parse a raw e2e test data file in `//! >` format and return a list of
