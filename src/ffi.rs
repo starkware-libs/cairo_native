@@ -99,14 +99,9 @@ impl From<u8> for OptLevel {
     }
 }
 
-/// Converts a MLIR module to a compile object, that can be linked with a linker.
-pub fn module_to_object(
-    module: &Module<'_>,
-    opt_level: OptLevel,
-    stats: Option<&mut Statistics>,
-) -> Result<Vec<u8>> {
+/// Initializes every LLVM target, exactly once per process.
+pub(crate) fn initialize_llvm_targets() {
     static INITIALIZED: OnceLock<()> = OnceLock::new();
-
     INITIALIZED.get_or_init(|| unsafe {
         LLVM_InitializeAllTargets();
         LLVM_InitializeAllTargetInfos();
@@ -114,6 +109,15 @@ pub fn module_to_object(
         LLVM_InitializeAllAsmPrinters();
         LLVM_InitializeAllAsmParsers();
     });
+}
+
+/// Converts a MLIR module to a compile object, that can be linked with a linker.
+pub fn module_to_object(
+    module: &Module<'_>,
+    opt_level: OptLevel,
+    stats: Option<&mut Statistics>,
+) -> Result<Vec<u8>> {
+    initialize_llvm_targets();
 
     unsafe {
         let llvm_context = LLVMContextCreate();

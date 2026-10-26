@@ -1,27 +1,51 @@
 #![cfg(any(test, feature = "testing"))]
 
-use cairo_lang_compiler::CompilerConfig;
+use crate::{
+    context::NativeContext,
+    error::{panic::ToNativeAssertError, Error, Result, SierraAssertError},
+    execution_result::ExecutionResult,
+    executor::JitNativeExecutor,
+    ffi::{get_data_layout_rep, initialize_llvm_targets},
+    metadata::MetadataStorage,
+    starknet_stub::StubSyscallHandler,
+    types::TypeBuilder,
+    utils::*,
+    values::Value,
+};
+use cairo_lang_compiler::{
+    compile_prepared_db, db::RootDatabase, diagnostics::DiagnosticsReporter,
+    project::setup_project, CompilerConfig,
+};
 use cairo_lang_filesystem::{db::init_dev_corelib, ids::CrateInput};
 use cairo_lang_lowering::utils::InliningStrategy;
 use cairo_lang_runner::SierraCasmRunner;
 use cairo_lang_sierra::{
+    extensions::core::{CoreLibfunc, CoreType, CoreTypeConcrete},
     program::{Program, VersionedProgram},
+    program_registry::ProgramRegistry,
     ProgramParser,
 };
 use cairo_lang_starknet::{compile::compile_contract_in_prepared_db, starknet_plugin_suite};
-use itertools::Itertools;
-use starknet_types_core::felt::Felt;
-use std::{fs, path::Path, sync::Arc};
-
-use crate::{
-    context::NativeContext, execution_result::ExecutionResult, executor::JitNativeExecutor,
-    starknet_stub::StubSyscallHandler, utils::*, values::Value,
-};
-use cairo_lang_compiler::{
-    compile_prepared_db, db::RootDatabase, diagnostics::DiagnosticsReporter, project::setup_project,
-};
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use std::env::var;
+use itertools::Itertools;
+use llvm_sys::{
+    core::{
+        LLVMContextCreate, LLVMContextDispose, LLVMDisposeModule, LLVMGetNamedGlobal,
+        LLVMGlobalGetValueType, LLVMSetDataLayout,
+    },
+    prelude::LLVMModuleRef,
+    target::{LLVMABIAlignmentOfType, LLVMABISizeOfType, LLVMGetModuleDataLayout},
+};
+use melior::{
+    dialect::ods,
+    ir::{
+        attribute::{StringAttribute, TypeAttribute},
+        Attribute, BlockLike, Location, Module, Region,
+    },
+};
+use mlir_sys::mlirTranslateModuleToLLVMIR;
+use starknet_types_core::felt::Felt;
+use std::{env::var, ffi::CString, fs, path::Path, sync::Arc};
 
 #[macro_export]
 macro_rules! load_cairo {
@@ -357,4 +381,99 @@ pub fn load_program(path: &str) -> Program {
     )
     .unwrap();
     versioned_program.into_v1().unwrap().program
+}
+
+/// Checks that, for every type declared in `program`, the Rust-side
+/// [`TypeBuilder::layout`] agrees with the size and alignment LLVM assigns to
+/// the MLIR type emitted by [`TypeBuilder::build`]. Returns one message per
+/// mismatching type.
+///
+/// Every declared type is built and emitted as an external global in a scratch
+/// module, which is then lowered and translated to LLVM IR so the real target
+/// data layout answers the question.
+pub fn find_type_layout_mismatches(
+    native_context: &NativeContext,
+    program: &Program,
+) -> Result<Vec<String>> {
+    const GLOBAL_PREFIX: &str = "cairo_native__layout_check__";
+
+    initialize_llvm_targets();
+
+    let context = native_context.context();
+    let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(program)?;
+    let location = Location::unknown(context);
+    let mut module = Module::new(location);
+    let mut metadata = MetadataStorage::new();
+
+    let mut expected = Vec::with_capacity(program.type_declarations.len());
+    for declaration in &program.type_declarations {
+        let concrete_type = registry.get_type(&declaration.id)?;
+        if matches!(concrete_type, CoreTypeConcrete::Const(_)) {
+            // Const types only exist at compile time and have no MLIR type.
+            continue;
+        }
+
+        let ty = match registry.build_type(context, &module, &mut metadata, &declaration.id) {
+            Ok(ty) => ty,
+            // Circuit gates and anything that contains them are compile-time only.
+            Err(Error::SierraAssert(SierraAssertError::BadTypeInit(_))) => continue,
+            Err(e) => return Err(e),
+        };
+        let layout = concrete_type.layout(&registry)?.pad_to_align();
+
+        module.body().append_operation(
+            ods::llvm::mlir_global(
+                context,
+                Region::new(),
+                TypeAttribute::new(ty),
+                StringAttribute::new(context, &format!("{GLOBAL_PREFIX}{}", expected.len())),
+                Attribute::parse(context, "#llvm.linkage<external>")
+                    .to_native_assert_error("linkage attribute should parse")?,
+                location,
+            )
+            .into(),
+        );
+        expected.push((&declaration.long_id, layout));
+    }
+
+    run_pass_manager(context, &mut module)?;
+
+    let data_layout_rep = CString::new(get_data_layout_rep()?)
+        .to_native_assert_error("data layout string should not contain nul bytes")?;
+
+    let mut mismatches = Vec::new();
+    unsafe {
+        let llvm_context = LLVMContextCreate();
+        let llvm_module: LLVMModuleRef =
+            mlirTranslateModuleToLLVMIR(module.as_operation().to_raw(), llvm_context as *mut _)
+                as *mut _;
+        LLVMSetDataLayout(llvm_module, data_layout_rep.as_ptr());
+        let data_layout = LLVMGetModuleDataLayout(llvm_module);
+
+        for (index, (type_id, layout)) in expected.iter().enumerate() {
+            let name = CString::new(format!("{GLOBAL_PREFIX}{index}"))
+                .to_native_assert_error("global name should not contain nul bytes")?;
+            let global = LLVMGetNamedGlobal(llvm_module, name.as_ptr());
+            assert!(
+                !global.is_null(),
+                "global for {type_id} was dropped during lowering"
+            );
+            let ty = LLVMGlobalGetValueType(global);
+            let llvm_size = LLVMABISizeOfType(data_layout, ty) as usize;
+            let llvm_align = LLVMABIAlignmentOfType(data_layout, ty) as usize;
+            if llvm_size != layout.size() || llvm_align != layout.align() {
+                mismatches.push(format!(
+                    "{type_id}: layout() reports size {} align {}, but LLVM reports size \
+                     {llvm_size} align {llvm_align}",
+                    layout.size(),
+                    layout.align(),
+                ));
+            }
+        }
+
+        LLVMDisposeModule(llvm_module);
+        LLVMContextDispose(llvm_context);
+    }
+
+    Ok(mismatches)
 }
