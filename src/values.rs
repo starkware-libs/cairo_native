@@ -680,13 +680,14 @@ impl Value {
                     }
                 }
                 CoreTypeConcrete::QM31(_) => {
-                    let data = ptr.cast::<[u32; 4]>().as_mut();
+                    let data = ptr.cast::<[u32; 4]>().as_ref();
                     Self::QM31(data[0], data[1], data[2], data[3])
                 }
                 CoreTypeConcrete::Felt252(_) => {
-                    let data = ptr.cast::<[u8; 32]>().as_mut();
+                    // The pointee may be read-only (e.g. a constant's global), so mask a copy.
+                    let mut data = *ptr.cast::<[u8; 32]>().as_ref();
                     data[31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-                    let data = Felt::from_bytes_le_slice(data);
+                    let data = Felt::from_bytes_le_slice(&data);
                     Self::Felt252(data)
                 }
                 CoreTypeConcrete::Uint8(_) => Self::Uint8(*ptr.cast::<u8>().as_ref()),
@@ -831,9 +832,9 @@ impl Value {
                     | StarknetTypeConcrete::StorageBaseAddress(_)
                     | StarknetTypeConcrete::StorageAddress(_) => {
                         // felt values
-                        let data = ptr.cast::<[u8; 32]>().as_mut();
+                        let mut data = *ptr.cast::<[u8; 32]>().as_ref();
                         data[31] &= 0x0F; // Filter out first 4 bits (they're outside an i252).
-                        let data = Felt::from_bytes_le(data);
+                        let data = Felt::from_bytes_le(&data);
                         Self::Felt252(data)
                     }
                     StarknetTypeConcrete::System(_) => {
