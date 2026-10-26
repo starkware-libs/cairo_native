@@ -358,3 +358,169 @@ pub fn load_program(path: &str) -> Program {
     .unwrap();
     versioned_program.into_v1().unwrap().program
 }
+
+/// A disagreement between a Sierra type's Rust-side [`TypeBuilder::layout`]
+/// and the ABI size or alignment LLVM assigns to the MLIR type emitted for it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TypeLayoutMismatch {
+    /// The type's long id, as declared in the program.
+    pub type_id: String,
+    /// Size (padded to alignment) reported by `layout()`.
+    pub layout_size: usize,
+    /// Alignment reported by `layout()`.
+    pub layout_align: usize,
+    /// ABI size LLVM assigns to the emitted type.
+    pub llvm_size: usize,
+    /// ABI alignment LLVM assigns to the emitted type.
+    pub llvm_align: usize,
+}
+
+impl std::fmt::Display for TypeLayoutMismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: layout() reports size {} align {}, but LLVM reports size {} align {}",
+            self.type_id, self.layout_size, self.layout_align, self.llvm_size, self.llvm_align
+        )
+    }
+}
+
+/// Checks that, for every type declared in `program`, the Rust-side
+/// [`TypeBuilder::layout`] agrees with the size and alignment LLVM assigns to
+/// the MLIR type emitted by [`TypeBuilder::build`].
+///
+/// Codegen bakes `layout()` into array strides, enum payload offsets and
+/// argument marshalling, while the generated code reads and writes memory
+/// according to the emitted LLVM type. The two are maintained by hand, so any
+/// drift between them is a memory-safety bug.
+///
+/// Every declared type is built and emitted as an external global in a scratch
+/// module, which is then lowered and translated to LLVM IR so the real target
+/// data layout answers the question.
+pub fn find_type_layout_mismatches(
+    native_context: &NativeContext,
+    program: &Program,
+) -> crate::error::Result<Vec<TypeLayoutMismatch>> {
+    use crate::{
+        error::{panic::ToNativeAssertError, SierraAssertError},
+        ffi::get_data_layout_rep,
+        metadata::MetadataStorage,
+        types::TypeBuilder,
+    };
+    use cairo_lang_sierra::extensions::core::CoreTypeConcrete;
+    use cairo_lang_sierra::{
+        extensions::core::{CoreLibfunc, CoreType},
+        program_registry::ProgramRegistry,
+    };
+    use llvm_sys::{
+        core::{
+            LLVMContextCreate, LLVMContextDispose, LLVMDisposeModule, LLVMGetFirstGlobal,
+            LLVMGetNextGlobal, LLVMGetValueName2, LLVMGlobalGetValueType, LLVMSetDataLayout,
+        },
+        prelude::LLVMModuleRef,
+        target::{
+            LLVMABIAlignmentOfType, LLVMABISizeOfType, LLVMGetModuleDataLayout,
+            LLVM_InitializeAllTargetInfos, LLVM_InitializeAllTargetMCs, LLVM_InitializeAllTargets,
+        },
+    };
+    use melior::{
+        dialect::ods,
+        ir::{
+            attribute::{StringAttribute, TypeAttribute},
+            Attribute, BlockLike, Location, Module, Region,
+        },
+    };
+    use mlir_sys::mlirTranslateModuleToLLVMIR;
+    use std::ffi::{CStr, CString};
+
+    const GLOBAL_PREFIX: &str = "cairo_native__layout_check__";
+
+    static INITIALIZED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    INITIALIZED.get_or_init(|| unsafe {
+        LLVM_InitializeAllTargets();
+        LLVM_InitializeAllTargetInfos();
+        LLVM_InitializeAllTargetMCs();
+    });
+
+    let context = native_context.context();
+    let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(program)?;
+    let mut module = Module::new(Location::unknown(context));
+    let mut metadata = MetadataStorage::new();
+    let location = Location::unknown(context);
+
+    let mut expected = Vec::with_capacity(program.type_declarations.len());
+    for declaration in &program.type_declarations {
+        let concrete_type = registry.get_type(&declaration.id)?;
+        if matches!(concrete_type, CoreTypeConcrete::Const(_)) {
+            // Const types only exist at compile time and have no MLIR type.
+            continue;
+        }
+
+        let ty = match registry.build_type(context, &module, &mut metadata, &declaration.id) {
+            Ok(ty) => ty,
+            // Circuit gates and anything that contains them are compile-time only.
+            Err(crate::error::Error::SierraAssert(SierraAssertError::BadTypeInit(_))) => continue,
+            Err(e) => return Err(e),
+        };
+        let layout = concrete_type.layout(&registry)?.pad_to_align();
+
+        module.body().append_operation(
+            ods::llvm::mlir_global(
+                context,
+                Region::new(),
+                TypeAttribute::new(ty),
+                StringAttribute::new(context, &format!("{GLOBAL_PREFIX}{}", expected.len())),
+                Attribute::parse(context, "#llvm.linkage<external>")
+                    .to_native_assert_error("linkage attribute should parse")?,
+                location,
+            )
+            .into(),
+        );
+        expected.push((declaration.long_id.to_string(), layout));
+    }
+
+    run_pass_manager(context, &mut module)?;
+
+    let data_layout_rep = CString::new(get_data_layout_rep()?)
+        .to_native_assert_error("data layout string should not contain nul bytes")?;
+
+    let mut mismatches = Vec::new();
+    unsafe {
+        let llvm_context = LLVMContextCreate();
+        let llvm_module: LLVMModuleRef =
+            mlirTranslateModuleToLLVMIR(module.as_operation().to_raw(), llvm_context as *mut _)
+                as *mut _;
+        LLVMSetDataLayout(llvm_module, data_layout_rep.as_ptr());
+        let data_layout = LLVMGetModuleDataLayout(llvm_module);
+
+        let mut global = LLVMGetFirstGlobal(llvm_module);
+        while !global.is_null() {
+            let mut name_len = 0;
+            let name = CStr::from_ptr(LLVMGetValueName2(global, &mut name_len)).to_string_lossy();
+            if let Some(index) = name
+                .strip_prefix(GLOBAL_PREFIX)
+                .and_then(|index| index.parse::<usize>().ok())
+            {
+                let (type_id, layout) = &expected[index];
+                let ty = LLVMGlobalGetValueType(global);
+                let llvm_size = LLVMABISizeOfType(data_layout, ty) as usize;
+                let llvm_align = LLVMABIAlignmentOfType(data_layout, ty) as usize;
+                if llvm_size != layout.size() || llvm_align != layout.align() {
+                    mismatches.push(TypeLayoutMismatch {
+                        type_id: type_id.clone(),
+                        layout_size: layout.size(),
+                        layout_align: layout.align(),
+                        llvm_size,
+                        llvm_align,
+                    });
+                }
+            }
+            global = LLVMGetNextGlobal(global);
+        }
+
+        LLVMDisposeModule(llvm_module);
+        LLVMContextDispose(llvm_context);
+    }
+
+    Ok(mismatches)
+}

@@ -743,9 +743,7 @@ impl TypeBuilder for CoreTypeConcrete {
                 .unwrap_or(Layout::from_size_align(0, 1)?),
             CoreTypeConcrete::Felt252Dict(_) => Layout::new::<*mut std::ffi::c_void>(), // ptr
             CoreTypeConcrete::Felt252DictEntry(_) => {
-                get_integer_layout(252)
-                    .extend(Layout::new::<*mut std::ffi::c_void>())?
-                    .0
+                Layout::new::<*mut std::ffi::c_void>()
                     .extend(Layout::new::<*mut std::ffi::c_void>())?
                     .0
             }

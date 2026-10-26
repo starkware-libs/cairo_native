@@ -1,4 +1,4 @@
-use crate::common::{compare_outputs, get_run_result, DEFAULT_GAS};
+use crate::common::{compare_outputs, get_run_result, load_cairo, DEFAULT_GAS};
 use crate::common::{run_native_program, run_vm_program};
 use cairo_native::starknet::DummySyscallHandler;
 use cairo_native::utils::testing::load_program_and_runner;
@@ -548,6 +548,69 @@ fn test_circuit_guarantee_verify_v2(entry_point: &str) {
     compare_outputs(
         &program.1,
         &program.2.find_function(entry_point).unwrap().id,
+        &result_vm,
+        &result_native,
+    )
+    .unwrap();
+}
+
+/// `U96LimbsLtGuarantee<N>` is `2 * N` u96 limbs wide, but it used to be declared as a ZST
+/// with a zero-sized layout. Boxing it then allocated zero bytes in the arena and the store
+/// clobbered the previous allocation, which right after `eval_circuit` is the outputs array.
+/// Boxing the first output's guarantee before reading the second output exposes this.
+#[test]
+fn test_circuit_guarantee_in_box_keeps_outputs() {
+    let program = load_cairo! {
+        use core::circuit::{
+            CircuitElement, CircuitInput, CircuitOutputs, circuit_add, circuit_mul,
+            EvalCircuitTrait, u384, CircuitModulus, AddInputResultTrait, CircuitInputs,
+            get_circuit_output, U96LimbsLtGuarantee,
+        };
+
+        fn get_out<C, Output>(
+            outputs: CircuitOutputs<C>, _o: CircuitElement<Output>,
+        ) -> (u384, U96LimbsLtGuarantee<4>) nopanic {
+            get_circuit_output::<C, Output>(outputs)
+        }
+
+        #[inline(never)]
+        fn boxit(g: U96LimbsLtGuarantee<4>) -> Box<U96LimbsLtGuarantee<4>> {
+            BoxTrait::new(g)
+        }
+
+        fn main() -> (u384, u384) {
+            let in1 = CircuitElement::<CircuitInput<0>> {};
+            let in2 = CircuitElement::<CircuitInput<1>> {};
+            let add = circuit_add(in1, in2);
+            let mul = circuit_mul(in1, in2);
+            let modulus = TryInto::<_, CircuitModulus>::try_into([7, 0, 0, 0]).unwrap();
+            let outputs = (add, mul)
+                .new_inputs()
+                .next([3, 0, 0, 0])
+                .next([6, 0, 0, 0])
+                .done()
+                .eval(modulus)
+                .unwrap();
+            let (v1, g1) = get_out(outputs, add);
+            let b = boxit(g1);
+            let (v2, _g2) = get_out(outputs, mul);
+            let _g1 = b.unbox();
+            (v1, v2)
+        }
+    };
+
+    let result_vm = run_vm_program(&program, "main", vec![], Some(DEFAULT_GAS as usize)).unwrap();
+    let result_native = run_native_program(
+        &program,
+        "main",
+        &[],
+        Some(DEFAULT_GAS),
+        Option::<DummySyscallHandler>::None,
+    );
+
+    compare_outputs(
+        &program.1,
+        &program.2.find_function("main").unwrap().id,
         &result_vm,
         &result_native,
     )

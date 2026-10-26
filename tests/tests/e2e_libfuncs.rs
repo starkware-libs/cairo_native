@@ -1,5 +1,6 @@
-use cairo_lang_sierra::ProgramParser;
-use cairo_native::context::NativeContext;
+use cairo_lang_sierra::{program::Program, ProgramParser};
+use cairo_native::{context::NativeContext, utils::testing::find_type_layout_mismatches};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -8,8 +9,9 @@ const SRC_DIR: &str = "vendor/cairo/tests/e2e_test_data/libfuncs";
 /// Walks the raw e2e test data files, extracts sierra_code sections, and
 /// compiles each through cairo-native (Sierra -> LLVM) to verify they compile
 /// without errors.
-#[test]
-fn compile_e2e_libfunc_sierra() {
+/// Walks the raw e2e test data files, extracts the `sierra_code` sections and
+/// parses them. Returns `(label, program)` pairs along with any parse failures.
+fn load_e2e_libfunc_programs() -> (Vec<(String, Program)>, Vec<String>) {
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(SRC_DIR);
     assert!(
         src_dir.exists(),
@@ -17,10 +19,8 @@ fn compile_e2e_libfunc_sierra() {
         src_dir.display()
     );
 
-    let context = NativeContext::new();
     let parser = ProgramParser::new();
-
-    let mut total = 0;
+    let mut programs = Vec::new();
     let mut failures = Vec::new();
 
     for entry in walkdir::WalkDir::new(&src_dir).sort_by_file_name() {
@@ -32,33 +32,39 @@ fn compile_e2e_libfunc_sierra() {
 
         let content = fs::read_to_string(path).unwrap();
         let rel_path = path.strip_prefix(&src_dir).unwrap();
-        let test_cases = extract_sierra_from_test_file(&content);
 
-        for (test_name, sierra) in test_cases {
-            total += 1;
-
+        for (test_name, sierra) in extract_sierra_from_test_file(&content) {
             let label = format!("{}/{test_name}", rel_path.display());
-
-            let program = match parser.parse(&sierra) {
-                Ok(p) => p,
-                Err(e) => {
-                    failures.push(format!("{label}: parse error: {e}"));
-                    continue;
-                }
-            };
-
-            eprintln!("compiling {label}");
-            if let Err(e) = context.compile(&program, false, Some(Default::default()), None) {
-                failures.push(format!("{label}: compile error: {e}"));
+            match parser.parse(&sierra) {
+                Ok(program) => programs.push((label, program)),
+                Err(e) => failures.push(format!("{label}: parse error: {e}")),
             }
         }
     }
 
     assert!(
-        total > 0,
+        !programs.is_empty() || !failures.is_empty(),
         "No sierra test cases found in {}",
         src_dir.display()
     );
+
+    (programs, failures)
+}
+
+/// Compiles every e2e libfunc Sierra program through cairo-native
+/// (Sierra -> LLVM) to verify they compile without errors.
+#[test]
+fn compile_e2e_libfunc_sierra() {
+    let (programs, mut failures) = load_e2e_libfunc_programs();
+    let total = programs.len() + failures.len();
+
+    let context = NativeContext::new();
+    for (label, program) in &programs {
+        eprintln!("compiling {label}");
+        if let Err(e) = context.compile(program, false, Some(Default::default()), None) {
+            failures.push(format!("{label}: compile error: {e}"));
+        }
+    }
 
     if !failures.is_empty() {
         panic!(
@@ -68,6 +74,48 @@ fn compile_e2e_libfunc_sierra() {
             failures.join("\n")
         );
     }
+}
+
+/// Checks that, for every type declared by any e2e libfunc Sierra program, the
+/// Rust-side `layout()` matches the size and alignment LLVM assigns to the
+/// emitted MLIR type.
+///
+/// Codegen bakes `layout()` into array strides, enum payload offsets and
+/// argument marshalling, so a mismatch means generated code reads or writes
+/// memory at the wrong offsets. Checking the types declared by the e2e corpus
+/// covers every type any libfunc consumes or produces, without having to list
+/// the types by hand.
+#[test]
+fn e2e_libfunc_type_layouts_match_llvm() {
+    let (programs, failures) = load_e2e_libfunc_programs();
+    assert!(
+        failures.is_empty(),
+        "e2e libfunc sierra parse failures:\n{}",
+        failures.join("\n")
+    );
+
+    let context = NativeContext::new();
+    let mut mismatches = BTreeSet::new();
+    let mut errors = Vec::new();
+    for (label, program) in &programs {
+        eprintln!("checking type layouts of {label}");
+        match find_type_layout_mismatches(&context, program) {
+            Ok(found) => mismatches.extend(found.into_iter().map(|m| m.to_string())),
+            Err(e) => errors.push(format!("{label}: {e}")),
+        }
+    }
+
+    assert!(
+        errors.is_empty(),
+        "failed to check type layouts:\n{}",
+        errors.join("\n")
+    );
+    assert!(
+        mismatches.is_empty(),
+        "{} type(s) whose layout() disagrees with LLVM:\n{}",
+        mismatches.len(),
+        mismatches.into_iter().collect::<Vec<_>>().join("\n")
+    );
 }
 
 /// Parse a raw e2e test data file in `//! >` format and return a list of

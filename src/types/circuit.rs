@@ -141,11 +141,11 @@ pub const fn is_zst(info: &CircuitTypeConcrete) -> bool {
         | CircuitTypeConcrete::MulModGate(_)
         | CircuitTypeConcrete::CircuitInput(_)
         | CircuitTypeConcrete::InverseGate(_)
-        | CircuitTypeConcrete::U96LimbsLessThanGuarantee(_)
         | CircuitTypeConcrete::Circuit(_)
         | CircuitTypeConcrete::CircuitDescriptor(_) => true,
 
-        CircuitTypeConcrete::AddMod(_)
+        CircuitTypeConcrete::U96LimbsLessThanGuarantee(_)
+        | CircuitTypeConcrete::AddMod(_)
         | CircuitTypeConcrete::CircuitModulus(_)
         | CircuitTypeConcrete::U96Guarantee(_)
         | CircuitTypeConcrete::MulMod(_)
@@ -173,9 +173,12 @@ pub fn layout(
         | CircuitTypeConcrete::MulModGate(_)
         | CircuitTypeConcrete::CircuitInput(_)
         | CircuitTypeConcrete::InverseGate(_)
-        | CircuitTypeConcrete::U96LimbsLessThanGuarantee(_)
         | CircuitTypeConcrete::Circuit(_)
         | CircuitTypeConcrete::CircuitDescriptor(_) => Ok(Layout::new::<()>()),
+
+        CircuitTypeConcrete::U96LimbsLessThanGuarantee(info) => {
+            Ok(layout_repeat(&get_integer_layout(96), 2 * info.limb_count)?.0)
+        }
 
         CircuitTypeConcrete::CircuitFailureGuarantee(_) => {
             Ok(layout_repeat(&get_integer_layout(96), 8)?.0)
