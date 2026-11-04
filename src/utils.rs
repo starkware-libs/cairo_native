@@ -242,13 +242,18 @@ pub fn find_function_id<'a>(program: &'a Program, function_name: &str) -> Option
         .map(|func| &func.id)
 }
 
-/// Normalize a signed BigInt felt value to its unsigned field representation.
+/// Normalize a signed BigInt felt value to its canonical unsigned field representation
+/// in `[0, PRIME)`.
 ///
-/// Negative values are mapped to `PRIME - |value|`.
+/// The value is reduced modulo `PRIME`, so out-of-range literals (e.g. `PRIME` itself or
+/// large negatives, which Sierra permits in `felt252_const<C>`) produce the same bit pattern
+/// as their canonical equivalents. This matters because `felt252_is_zero` and friends compare
+/// the raw i252 bits.
 pub fn felt_to_unsigned(value: &BigInt) -> BigUint {
+    let reduced = value.magnitude() % &*PRIME;
     match value.sign() {
-        Sign::Minus => &*PRIME - value.magnitude(),
-        _ => value.magnitude().clone(),
+        Sign::Minus if reduced != BigUint::ZERO => &*PRIME - reduced,
+        _ => reduced,
     }
 }
 
@@ -443,6 +448,27 @@ mod tests {
         ids::FunctionId,
         program::{FunctionSignature, GenFunction, Program, StatementIdx},
     };
+
+    // ==============================
+    // == TESTS: felt_to_unsigned
+    // ==============================
+    #[test]
+    fn test_felt_to_unsigned_canonicalizes() {
+        use super::{felt_to_unsigned, PRIME};
+        use num_bigint::{BigInt, BigUint};
+
+        let prime = BigInt::from(PRIME.clone());
+        assert_eq!(felt_to_unsigned(&BigInt::from(0)), BigUint::ZERO);
+        assert_eq!(felt_to_unsigned(&BigInt::from(5)), BigUint::from(5u8));
+        assert_eq!(felt_to_unsigned(&BigInt::from(-1)), &*PRIME - 1u8);
+        // Values >= PRIME wrap around.
+        assert_eq!(felt_to_unsigned(&prime), BigUint::ZERO);
+        assert_eq!(felt_to_unsigned(&(&prime + 5)), BigUint::from(5u8));
+        // Large negatives wrap around too; -PRIME is zero, not PRIME.
+        assert_eq!(felt_to_unsigned(&(-&prime)), BigUint::ZERO);
+        assert_eq!(felt_to_unsigned(&(-&prime - 1)), &*PRIME - 1u8);
+        assert_eq!(felt_to_unsigned(&(-&prime * 2 + 3)), BigUint::from(3u8));
+    }
 
     // ==============================
     // == TESTS: get_integer_layout
