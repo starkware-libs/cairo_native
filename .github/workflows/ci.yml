@@ -185,6 +185,8 @@ jobs:
         uses: dtolnay/rust-toolchain@1321684edfabb845e0bc37de117ff544adf0f648 # 1.84.1
         with:
           components: clippy
+      - name: Retreive cached dependecies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Rust `$PATH` workaround.
         run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: Homebrew/actions/setup-homebrew@df4b09108a1de9d6f995fe68f302b3f68bd6d2ef # master
