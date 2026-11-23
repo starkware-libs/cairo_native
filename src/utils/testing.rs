@@ -196,7 +196,7 @@ pub(crate) fn compile_contract(program_str: &str, mut db: RootDatabase) -> (Stri
         None,
         main_crate_ids,
         CompilerConfig {
-            diagnostics_reporter: DiagnosticsReporter::stderr().allow_warnings(),
+            diagnostics_reporter: DiagnosticsReporter::stderr(),
             replace_ids: true,
             ..Default::default()
         },
@@ -228,7 +228,7 @@ pub(crate) fn compile_program(program_str: &str, mut db: RootDatabase) -> (Strin
         &db,
         main_crate_ids,
         CompilerConfig {
-            diagnostics_reporter: DiagnosticsReporter::stderr().allow_warnings(),
+            diagnostics_reporter: DiagnosticsReporter::stderr(),
             replace_ids: true,
             ..Default::default()
         },

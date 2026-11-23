@@ -1,3 +1,4 @@
+#[allow(extern_outside_corelib)]
 extern fn felt252_const<const value: felt252>() -> felt252 nopanic;
 
 fn run_test() -> (felt252, felt252, felt252, felt252) {

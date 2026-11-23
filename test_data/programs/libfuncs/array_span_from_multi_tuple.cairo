@@ -1,4 +1,5 @@
 mod tuple_span_from_tuple {
+    #[allow(extern_outside_corelib)]
     pub extern fn span_from_tuple<T>(
         struct_like: Box<@T>
     ) -> @Array<(felt252, felt252, felt252)> nopanic;

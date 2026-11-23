@@ -1,3 +1,4 @@
+#[allow(extern_outside_corelib)]
 extern fn get_unspent_gas() -> u128 implicits(GasBuiltin) nopanic;
 
 #[inline(never)]

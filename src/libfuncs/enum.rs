@@ -707,6 +707,7 @@ mod test {
                 None: Box<()>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedOption nopanic;
 
             fn test_some() -> felt252 {
@@ -745,6 +746,7 @@ mod test {
         let program = load_cairo! {
             enum Never {}
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> Never nopanic;
 
             fn test_never(value: Box<Never>) -> Never {
@@ -771,6 +773,7 @@ mod test {
                 Value: Box<felt252>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedWrapper nopanic;
 
             fn test_single() -> felt252 {
@@ -807,6 +810,7 @@ mod test {
                 B: Box<@u128>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedSnapMyEnum nopanic;
 
             fn test_snapshot_a() -> felt252 {
@@ -860,6 +864,7 @@ mod test {
                 Large: Box<(felt252, u128)>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedMixed nopanic;
 
             fn test_small() -> u8 {

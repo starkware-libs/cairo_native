@@ -35,9 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         dbb.build()?
     };
     let crate_inputs = setup_project(&mut db, &args.cairo_path)?;
-    let diagnostics_reporter = DiagnosticsReporter::stderr()
-        .with_crates(&crate_inputs)
-        .allow_warnings();
+    let diagnostics_reporter = DiagnosticsReporter::stderr().with_crates(&crate_inputs);
     let crate_ids = CrateInput::into_crate_ids(&db, crate_inputs);
 
     let program = compile_prepared_db_program_artifact(

@@ -5,6 +5,7 @@ impl U8BISub of SubHelper<u8, u8> {
     type Result = BoundedInt<-255, 255>;
 }
 
+#[allow(extern_outside_corelib)]
 extern fn bounded_int_sub<Lhs, Rhs, impl H: SubHelper<Lhs, Rhs>>(
     lhs: Lhs, rhs: Rhs,
 ) -> H::Result nopanic;

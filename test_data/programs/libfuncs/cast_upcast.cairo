@@ -1,5 +1,6 @@
 #[feature("bounded-int-utils")]
 use core::internal::bounded_int::{BoundedInt};
+#[allow(extern_outside_corelib)]
 extern const fn upcast<FromType, ToType>(x: FromType) -> ToType nopanic;
 
 fn test_x_y<

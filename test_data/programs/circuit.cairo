@@ -183,6 +183,7 @@ fn test_into_u96_guarantee() -> (U96Guarantee, U96Guarantee, U96Guarantee) {
     )
 }
 
+#[allow(extern_outside_corelib)]
 extern fn get_circuit_output<C, Output>(
     outputs: CircuitOutputs<C>,
 ) -> (u384, U96LimbsLtGuarantee<4>) nopanic;
@@ -211,6 +212,7 @@ fn eval_add_with_guarantee(modulus: [u96; 4]) -> (u384, U96LimbsLtGuarantee<4>) 
     get_output_and_guarantee(outputs, add)
 }
 
+#[allow(extern_outside_corelib)]
 extern fn u96_limbs_less_than_guarantee_verify_v2<const LIMB_COUNT: usize>(
     guarantee: U96LimbsLtGuarantee<LIMB_COUNT>,
 ) implicits(RangeCheck96) nopanic;
