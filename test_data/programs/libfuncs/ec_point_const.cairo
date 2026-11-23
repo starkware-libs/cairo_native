@@ -1,8 +1,10 @@
 use core::ec::EcPoint;
 
 mod value {
+    #[allow(extern_outside_corelib)]
     extern type Const<T, const X: felt252, const Y: felt252>;
 }
+#[allow(extern_outside_corelib)]
 extern fn const_as_box<T, const SEGMENT_INDEX: felt252>() -> Box<EcPoint> nopanic;
 
 fn run_test() -> Box<EcPoint> {

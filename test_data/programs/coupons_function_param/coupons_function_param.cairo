@@ -1,3 +1,4 @@
+#[allow(extern_outside_corelib)]
 extern fn coupon_buy<T>() -> T nopanic;
 fn run_test(mut x: felt252) {
 

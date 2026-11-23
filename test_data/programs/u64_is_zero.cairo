@@ -1,5 +1,6 @@
 use zeroable::IsZeroResult;
 
+#[allow(extern_outside_corelib)]
 extern fn u64_is_zero(a: u64) -> IsZeroResult<u64> implicits() nopanic;
 
 use traits::TryInto;

@@ -5,7 +5,7 @@ use cairo_lang_sierra::{
         core::{CoreLibfunc, CoreType, CoreTypeConcrete},
         enm::{
             EnumConcreteLibfunc, EnumConcreteType, EnumFromBoundedIntConcreteLibfunc,
-            EnumInitConcreteLibfunc,
+            EnumInitConcreteLibfunc, EnumMatchV2ConcreteLibfunc,
         },
         lib_func::SignatureOnlyConcreteLibfunc,
         ConcreteLibfunc,
@@ -25,6 +25,7 @@ pub fn eval(
         EnumConcreteLibfunc::Match(info) => eval_match(registry, info, args),
         EnumConcreteLibfunc::SnapshotMatch(info) => eval_snapshot_match(registry, info, args),
         EnumConcreteLibfunc::BoxedMatch(_) => todo!("BoxedMatch libfunc not yet implemented"),
+        EnumConcreteLibfunc::MatchV2(info) => eval_match_v2(registry, info, args),
     }
 }
 
@@ -119,6 +120,24 @@ pub fn eval_snapshot_match(
         panic!("expected snapshot type")
     }
 
+    assert!(payload.is(
+        registry,
+        &info.signature.branch_signatures[index].vars[0].ty
+    ));
+
+    EvalAction::NormalBranch(index, smallvec![*payload])
+}
+
+/// Matches an enum, a snapshot of an enum, or a box of either. Since boxes and snapshots are
+/// transparent in the emulator, all cases output the variant's payload as is.
+pub fn eval_match_v2(
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    info: &EnumMatchV2ConcreteLibfunc,
+    args: Vec<Value>,
+) -> EvalAction {
+    let [Value::Enum { index, payload, .. }]: [Value; 1] = args.try_into().unwrap() else {
+        panic!()
+    };
     assert!(payload.is(
         registry,
         &info.signature.branch_signatures[index].vars[0].ty

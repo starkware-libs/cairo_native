@@ -1,6 +1,7 @@
 #[feature("bounded-int-utils")]
 use core::internal::bounded_int::BoundedInt;
 
+#[allow(extern_outside_corelib)]
 extern const fn downcast<FromType, ToType>( x: FromType, ) -> Option<ToType> implicits(RangeCheck) nopanic;
 
 fn test_x_y<

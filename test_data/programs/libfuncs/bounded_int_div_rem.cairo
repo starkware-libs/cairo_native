@@ -1,6 +1,7 @@
 #[feature("bounded-int-utils")]
 use core::internal::bounded_int::{self, BoundedInt, div_rem, DivRemHelper};
 use core::internal::OptionRev;
+#[allow(extern_outside_corelib)]
 extern fn bounded_int_wrap_non_zero<T>(v: T) -> NonZero<T> nopanic;
 
 

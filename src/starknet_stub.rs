@@ -300,31 +300,34 @@ impl StubSyscallHandler {
         }
     }
 
-    /// Replaces the addresses in the context.
+    /// Replaces the addresses and the entry point selector in the context.
     ///
     /// Called before `call_entry_point`.
     pub fn open_caller_context(
         &mut self,
-        (new_contract_address, new_caller_address): (Felt, Felt),
-    ) -> (Felt, Felt) {
+        [new_contract_address, new_caller_address, new_selector]: [Felt; 3],
+    ) -> [Felt; 3] {
         let old_contract_address = std::mem::replace(
             &mut self.execution_info.contract_address,
             new_contract_address,
         );
         let old_caller_address =
             std::mem::replace(&mut self.execution_info.caller_address, new_caller_address);
-        (old_contract_address, old_caller_address)
+        let old_selector =
+            std::mem::replace(&mut self.execution_info.entry_point_selector, new_selector);
+        [old_contract_address, old_caller_address, old_selector]
     }
 
-    /// Restores the addresses in the context.
+    /// Restores the addresses and the entry point selector in the context.
     ///
     /// Called after `call_entry_point`.
     pub fn close_caller_context(
         &mut self,
-        (old_contract_address, old_caller_address): (Felt, Felt),
+        [old_contract_address, old_caller_address, old_selector]: [Felt; 3],
     ) {
         self.execution_info.contract_address = old_contract_address;
         self.execution_info.caller_address = old_caller_address;
+        self.execution_info.entry_point_selector = old_selector;
     }
 }
 
@@ -544,7 +547,14 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
         }
 
         if let Some(constructor) = contract_info.constructor.clone() {
-            let old_addrs = self.open_caller_context((deployed_contract_address, deployer_address));
+            let old_addrs = self.open_caller_context([
+                deployed_contract_address,
+                deployer_address,
+                // The selector of `constructor`.
+                Felt::from_hex_unchecked(
+                    "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+                ),
+            ]);
             let res = self.call_entry_point(remaining_gas, &constructor, calldata);
             self.close_caller_context(old_addrs);
             match res {
@@ -602,7 +612,14 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
             ]);
         };
 
-        match self.call_entry_point(remaining_gas, entry_point, calldata) {
+        // A library call runs in the caller's context; only the entry point selector changes.
+        let contract_address = self.execution_info.contract_address;
+        let caller_address = self.execution_info.caller_address;
+        let old_addrs =
+            self.open_caller_context([contract_address, caller_address, function_selector]);
+        let res = self.call_entry_point(remaining_gas, entry_point, calldata);
+        self.close_caller_context(old_addrs);
+        match res {
             Ok(res) => Ok(res),
             Err(mut err) => {
                 err.push(Felt::from_bytes_be_slice(b"ENTRYPOINT_FAILED"));
@@ -640,7 +657,8 @@ impl StarknetSyscallHandler for &mut StubSyscallHandler {
             ]);
         };
 
-        let old_addrs = self.open_caller_context((address, self.execution_info.contract_address));
+        let new_caller = self.execution_info.contract_address;
+        let old_addrs = self.open_caller_context([address, new_caller, entry_point_selector]);
         let res = self.call_entry_point(remaining_gas, entry_point, calldata);
         self.close_caller_context(old_addrs);
         match res {

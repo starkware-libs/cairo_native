@@ -14,7 +14,7 @@ use cairo_lang_sierra::{
         core::{CoreLibfunc, CoreType},
         enm::{
             EnumBoxedMatchConcreteLibfunc, EnumConcreteLibfunc, EnumFromBoundedIntConcreteLibfunc,
-            EnumInitConcreteLibfunc,
+            EnumInitConcreteLibfunc, EnumMatchV2ConcreteLibfunc,
         },
         lib_func::SignatureOnlyConcreteLibfunc,
         ConcreteLibfunc,
@@ -25,11 +25,7 @@ use cairo_lang_sierra::{
 use melior::{
     dialect::{arith, cf, llvm, ods},
     helpers::{ArithBlockExt, BuiltinBlockExt, GepIndex, LlvmBlockExt},
-    ir::{
-        attribute::{DenseI64ArrayAttribute, IntegerAttribute},
-        r#type::IntegerType,
-        Block, BlockLike, Location, Value,
-    },
+    ir::{attribute::IntegerAttribute, r#type::IntegerType, Block, BlockLike, Location, Value},
     Context,
 };
 use std::num::TryFromIntError;
@@ -59,6 +55,9 @@ pub fn build<'ctx, 'this>(
         }
         EnumConcreteLibfunc::BoxedMatch(info) => {
             build_boxed_match(context, registry, entry, location, helper, metadata, info)
+        }
+        EnumConcreteLibfunc::MatchV2(info) => {
+            build_match_v2(context, registry, entry, location, helper, metadata, info)
         }
     }
 }
@@ -272,6 +271,66 @@ pub fn build_match<'ctx, 'this>(
     let variant_ids = type_info
         .variants()
         .to_native_assert_error("found non-enum type where an enum is required")?;
+    build_match_variants(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        &info.param_signatures()[0].ty,
+        variant_ids,
+    )
+}
+
+/// Generate MLIR operations for the `enum_snapshot_match` libfunc.
+pub fn build_snapshot_match<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    info: &SignatureOnlyConcreteLibfunc,
+) -> Result<()> {
+    let type_info = registry.get_type(&info.param_signatures()[0].ty)?;
+
+    // This libfunc's implementation is identical to `enum_match` aside from fetching the snapshotted enum's variants from the metadata.
+    // The snapshot of a duplicatable enum (such as `never`) is the enum itself, so its variants are available directly.
+    let variant_ids = match type_info.variants() {
+        Some(variants) => variants.to_vec(),
+        None => metadata
+            .get::<EnumSnapshotVariantsMeta>()
+            .ok_or(Error::MissingMetadata)?
+            .get_variants(&info.param_signatures()[0].ty)
+            .to_native_assert_error("enum should always have variants")?
+            .clone(),
+    };
+    build_match_variants(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        &info.param_signatures()[0].ty,
+        &variant_ids,
+    )
+}
+
+/// Generates a by-value (or by-snapshot) match over an enum with the given variants.
+#[allow(clippy::too_many_arguments)]
+pub fn build_match_variants<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    enum_ty: &ConcreteTypeId,
+    variant_ids: &[ConcreteTypeId],
+) -> Result<()> {
+    let type_info = registry.get_type(enum_ty)?;
     match variant_ids.len() {
         0 => {
             // The Cairo compiler will generate an enum match for enums without variants, so this
@@ -304,178 +363,7 @@ pub fn build_match<'ctx, 'this>(
                 let stack_ptr = helper.init_block().alloca1(
                     context,
                     location,
-                    type_info.build(
-                        context,
-                        helper,
-                        registry,
-                        metadata,
-                        &info.param_signatures()[0].ty,
-                    )?,
-                    layout.align(),
-                )?;
-                entry.store(context, location, stack_ptr, entry.arg(0)?)?;
-                let tag_val = entry.load(context, location, stack_ptr, tag_ty)?;
-
-                (Some(stack_ptr), tag_val)
-            } else {
-                let tag_val = entry
-                    .append_operation(llvm::extract_value(
-                        context,
-                        entry.arg(0)?,
-                        DenseI64ArrayAttribute::new(context, &[0]),
-                        tag_ty,
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-
-                (None, tag_val)
-            };
-
-            let default_block = helper.append_block(Block::new(&[]));
-            let variant_blocks = variant_tys
-                .iter()
-                .map(|_| helper.append_block(Block::new(&[])))
-                .collect::<Vec<_>>();
-
-            let case_values = (0..variant_tys.len())
-                .map(i64::try_from)
-                .collect::<std::result::Result<Vec<_>, TryFromIntError>>()?;
-
-            entry.append_operation(cf::switch(
-                context,
-                &case_values,
-                tag_val,
-                tag_ty,
-                (default_block, &[]),
-                &variant_blocks
-                    .iter()
-                    .copied()
-                    .map(|block| (block, [].as_slice()))
-                    .collect::<Vec<_>>(),
-                location,
-            )?);
-
-            // Default block.
-            {
-                let val = default_block
-                    .append_operation(arith::constant(
-                        context,
-                        IntegerAttribute::new(IntegerType::new(context, 1).into(), 0).into(),
-                        location,
-                    ))
-                    .result(0)?
-                    .into();
-
-                default_block.append_operation(cf::assert(
-                    context,
-                    val,
-                    "Invalid enum tag.",
-                    location,
-                ));
-                default_block.append_operation(llvm::unreachable(location));
-            }
-
-            // Enum variants.
-            for (i, (block, (payload_ty, _))) in
-                variant_blocks.into_iter().zip(variant_tys).enumerate()
-            {
-                let enum_ty = llvm::r#type::r#struct(context, &[tag_ty, payload_ty], false);
-
-                let payload_val = match stack_ptr {
-                    Some(stack_ptr) => {
-                        let val = block.load(context, location, stack_ptr, enum_ty)?;
-                        block.extract_value(context, location, val, payload_ty, 1)?
-                    }
-                    None => {
-                        // If the enum is not memory-allocated it means that:
-                        //   - Either it's a C-style enum and all payloads have the same type.
-                        //   - Or the enum only has a single non-memory-allocated variant.
-                        if variant_ids.len() == 1 {
-                            entry.arg(0)?
-                        } else {
-                            native_assert!(
-                                registry.get_type(&variant_ids[i])?.is_zst(registry)?,
-                                "should be zero sized"
-                            );
-                            block
-                                .append_operation(llvm::undef(payload_ty, location))
-                                .result(0)?
-                                .into()
-                        }
-                    }
-                };
-
-                helper.br(block, i, &[payload_val], location)?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Generate MLIR operations for the `enum_snapshot_match` libfunc.
-pub fn build_snapshot_match<'ctx, 'this>(
-    context: &'ctx Context,
-    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    entry: &'this Block<'ctx>,
-    location: Location<'ctx>,
-    helper: &LibfuncHelper<'ctx, 'this>,
-    metadata: &mut MetadataStorage,
-    info: &SignatureOnlyConcreteLibfunc,
-) -> Result<()> {
-    let type_info = registry.get_type(&info.param_signatures()[0].ty)?;
-
-    // This libfunc's implementation is identical to `enum_match` aside from fetching the snapshotted enum's variants from the metadata.
-    // The snapshot of a duplicatable enum (such as `never`) is the enum itself, so its variants are available directly.
-    let variant_ids = match type_info.variants() {
-        Some(variants) => variants.to_vec(),
-        None => metadata
-            .get::<EnumSnapshotVariantsMeta>()
-            .ok_or(Error::MissingMetadata)?
-            .get_variants(&info.param_signatures()[0].ty)
-            .to_native_assert_error("enum should always have variants")?
-            .clone(),
-    };
-    match variant_ids.len() {
-        0 => {
-            // The Cairo compiler will generate an enum match for enums without variants, so this
-            // case cannot be a compile-time error. We're assuming that even though it's been
-            // generated, it's just dead code and can be made into an assertion that always fails.
-
-            let k0 = entry.const_int(context, location, 0, 1)?;
-            entry.append_operation(cf::assert(
-                context,
-                k0,
-                "attempt to match a zero-variant enum",
-                location,
-            ));
-
-            entry.append_operation(llvm::unreachable(location));
-        }
-        1 => {
-            helper.br(entry, 0, &[entry.arg(0)?], location)?;
-        }
-        _ => {
-            let (layout, (tag_ty, _), variant_tys) = crate::types::r#enum::get_type_for_variants(
-                context,
-                helper,
-                registry,
-                metadata,
-                &variant_ids,
-            )?;
-
-            let (stack_ptr, tag_val) = if type_info.is_memory_allocated(registry)? {
-                let stack_ptr = helper.init_block().alloca1(
-                    context,
-                    location,
-                    type_info.build(
-                        context,
-                        helper,
-                        registry,
-                        metadata,
-                        &info.param_signatures()[0].ty,
-                    )?,
+                    type_info.build(context, helper, registry, metadata, enum_ty)?,
                     layout.align(),
                 )?;
                 entry.store(context, location, stack_ptr, entry.arg(0)?)?;
@@ -591,8 +479,27 @@ pub fn build_boxed_match<'ctx, 'this>(
     metadata: &mut MetadataStorage,
     info: &EnumBoxedMatchConcreteLibfunc,
 ) -> Result<()> {
-    let variant_ids = &info.variants;
+    build_boxed_match_variants(
+        context,
+        registry,
+        entry,
+        location,
+        helper,
+        metadata,
+        &info.variants,
+    )
+}
 
+/// Generates a match over a boxed enum with the given variants, outputting boxed payloads.
+pub fn build_boxed_match_variants<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    variant_ids: &[ConcreteTypeId],
+) -> Result<()> {
     match variant_ids.len() {
         0 => {
             // The Cairo compiler will generate an enum match for enums without variants, so this
@@ -683,6 +590,42 @@ pub fn build_boxed_match<'ctx, 'this>(
     Ok(())
 }
 
+/// Generate MLIR operations for the `enum_match_v2` libfunc.
+///
+/// Matches an enum, a snapshot of an enum, or a box of either. Boxed inputs output boxed payloads.
+pub fn build_match_v2<'ctx, 'this>(
+    context: &'ctx Context,
+    registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    entry: &'this Block<'ctx>,
+    location: Location<'ctx>,
+    helper: &LibfuncHelper<'ctx, 'this>,
+    metadata: &mut MetadataStorage,
+    info: &EnumMatchV2ConcreteLibfunc,
+) -> Result<()> {
+    if info.boxed {
+        build_boxed_match_variants(
+            context,
+            registry,
+            entry,
+            location,
+            helper,
+            metadata,
+            &info.variants,
+        )
+    } else {
+        build_match_variants(
+            context,
+            registry,
+            entry,
+            location,
+            helper,
+            metadata,
+            &info.signature.param_signatures[0].ty,
+            &info.variants,
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
@@ -764,6 +707,7 @@ mod test {
                 None: Box<()>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedOption nopanic;
 
             fn test_some() -> felt252 {
@@ -802,6 +746,7 @@ mod test {
         let program = load_cairo! {
             enum Never {}
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> Never nopanic;
 
             fn test_never(value: Box<Never>) -> Never {
@@ -828,6 +773,7 @@ mod test {
                 Value: Box<felt252>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedWrapper nopanic;
 
             fn test_single() -> felt252 {
@@ -864,6 +810,7 @@ mod test {
                 B: Box<@u128>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedSnapMyEnum nopanic;
 
             fn test_snapshot_a() -> felt252 {
@@ -917,6 +864,7 @@ mod test {
                 Large: Box<(felt252, u128)>,
             }
 
+            #[allow(extern_outside_corelib)]
             extern fn enum_boxed_match<T>(e: Box<T>) -> BoxedMixed nopanic;
 
             fn test_small() -> u8 {

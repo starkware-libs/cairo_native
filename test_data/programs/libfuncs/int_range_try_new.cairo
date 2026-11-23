@@ -1,6 +1,8 @@
+#[allow(extern_outside_corelib)]
 pub extern type IntRange<T>;
 impl IntRangeDrop<T> of Drop<IntRange<T>>;
 
+#[allow(extern_outside_corelib)]
 pub extern fn int_range_try_new<T>(
     x: T, y: T
 ) -> Result<IntRange<T>, IntRange<T>> implicits(core::RangeCheck) nopanic;

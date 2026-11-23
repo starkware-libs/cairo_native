@@ -1,3 +1,4 @@
+#[allow(extern_outside_corelib)]
 extern fn local_into_box<T>(value: T) -> Box<T> nopanic;
 
 #[inline(never)]
