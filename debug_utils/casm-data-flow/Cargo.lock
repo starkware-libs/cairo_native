@@ -826,7 +826,7 @@ dependencies = [
 
 [[package]]
 name = "casm-data-flow"
-version = "0.9.0-rc.9"
+version = "0.9.0-rc.10"
 dependencies = [
  "bincode",
  "cairo-lang-casm",
