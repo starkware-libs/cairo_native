@@ -263,6 +263,69 @@ pub mod test {
         Felt::from_dec_str(val).unwrap()
     }
 
+    /// `felt252_const<C>` accepts any integer literal, including values outside `[0, PRIME)`.
+    /// Those must be canonicalized so that bit-pattern comparisons (`felt252_is_zero`) agree
+    /// with the field semantics the VM uses.
+    #[test]
+    fn felt252_const_non_canonical_is_zero() {
+        use crate::{context::NativeContext, executor::JitNativeExecutor, utils::PRIME, OptLevel};
+        use cairo_lang_sierra::ProgramParser;
+        use num_bigint::BigInt;
+
+        let prime = BigInt::from(PRIME.clone());
+        let cases: [(BigInt, u32); 6] = [
+            (BigInt::from(0), 111),
+            (BigInt::from(5), 222),
+            (prime.clone(), 111),
+            (&prime + 5, 222),
+            (-&prime, 111),
+            (-&prime * 2 - 7, 222),
+        ];
+
+        for (c, expected) in cases {
+            let program = ProgramParser::new()
+                .parse(&format!(
+                    r#"
+                        type felt252 = felt252;
+                        type NonZero<felt252> = NonZero<felt252>;
+
+                        libfunc felt252_const<{c}> = felt252_const<{c}>;
+                        libfunc felt252_const<111> = felt252_const<111>;
+                        libfunc felt252_const<222> = felt252_const<222>;
+                        libfunc felt252_is_zero = felt252_is_zero;
+                        libfunc drop<NonZero<felt252>> = drop<NonZero<felt252>>;
+                        libfunc branch_align = branch_align;
+
+                        felt252_const<{c}>() -> ([0]);
+                        felt252_is_zero([0]) {{ fallthrough() 5([1]) }};
+                        branch_align() -> ();
+                        felt252_const<111>() -> ([2]);
+                        return([2]);
+                        branch_align() -> ();
+                        drop<NonZero<felt252>>([1]) -> ();
+                        felt252_const<222>() -> ([3]);
+                        return([3]);
+
+                        [0]@0() -> (felt252);
+                    "#
+                ))
+                .unwrap();
+
+            let context = NativeContext::new();
+            let module = context.compile(&program, false, None, None).unwrap();
+            let executor = JitNativeExecutor::from_native_module(module, OptLevel::None).unwrap();
+            let result = executor
+                .invoke_dynamic(&program.funcs[0].id, &[], None)
+                .unwrap();
+
+            assert_eq!(
+                result.return_value,
+                Value::Felt252(Felt::from(expected)),
+                "felt252_const<{c}> -> felt252_is_zero took the wrong branch"
+            );
+        }
+    }
+
     #[test]
     fn felt252_add() {
         let program = &get_compiled_program("programs/libfuncs/felt252_add");
